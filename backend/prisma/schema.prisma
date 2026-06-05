@@ -40,6 +40,7 @@ model User {
   posts         Post[]
   rsvps         Rsvp[]
   postViews     PostView[]
+  feedbacks     Feedback[]
 }
 
 model Post {
@@ -200,4 +201,20 @@ enum NotifType {
   REMINDER
   LIKE
   FOLLOW
+}
+
+model Feedback {
+  id           String       @id @default(cuid())
+  type         FeedbackType
+  message      String
+  imageUrl     String?
+  contactEmail String?
+  userId       String?
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt    DateTime     @default(now())
+}
+
+enum FeedbackType {
+  BUG_REPORT
+  FEATURE_REQUEST
 }

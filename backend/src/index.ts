@@ -9,6 +9,7 @@ import eventsRouter       from "./routes/events";
 import searchRouter       from "./routes/search";
 import notificationsRouter from "./routes/notifications";
 import uploadsRouter      from "./routes/uploads";
+import feedbackRouter     from "./routes/feedback";
 import { runEventReminders } from "./jobs/eventReminders";
 import { runScheduledPublish } from "./jobs/scheduledPublish";
 
@@ -28,6 +29,7 @@ app.use("/events",        eventsRouter);
 app.use("/search",        searchRouter);
 app.use("/notifications", notificationsRouter);
 app.use("/uploads",       uploadsRouter);
+app.use("/feedback",      feedbackRouter);
 
 app.use(errorHandler);
 

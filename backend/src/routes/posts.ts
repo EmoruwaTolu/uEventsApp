@@ -505,13 +505,13 @@ router.get("/:id/rsvps", requireAuth, requireClub, async (req, res, next) => {
 });
 
 // GET /posts/popular — most engaged published posts across all clubs
-router.get("/popular", requireAuth, async (req, res, next) => {
+router.get("/popular", optionalAuth, async (req, res, next) => {
     try {
-        const userId = req.user!.userId;
+        const userId = req.user?.userId ?? null;
 
         const [posts, follows] = await Promise.all([
             prisma.post.findMany({
-                where: { isDraft: false },
+                where: { isDraft: false, ...(userId ? { clubId: { not: userId } } : {}) },
                 orderBy: [
                     { likes: { _count: "desc" } },
                     { comments: { _count: "desc" } },
@@ -522,15 +522,17 @@ router.get("/popular", requireAuth, async (req, res, next) => {
                     club: { select: { id: true, clubName: true, logoUrl: true } },
                     pollOptions: { include: { _count: { select: { votes: true } } } },
                     _count: { select: { likes: true, comments: true } },
-                    likes: { where: { userId }, select: { userId: true } },
+                    ...(userId ? { likes: { where: { userId }, select: { userId: true } } } : {}),
                 },
             }),
-            prisma.follow.findMany({ where: { userId }, select: { clubId: true } }),
+            userId
+                ? prisma.follow.findMany({ where: { userId }, select: { clubId: true } })
+                : Promise.resolve([]),
         ]);
-        const followedIds = new Set(follows.map((f) => f.clubId));
+        const followedIds = new Set(follows.map((f: any) => f.clubId));
 
         const postIds = posts.filter((p) => p.type === "POLL").map((p) => p.id);
-        const userVotes = postIds.length
+        const userVotes = (userId && postIds.length)
             ? await prisma.pollVote.findMany({
                   where: { userId, option: { postId: { in: postIds } } },
                   select: { optionId: true, option: { select: { postId: true } } },
@@ -541,6 +543,7 @@ router.get("/popular", requireAuth, async (req, res, next) => {
 
         res.json(posts.map((p) => {
             const totalVotes = p.pollOptions.reduce((sum, o) => sum + o._count.votes, 0);
+            const likesArr = Array.isArray((p as any).likes) ? (p as any).likes : [];
             return {
                 id: p.id,
                 clubId: p.club.id,
@@ -555,7 +558,7 @@ router.get("/popular", requireAuth, async (req, res, next) => {
                 locationName: p.locationName,
                 likes: p._count.likes,
                 comments: p._count.comments,
-                isLiked: p.likes.length > 0,
+                isLiked: likesArr.length > 0,
                 isFollowing: followedIds.has(p.club.id),
                 poll: p.type === "POLL" ? {
                     expiresAt: p.pollExpiresAt,
@@ -586,7 +589,7 @@ router.get("/discover", requireAuth, async (req, res, next) => {
             where: {
                 type: "ANNOUNCEMENT",
                 isDraft: false,
-                clubId: { notIn: followedIds.length ? followedIds : ["__none__"] },
+                clubId: { notIn: [...(followedIds.length ? followedIds : ["__none__"]), userId] },
             },
             orderBy: { createdAt: "desc" },
             take: 20,
@@ -623,7 +626,8 @@ router.get("/feed", requireAuth, async (req, res, next) => {
         const posts = await prisma.post.findMany({
             where: {
                 isDraft: false,
-                ...(followedIds.size > 0 ? { clubId: { in: [...followedIds] } } : { id: { in: [] } }),
+                clubId: { not: userId },
+                ...(followedIds.size > 0 ? { clubId: { in: [...followedIds].filter(id => id !== userId) } } : { id: { in: [] } }),
             },
             orderBy: { createdAt: "desc" },
             take: 60,
@@ -632,7 +636,7 @@ router.get("/feed", requireAuth, async (req, res, next) => {
                 pollOptions: {
                     include: { _count: { select: { votes: true } } },
                 },
-                _count: { select: { likes: true, comments: true } },
+                _count: { select: { likes: true, comments: true, rsvps: true } },
                 likes: { where: { userId }, select: { userId: true } },
             },
         });
@@ -668,8 +672,10 @@ router.get("/feed", requireAuth, async (req, res, next) => {
                 startAt: p.startAt,
                 endAt: p.endAt,
                 locationName: p.locationName,
+                categories: p.categories,
                 likes: p._count.likes,
                 comments: p._count.comments,
+                rsvpCount: p._count.rsvps,
                 isLiked: p.likes.length > 0,
                 isFollowing: followedIds.has(p.club.id),
                 poll: p.type === "POLL" ? {

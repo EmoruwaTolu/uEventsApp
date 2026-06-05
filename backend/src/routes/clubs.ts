@@ -5,13 +5,15 @@ import { requireAuth, optionalAuth } from "../middleware/auth";
 const router = Router();
 
 // GET /clubs
-router.get("/", async (req, res, next) => {
+router.get("/", optionalAuth, async (req, res, next) => {
     try {
         const { search, category, limit = "20", offset = "0" } = req.query;
+        const callerId = (req as any).user?.userId;
 
         const clubs = await prisma.user.findMany({
             where: {
                 type: "CLUB",
+                ...(callerId ? { id: { not: callerId } } : {}),
                 ...(category ? { category: category as string } : {}),
                 ...(search ? {
                     OR: [
@@ -192,6 +194,9 @@ router.get("/:id/follower-growth", requireAuth, async (req, res, next) => {
 // POST /clubs/:id/follow
 router.post("/:id/follow", requireAuth, async (req, res, next) => {
     try {
+        if (req.user!.userId === req.params.id) {
+            return res.status(400).json({ error: "You cannot follow yourself" });
+        }
         const follow = await prisma.follow.upsert({
             where: { userId_clubId: { userId: req.user!.userId, clubId: req.params.id } },
             create: { userId: req.user!.userId, clubId: req.params.id },

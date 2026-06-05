@@ -246,10 +246,11 @@ router.get("/me/activity", requireAuth, async (req, res, next) => {
 router.patch("/me/push-token", requireAuth, async (req, res, next) => {
     try {
         const { pushToken } = req.body;
-        await prisma.user.update({
+        const updated = await prisma.user.updateMany({
             where: { id: req.user!.userId },
             data: { pushToken: pushToken ?? null },
         });
+        if (updated.count === 0) return res.status(404).json({ error: "User not found" });
         res.json({ ok: true });
     } catch (err) {
         next(err);
