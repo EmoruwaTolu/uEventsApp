@@ -626,8 +626,9 @@ router.get("/feed", requireAuth, async (req, res, next) => {
         const posts = await prisma.post.findMany({
             where: {
                 isDraft: false,
-                clubId: { not: userId },
-                ...(followedIds.size > 0 ? { clubId: { in: [...followedIds].filter(id => id !== userId) } } : { id: { in: [] } }),
+                ...(followedIds.size > 0
+                    ? { clubId: { in: [...followedIds].filter(id => id !== userId) } }
+                    : { id: { in: [] } }),
             },
             orderBy: { createdAt: "desc" },
             take: 60,
