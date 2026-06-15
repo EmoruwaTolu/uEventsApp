@@ -1,9 +1,11 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { prisma } from "../lib/prisma";
 
 export interface AuthPayload {
     userId: string;
     type: "STUDENT" | "CLUB";
+    tokenVersion: number;
 }
 
 declare global {
@@ -20,13 +22,25 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
         return res.status(401).json({ error: "Unauthorized" });
     }
     const token = header.slice(7);
+    let payload: AuthPayload;
     try {
-        const payload = jwt.verify(token, process.env.JWT_SECRET!) as AuthPayload;
-        req.user = payload;
-        next();
+        payload = jwt.verify(token, process.env.JWT_SECRET!) as AuthPayload;
     } catch {
         return res.status(401).json({ error: "Invalid or expired token" });
     }
+
+    // Verify tokenVersion to support revocation on password change
+    prisma.user
+        .findUnique({ where: { id: payload.userId }, select: { tokenVersion: true } })
+        .then((user) => {
+            if (!user) return res.status(401).json({ error: "User not found" });
+            if (user.tokenVersion !== (payload.tokenVersion ?? 0)) {
+                return res.status(401).json({ error: "Token has been revoked. Please sign in again." });
+            }
+            req.user = payload;
+            next();
+        })
+        .catch(next);
 }
 
 export function optionalAuth(req: Request, res: Response, next: NextFunction) {

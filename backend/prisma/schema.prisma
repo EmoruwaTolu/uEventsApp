@@ -30,6 +30,7 @@ model User {
   pushToken     String?
   pushNotifs    Boolean        @default(true)
   emailDigest   Boolean        @default(false)
+  tokenVersion  Int            @default(0)
   bookmarks     Bookmark[]
   checkIns      CheckIn[]
   comments      Comment[]
@@ -39,8 +40,13 @@ model User {
   notifications Notification[]
   posts         Post[]
   rsvps         Rsvp[]
+  waitlistEntries Waitlist[]
   postViews     PostView[]
   feedbacks     Feedback[]
+  reports       Report[]
+  passwordResets PasswordReset[]
+  blockedUsers  BlockedUser[] @relation("BlockerRelation")
+  blockedBy     BlockedUser[] @relation("BlockedRelation")
 }
 
 model Post {
@@ -69,6 +75,7 @@ model Post {
   pollOptions       PollOption[]
   club              User         @relation(fields: [clubId], references: [id])
   rsvps             Rsvp[]
+  waitlistEntries   Waitlist[]
   views             PostView[]
 }
 
@@ -109,6 +116,18 @@ model Rsvp {
   user      User     @relation(fields: [userId], references: [id])
 
   @@id([userId, postId])
+}
+
+model Waitlist {
+  id        String   @id @default(cuid())
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([postId, createdAt])
 }
 
 model CheckIn {
@@ -201,6 +220,17 @@ enum NotifType {
   REMINDER
   LIKE
   FOLLOW
+  WAITLIST_PROMOTED
+}
+
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Feedback {
@@ -217,4 +247,30 @@ model Feedback {
 enum FeedbackType {
   BUG_REPORT
   FEATURE_REQUEST
+}
+
+model Report {
+  id         String       @id @default(cuid())
+  reporterId String
+  targetType ReportTarget
+  targetId   String
+  reason     String
+  createdAt  DateTime     @default(now())
+  reporter   User         @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+}
+
+model BlockedUser {
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+  blocker   User     @relation("BlockerRelation", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   User     @relation("BlockedRelation", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@id([blockerId, blockedId])
+}
+
+enum ReportTarget {
+  POST
+  COMMENT
+  USER
 }

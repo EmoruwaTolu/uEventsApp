@@ -1,7 +1,41 @@
 import { Router } from "express";
 import { createHmac } from "crypto";
+import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { requireAuth, requireClub, optionalAuth } from "../middleware/auth";
+import { validate } from "../middleware/validate";
+
+const localeContentSchema = z.object({
+    title:       z.string().max(200).optional(),
+    body:        z.string().max(10000).optional(),
+    imageUrl:    z.string().url().max(500).optional().or(z.literal("")),
+    posterUrl:   z.string().url().max(500).optional().or(z.literal("")),
+}).passthrough();
+
+const createPostSchema = z.object({
+    type:             z.enum(["EVENT", "ANNOUNCEMENT", "UPDATE", "POLL"]),
+    locales:          z.record(z.string(), localeContentSchema),
+    isDraft:          z.boolean().optional(),
+    publishAt:        z.string().datetime().optional().or(z.null()),
+    startAt:          z.string().datetime().optional().or(z.null()),
+    endAt:            z.string().datetime().optional().or(z.null()),
+    locationName:     z.string().max(200).optional(),
+    address:          z.string().max(300).optional(),
+    categories:       z.array(z.string().max(50)).max(10).optional(),
+    capacity:         z.union([z.number().int().min(1).max(100000), z.string()]).optional().or(z.null()),
+    images:           z.array(z.string().url().max(500)).max(20).optional(),
+    pollExpiresAt:    z.string().datetime().optional().or(z.null()),
+    pollAllowMultiple: z.boolean().optional(),
+    pollOptions:      z.array(z.object({
+        textEn: z.string().max(200),
+        textFr: z.string().max(200).optional(),
+    })).max(6).optional(),
+});
+
+const commentSchema = z.object({
+    content:  z.string().min(1, "Comment cannot be empty").max(1000, "Comment must be 1000 characters or fewer").trim(),
+    parentId: z.string().cuid().optional(),
+});
 
 function checkinToken(postId: string): string {
     return createHmac("sha256", process.env.JWT_SECRET ?? "secret")
@@ -117,7 +151,7 @@ async function notifyRsvpd(
 }
 
 // POST /posts — create (club only)
-router.post("/", requireAuth, requireClub, async (req, res, next) => {
+router.post("/", requireAuth, requireClub, validate(createPostSchema), async (req, res, next) => {
     try {
         const {
             type, locales, isDraft = true, publishAt,
@@ -718,16 +752,18 @@ router.get("/:id", optionalAuth, async (req, res, next) => {
             include: { user: { select: { id: true, firstName: true, avatarUrl: true } } },
         });
 
-        let isLiked = false, isBookmarked = false, isRsvped = false, userVote: string | null = null;
+        let isLiked = false, isBookmarked = false, isRsvped = false, pendingRsvp = false, userVote: string | null = null;
         if (userId) {
-            const [like, bookmark, rsvp] = await Promise.all([
+            const [like, bookmark, rsvp, waitlistEntry] = await Promise.all([
                 prisma.like.findUnique({ where: { userId_postId: { userId, postId: post.id } } }),
                 prisma.bookmark.findUnique({ where: { userId_postId: { userId, postId: post.id } } }),
                 prisma.rsvp.findUnique({ where: { userId_postId: { userId, postId: post.id } } }),
+                prisma.waitlist.findUnique({ where: { userId_postId: { userId, postId: post.id } } }),
             ]);
             isLiked = !!like;
             isBookmarked = !!bookmark;
             isRsvped = !!rsvp;
+            pendingRsvp = !!waitlistEntry;
 
             if (post.type === "POLL") {
                 const vote = await prisma.pollVote.findFirst({
@@ -741,7 +777,7 @@ router.get("/:id", optionalAuth, async (req, res, next) => {
         const canEdit = !!userId && post.clubId === userId;
         res.json({
             ...post,
-            isLiked, isBookmarked, isRsvped, canEdit, userVote,
+            isLiked, isBookmarked, isRsvped, pendingRsvp, canEdit, userVote,
             rsvpPreview: rsvpPreview.map((r) => r.user),
         });
     } catch (err) {
@@ -946,7 +982,7 @@ router.get("/:id/comments", async (req, res, next) => {
 });
 
 // POST /posts/:id/comments
-router.post("/:id/comments", requireAuth, async (req, res, next) => {
+router.post("/:id/comments", requireAuth, validate(commentSchema), async (req, res, next) => {
     try {
         const { content, parentId } = req.body;
         if (!content?.trim()) {
@@ -1049,23 +1085,30 @@ router.post("/:id/vote", requireAuth, async (req, res, next) => {
 // POST /posts/:id/rsvp
 router.post("/:id/rsvp", requireAuth, async (req, res, next) => {
     try {
-        const post = await prisma.post.findUnique({
-            where: { id: req.params.id },
-            select: { capacity: true, _count: { select: { rsvps: true } } },
-        });
-        if (!post) return res.status(404).json({ error: "Post not found" });
+        const postId = req.params.id;
+        const userId = req.user!.userId;
+        let outcome = "rsvped";
 
-        if (post.capacity != null && post._count.rsvps >= post.capacity) {
-            return res.status(409).json({ error: "This event is at capacity." });
-        }
+        await prisma.$transaction(async (tx) => {
+            const [post, existingRsvp, existingWaitlist] = await Promise.all([
+                tx.post.findUnique({ where: { id: postId }, select: { capacity: true, _count: { select: { rsvps: true } } } }),
+                tx.rsvp.findUnique({ where: { userId_postId: { userId, postId } } }),
+                tx.waitlist.findUnique({ where: { userId_postId: { userId, postId } } }),
+            ]);
+            if (!post) { const e: any = new Error("Post not found"); e.status = 404; throw e; }
+            if (existingRsvp) { outcome = "rsvped"; return; }
+            if (existingWaitlist) { outcome = "waitlisted"; return; }
+            if (post.capacity != null && post._count.rsvps >= post.capacity) {
+                await tx.waitlist.create({ data: { userId, postId } });
+                outcome = "waitlisted";
+                return;
+            }
+            await tx.rsvp.create({ data: { userId, postId } });
+        }, { isolationLevel: "Serializable" });
 
-        await prisma.rsvp.upsert({
-            where: { userId_postId: { userId: req.user!.userId, postId: req.params.id } },
-            create: { userId: req.user!.userId, postId: req.params.id },
-            update: {},
-        });
-        res.status(201).json({ rsvped: true });
-    } catch (err) {
+        res.status(201).json({ rsvped: outcome === "rsvped", waitlisted: outcome === "waitlisted" });
+    } catch (err: any) {
+        if (err.status) return res.status(err.status).json({ error: err.message });
         next(err);
     }
 });
@@ -1099,10 +1142,37 @@ router.patch("/:id/pin", requireAuth, requireClub, async (req, res, next) => {
 // DELETE /posts/:id/rsvp
 router.delete("/:id/rsvp", requireAuth, async (req, res, next) => {
     try {
-        await prisma.rsvp.deleteMany({
-            where: { userId: req.user!.userId, postId: req.params.id },
-        });
-        res.json({ rsvped: false });
+        const userId = req.user!.userId;
+        const postId = req.params.id;
+
+        const [existingRsvp, existingWaitlist] = await Promise.all([
+            prisma.rsvp.findUnique({ where: { userId_postId: { userId, postId } } }),
+            prisma.waitlist.findUnique({ where: { userId_postId: { userId, postId } } }),
+        ]);
+
+        if (existingWaitlist) {
+            await prisma.waitlist.delete({ where: { userId_postId: { userId, postId } } });
+        } else if (existingRsvp) {
+            await prisma.$transaction(async (tx) => {
+                await tx.rsvp.delete({ where: { userId_postId: { userId, postId } } });
+                const next = await tx.waitlist.findFirst({ where: { postId }, orderBy: { createdAt: "asc" } });
+                if (next) {
+                    await tx.rsvp.create({ data: { userId: next.userId, postId } });
+                    await tx.waitlist.delete({ where: { id: next.id } });
+                    await tx.notification.create({
+                        data: {
+                            userId: next.userId,
+                            type: "WAITLIST_PROMOTED",
+                            title: "You're in!",
+                            body: "A spot opened up — you've been moved off the waitlist.",
+                            metadata: { postId },
+                        },
+                    });
+                }
+            });
+        }
+
+        res.json({ rsvped: false, waitlisted: false });
     } catch (err) {
         next(err);
     }

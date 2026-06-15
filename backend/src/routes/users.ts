@@ -1,33 +1,95 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
+import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
+import { validate } from "../middleware/validate";
+import { Resend } from "resend";
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
+const registerSchema = z.object({
+    email:      z.string().email().max(254),
+    password:   z.string().min(8, "Password must be at least 8 characters").max(128),
+    firstName:  z.string().max(60).optional(),
+    lastName:   z.string().max(60).optional(),
+    clubName:   z.string().max(120).optional(),
+    slug:       z.string().max(60).regex(/^[a-z0-9-]+$/, "Slug must be lowercase alphanumeric with dashes").optional(),
+    category:   z.string().max(80).optional(),
+    type:       z.enum(["STUDENT", "CLUB"]).optional(),
+    inviteCode: z.string().optional(),
+});
+
+const loginSchema = z.object({
+    email:    z.string().email().max(254),
+    password: z.string().min(1).max(128),
+});
+
+const forgotPasswordSchema = z.object({
+    email: z.string().email().max(254),
+});
+
+const resetPasswordSchema = z.object({
+    token:    z.string().min(1).max(200),
+    password: z.string().min(8, "Password must be at least 8 characters").max(128),
+});
+
+const patchMeSchema = z.object({
+    firstName:    z.string().max(60).optional(),
+    lastName:     z.string().max(60).optional(),
+    program:      z.string().max(120).optional(),
+    year:         z.string().max(20).optional(),
+    avatarUrl:    z.string().url().max(500).optional().or(z.literal("")),
+    clubName:     z.string().max(120).optional(),
+    category:     z.string().max(80).optional(),
+    description:  z.string().max(1000).optional(),
+    logoUrl:      z.string().url().max(500).optional().or(z.literal("")),
+    instagram:    z.string().max(60).optional(),
+    twitter:      z.string().max(60).optional(),
+    contactEmail: z.string().email().max(254).optional().or(z.literal("")),
+    pushNotifs:   z.boolean().optional(),
+    emailDigest:  z.boolean().optional(),
+});
+
+const changePasswordSchema = z.object({
+    currentPassword: z.string().min(1).max(128),
+    newPassword:     z.string().min(8, "Password must be at least 8 characters").max(128),
+});
 
 const router = Router();
 
-function signToken(userId: string, type: string) {
-    return jwt.sign({ userId, type }, process.env.JWT_SECRET!, { expiresIn: "30d" });
+function signToken(userId: string, type: string, tokenVersion: number) {
+    return jwt.sign({ userId, type, tokenVersion }, process.env.JWT_SECRET!, { expiresIn: "30d" });
 }
 
 // POST /users/add-user
-router.post("/add-user", async (req, res, next) => {
+router.post("/add-user", validate(registerSchema), async (req, res, next) => {
     try {
         const {
             firstName, lastName, email, password,
             type = "STUDENT",
             clubName, slug, category,
+            inviteCode,
         } = req.body;
 
         if (!email || !password) {
             return res.status(400).json({ error: "Email and password required" });
         }
 
+        const isClub = type === "CLUB";
+        if (isClub) {
+            const CLUB_INVITE_CODE = process.env.CLUB_INVITE_CODE;
+            if (!CLUB_INVITE_CODE || inviteCode !== CLUB_INVITE_CODE) {
+                return res.status(403).json({ error: "Invalid club invite code" });
+            }
+        }
+
         const existing = await prisma.user.findUnique({ where: { email } });
         if (existing) return res.status(409).json({ error: "Email already registered" });
 
         const passwordHash = await bcrypt.hash(password, 12);
-        const isClub = type === "CLUB";
 
         const user = await prisma.user.create({
             data: {
@@ -42,7 +104,7 @@ router.post("/add-user", async (req, res, next) => {
             },
         });
 
-        const token = signToken(user.id, user.type);
+        const token = signToken(user.id, user.type, 0);
         res.status(201).json({ token, user: { id: user.id, email: user.email, type: user.type } });
     } catch (err) {
         next(err);
@@ -50,7 +112,7 @@ router.post("/add-user", async (req, res, next) => {
 });
 
 // POST /users/validate-user
-router.post("/validate-user", async (req, res, next) => {
+router.post("/validate-user", validate(loginSchema), async (req, res, next) => {
     try {
         const { email, password } = req.body;
         if (!email || !password) {
@@ -63,7 +125,7 @@ router.post("/validate-user", async (req, res, next) => {
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return res.status(401).json({ error: "Invalid credentials" });
 
-        const token = signToken(user.id, user.type);
+        const token = signToken(user.id, user.type, user.tokenVersion);
         res.json({ token, user: { id: user.id, email: user.email, type: user.type } });
     } catch (err) {
         next(err);
@@ -92,7 +154,7 @@ router.get("/me", requireAuth, async (req, res, next) => {
 });
 
 // PATCH /users/me
-router.patch("/me", requireAuth, async (req, res, next) => {
+router.patch("/me", requireAuth, validate(patchMeSchema), async (req, res, next) => {
     try {
         const {
             firstName, lastName, program, year, avatarUrl,
@@ -160,6 +222,19 @@ router.get("/me/rsvps", requireAuth, async (req, res, next) => {
             orderBy: { createdAt: "desc" },
         });
         res.json(rsvps.map((r) => r.post));
+    } catch (err) {
+        next(err);
+    }
+});
+
+// GET /users/me/waitlist
+router.get("/me/waitlist", requireAuth, async (req, res, next) => {
+    try {
+        const entries = await prisma.waitlist.findMany({
+            where: { userId: req.user!.userId },
+            select: { postId: true },
+        });
+        res.json(entries.map((e) => e.postId));
     } catch (err) {
         next(err);
     }
@@ -258,7 +333,7 @@ router.patch("/me/push-token", requireAuth, async (req, res, next) => {
 });
 
 // PATCH /users/me/password
-router.patch("/me/password", requireAuth, async (req, res, next) => {
+router.patch("/me/password", requireAuth, validate(changePasswordSchema), async (req, res, next) => {
     try {
         const { currentPassword, newPassword } = req.body;
         if (!currentPassword || !newPassword) {
@@ -275,9 +350,169 @@ router.patch("/me/password", requireAuth, async (req, res, next) => {
         if (!valid) return res.status(401).json({ error: "Current password is incorrect" });
 
         const passwordHash = await bcrypt.hash(newPassword, 12);
-        await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
-        res.json({ message: "Password updated" });
+        const updated = await prisma.user.update({
+            where: { id: user.id },
+            data: { passwordHash, tokenVersion: { increment: 1 } },
+            select: { tokenVersion: true, type: true },
+        });
+        // Return a new token so the current session survives the version bump
+        const token = signToken(user.id, updated.type, updated.tokenVersion);
+        res.json({ message: "Password updated", token });
     } catch (err) {
+        next(err);
+    }
+});
+
+// POST /users/:id/block
+router.post("/:id/block", requireAuth, async (req, res, next) => {
+    try {
+        const blockerId = req.user!.userId;
+        const blockedId = req.params.id;
+        if (blockerId === blockedId) return res.status(400).json({ error: "Cannot block yourself" });
+
+        const target = await prisma.user.findUnique({ where: { id: blockedId }, select: { id: true } });
+        if (!target) return res.status(404).json({ error: "User not found" });
+
+        await prisma.blockedUser.upsert({
+            where: { blockerId_blockedId: { blockerId, blockedId } },
+            create: { blockerId, blockedId },
+            update: {},
+        });
+        res.status(201).json({ blocked: true });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// DELETE /users/:id/block
+router.delete("/:id/block", requireAuth, async (req, res, next) => {
+    try {
+        const blockerId = req.user!.userId;
+        const blockedId = req.params.id;
+        await prisma.blockedUser.deleteMany({ where: { blockerId, blockedId } });
+        res.json({ blocked: false });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// GET /users/me/blocks — list of user IDs the current user has blocked
+router.get("/me/blocks", requireAuth, async (req, res, next) => {
+    try {
+        const blocks = await prisma.blockedUser.findMany({
+            where: { blockerId: req.user!.userId },
+            select: { blockedId: true },
+        });
+        res.json(blocks.map((b) => b.blockedId));
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /users/forgot-password
+router.post("/forgot-password", validate(forgotPasswordSchema), async (req, res, next) => {
+    try {
+        const { email } = req.body as { email: string };
+        const user = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+
+        // Always respond 200 to prevent email enumeration
+        if (user) {
+            const token = crypto.randomBytes(32).toString("hex");
+            const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+            await prisma.passwordReset.create({ data: { userId: user.id, token, expiresAt } });
+
+            const resetUrl = `uevents://reset-password?token=${token}`;
+            const fromEmail = process.env.FROM_EMAIL ?? "noreply@ueventsapp.com";
+
+            if (resend) {
+                await resend.emails.send({
+                    from: `uEvents <${fromEmail}>`,
+                    to: email,
+                    subject: "Reset your uEvents password",
+                    html: `
+                        <p>Hi,</p>
+                        <p>We received a request to reset your uEvents password. Tap the button below to choose a new one.</p>
+                        <p><a href="${resetUrl}" style="background:#8C0327;color:#fff;padding:12px 24px;text-decoration:none;font-weight:700;display:inline-block;">RESET PASSWORD</a></p>
+                        <p>This link expires in 1 hour. If you didn't request a reset, you can safely ignore this email.</p>
+                        <p>— The uEvents team</p>
+                    `,
+                });
+            }
+        }
+
+        res.json({ message: "If an account with that email exists, a reset link has been sent." });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /users/reset-password
+router.post("/reset-password", validate(resetPasswordSchema), async (req, res, next) => {
+    try {
+        const { token, password } = req.body as { token: string; password: string };
+
+        const record = await prisma.passwordReset.findUnique({ where: { token } });
+        if (!record || record.usedAt || record.expiresAt < new Date()) {
+            return res.status(400).json({ error: "This reset link is invalid or has expired." });
+        }
+
+        const passwordHash = await bcrypt.hash(password, 12);
+
+        await prisma.$transaction([
+            prisma.user.update({
+                where: { id: record.userId },
+                data: { passwordHash, tokenVersion: { increment: 1 } },
+            }),
+            prisma.passwordReset.update({
+                where: { id: record.id },
+                data: { usedAt: new Date() },
+            }),
+        ]);
+
+        res.json({ ok: true });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// DELETE /users/me
+router.delete("/me", requireAuth, async (req, res, next) => {
+    try {
+        const userId = req.user!.userId;
+
+        await prisma.$transaction(async (tx) => {
+            const user = await tx.user.findUnique({ where: { id: userId }, select: { type: true } });
+            if (!user) { const e: any = new Error("User not found"); e.status = 404; throw e; }
+
+            if (user.type === "CLUB") {
+                // Delete all posts the club owns (cascades to likes/comments/rsvps/bookmarks/views/checkIns)
+                await tx.post.deleteMany({ where: { clubId: userId } });
+                // Delete all follows of this club
+                await tx.follow.deleteMany({ where: { clubId: userId } });
+            }
+
+            // Remove student engagement data
+            await tx.like.deleteMany({ where: { userId } });
+            await tx.bookmark.deleteMany({ where: { userId } });
+            await tx.rsvp.deleteMany({ where: { userId } });
+            await tx.follow.deleteMany({ where: { userId } });
+            await tx.checkIn.deleteMany({ where: { userId } });
+            await tx.notification.deleteMany({ where: { userId } });
+            await tx.feedback.updateMany({ where: { userId }, data: { userId: null } });
+            await tx.blockedUser.deleteMany({ where: { OR: [{ blockerId: userId }, { blockedId: userId }] } });
+            await tx.report.deleteMany({ where: { reporterId: userId } });
+
+            // Comments: set userId to null rather than delete to preserve thread structure
+            // — requires nullable userId on Comment, which it already is not. Delete instead.
+            await tx.comment.deleteMany({ where: { userId } });
+
+            await tx.user.delete({ where: { id: userId } });
+        });
+
+        res.json({ ok: true });
+    } catch (err: any) {
+        if (err.status) return res.status(err.status).json({ error: err.message });
         next(err);
     }
 });

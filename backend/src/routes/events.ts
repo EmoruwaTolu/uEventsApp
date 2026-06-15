@@ -83,13 +83,29 @@ router.get("/:id", requireAuth, async (req, res, next) => {
 // POST /events/:id/rsvp
 router.post("/:id/rsvp", requireAuth, async (req, res, next) => {
     try {
-        const post = await prisma.post.findUnique({ where: { id: req.params.id } });
+        const userId = req.user!.userId;
+        const postId = req.params.id;
+
+        const [post, existingRsvp] = await Promise.all([
+            prisma.post.findUnique({
+                where: { id: postId },
+                include: { _count: { select: { rsvps: true } } },
+            }),
+            prisma.rsvp.findUnique({ where: { userId_postId: { userId, postId } } }),
+        ]);
+
         if (!post || post.type !== "EVENT") {
             return res.status(404).json({ error: "Event not found" });
         }
+
+        // Capacity check — skip if user already has an RSVP (idempotent re-RSVP)
+        if (!existingRsvp && post.capacity !== null && post._count.rsvps >= post.capacity) {
+            return res.status(409).json({ error: "Event is at capacity" });
+        }
+
         await prisma.rsvp.upsert({
-            where: { userId_postId: { userId: req.user!.userId, postId: req.params.id } },
-            create: { userId: req.user!.userId, postId: req.params.id },
+            where: { userId_postId: { userId, postId } },
+            create: { userId, postId },
             update: {},
         });
         res.status(201).json({ rsvped: true });
@@ -101,8 +117,8 @@ router.post("/:id/rsvp", requireAuth, async (req, res, next) => {
 // DELETE /events/:id/rsvp
 router.delete("/:id/rsvp", requireAuth, async (req, res, next) => {
     try {
-        await prisma.rsvp.delete({
-            where: { userId_postId: { userId: req.user!.userId, postId: req.params.id } },
+        await prisma.rsvp.deleteMany({
+            where: { userId: req.user!.userId, postId: req.params.id },
         });
         res.json({ rsvped: false });
     } catch (err) {

@@ -1,31 +1,29 @@
 import { Router } from "express";
-import { PrismaClient } from "@prisma/client";
+import { z } from "zod";
+import { prisma } from "../lib/prisma";
 import { optionalAuth } from "../middleware/auth";
+import { validate } from "../middleware/validate";
 
 const router = Router();
-const prisma = new PrismaClient();
+
+const feedbackSchema = z.object({
+    type:         z.enum(["BUG_REPORT", "FEATURE_REQUEST"]),
+    message:      z.string().min(1, "message is required").max(2000, "message must be 2000 characters or fewer").trim(),
+    imageUrl:     z.string().url().max(500).optional().or(z.literal("")).or(z.null()),
+    contactEmail: z.string().email().max(254).optional().or(z.literal("")).or(z.null()),
+});
 
 // POST /feedback — submit a bug report or feature request
-router.post("/", optionalAuth, async (req, res, next) => {
+router.post("/", optionalAuth, validate(feedbackSchema), async (req, res, next) => {
     try {
         const { type, message, imageUrl, contactEmail } = req.body;
-
-        if (!["BUG_REPORT", "FEATURE_REQUEST"].includes(type)) {
-            return res.status(400).json({ error: "type must be BUG_REPORT or FEATURE_REQUEST" });
-        }
-        if (!message || typeof message !== "string" || !message.trim()) {
-            return res.status(400).json({ error: "message is required" });
-        }
-        if (message.trim().length > 2000) {
-            return res.status(400).json({ error: "message must be 2000 characters or fewer" });
-        }
 
         const feedback = await prisma.feedback.create({
             data: {
                 type,
-                message: message.trim(),
-                imageUrl: imageUrl?.trim() || null,
-                contactEmail: contactEmail?.trim() || null,
+                message,
+                imageUrl:     imageUrl     || null,
+                contactEmail: contactEmail || null,
                 userId: req.user?.userId ?? null,
             },
         });
