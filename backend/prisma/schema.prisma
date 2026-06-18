@@ -31,6 +31,7 @@ model User {
   pushNotifs    Boolean        @default(true)
   emailDigest   Boolean        @default(false)
   tokenVersion  Int            @default(0)
+  emailVerified DateTime?
   bookmarks     Bookmark[]
   checkIns      CheckIn[]
   comments      Comment[]
@@ -45,6 +46,8 @@ model User {
   feedbacks     Feedback[]
   reports       Report[]
   passwordResets PasswordReset[]
+  emailVerifications EmailVerification[]
+  eventSeries   EventSeries[]
   blockedUsers  BlockedUser[] @relation("BlockerRelation")
   blockedBy     BlockedUser[] @relation("BlockedRelation")
 }
@@ -66,8 +69,11 @@ model Post {
   isPinned          Boolean      @default(false)
   pollExpiresAt     DateTime?
   pollAllowMultiple Boolean      @default(false)
+  seriesId          String?
+  occurrenceDate    DateTime?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
+  series            EventSeries? @relation(fields: [seriesId], references: [id], onDelete: SetNull)
   bookmarks         Bookmark[]
   checkIns          CheckIn[]
   comments          Comment[]
@@ -77,6 +83,8 @@ model Post {
   rsvps             Rsvp[]
   waitlistEntries   Waitlist[]
   views             PostView[]
+
+  @@index([seriesId])
 }
 
 model PollOption {
@@ -231,6 +239,39 @@ model PasswordReset {
   usedAt    DateTime?
   createdAt DateTime  @default(now())
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model EmailVerification {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model EventSeries {
+  id         String         @id @default(cuid())
+  clubId     String
+  freq       RecurrenceFreq
+  interval   Int            @default(1)
+  byWeekday  Int[]          @default([])
+  startDate  DateTime
+  endDate    DateTime?
+  count      Int?
+  template   Json
+  createdAt  DateTime       @default(now())
+  club       User           @relation(fields: [clubId], references: [id])
+  posts      Post[]
+
+  @@index([clubId])
+}
+
+enum RecurrenceFreq {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
 }
 
 model Feedback {

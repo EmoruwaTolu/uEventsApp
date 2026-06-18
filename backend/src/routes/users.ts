@@ -10,6 +10,43 @@ import { Resend } from "resend";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
+// Comma-separated list of allowed signup domains, e.g. "myuni.edu,grad.myuni.edu".
+// When unset, no domain restriction is applied (dev-friendly).
+const SCHOOL_EMAIL_DOMAINS = (process.env.SCHOOL_EMAIL_DOMAINS ?? "")
+    .split(",")
+    .map((d) => d.trim().toLowerCase())
+    .filter(Boolean);
+
+function emailDomainAllowed(email: string): boolean {
+    if (SCHOOL_EMAIL_DOMAINS.length === 0) return true;
+    const domain = email.split("@")[1]?.toLowerCase() ?? "";
+    return SCHOOL_EMAIL_DOMAINS.some((d) => domain === d || domain.endsWith(`.${d}`));
+}
+
+// Creates a verification token and emails the user a deep link to verify.
+// No-op (token still created) if Resend isn't configured, so dev still works.
+async function sendVerificationEmail(userId: string, email: string): Promise<void> {
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    await prisma.emailVerification.create({ data: { userId, token, expiresAt } });
+
+    if (!resend) return;
+    const verifyUrl = `uevents://verify-email?token=${token}`;
+    const fromEmail = process.env.FROM_EMAIL ?? "noreply@ueventsapp.com";
+    await resend.emails.send({
+        from: `uEvents <${fromEmail}>`,
+        to: email,
+        subject: "Verify your uEvents email",
+        html: `
+            <p>Welcome to uEvents!</p>
+            <p>Tap the button below to verify your email address and finish setting up your account.</p>
+            <p><a href="${verifyUrl}" style="background:#8C0327;color:#fff;padding:12px 24px;text-decoration:none;font-weight:700;display:inline-block;">VERIFY EMAIL</a></p>
+            <p>This link expires in 24 hours. If you didn't create a uEvents account, you can safely ignore this email.</p>
+            <p>— The uEvents team</p>
+        `,
+    });
+}
+
 const registerSchema = z.object({
     email:      z.string().email().max(254),
     password:   z.string().min(8, "Password must be at least 8 characters").max(128),
@@ -34,6 +71,10 @@ const forgotPasswordSchema = z.object({
 const resetPasswordSchema = z.object({
     token:    z.string().min(1).max(200),
     password: z.string().min(8, "Password must be at least 8 characters").max(128),
+});
+
+const verifyEmailSchema = z.object({
+    token: z.string().min(1).max(200),
 });
 
 const patchMeSchema = z.object({
@@ -86,6 +127,13 @@ router.post("/add-user", validate(registerSchema), async (req, res, next) => {
             }
         }
 
+        // Restrict student signups to the school's email domain(s) when configured.
+        // Clubs are gated by the invite code instead and may use an org domain.
+        if (!isClub && !emailDomainAllowed(email)) {
+            const allowed = SCHOOL_EMAIL_DOMAINS.join(", ");
+            return res.status(403).json({ error: `Please sign up with your school email (${allowed}).` });
+        }
+
         const existing = await prisma.user.findUnique({ where: { email } });
         if (existing) return res.status(409).json({ error: "Email already registered" });
 
@@ -104,8 +152,11 @@ router.post("/add-user", validate(registerSchema), async (req, res, next) => {
             },
         });
 
+        // Fire-and-forget the verification email; signup still succeeds if it fails.
+        sendVerificationEmail(user.id, user.email).catch(() => {});
+
         const token = signToken(user.id, user.type, 0);
-        res.status(201).json({ token, user: { id: user.id, email: user.email, type: user.type } });
+        res.status(201).json({ token, user: { id: user.id, email: user.email, type: user.type, emailVerified: false } });
     } catch (err) {
         next(err);
     }
@@ -126,7 +177,7 @@ router.post("/validate-user", validate(loginSchema), async (req, res, next) => {
         if (!valid) return res.status(401).json({ error: "Invalid credentials" });
 
         const token = signToken(user.id, user.type, user.tokenVersion);
-        res.json({ token, user: { id: user.id, email: user.email, type: user.type } });
+        res.json({ token, user: { id: user.id, email: user.email, type: user.type, emailVerified: !!user.emailVerified } });
     } catch (err) {
         next(err);
     }
@@ -142,7 +193,7 @@ router.get("/me", requireAuth, async (req, res, next) => {
                 firstName: true, lastName: true, program: true, year: true, avatarUrl: true,
                 clubName: true, slug: true, category: true, description: true, logoUrl: true,
                 instagram: true, twitter: true, contactEmail: true,
-                pushNotifs: true, emailDigest: true,
+                pushNotifs: true, emailDigest: true, emailVerified: true,
                 _count: { select: { follows: true, rsvps: true } },
             },
         });
@@ -471,6 +522,49 @@ router.post("/reset-password", validate(resetPasswordSchema), async (req, res, n
         ]);
 
         res.json({ ok: true });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /users/verify-email — confirm an email-verification token
+router.post("/verify-email", validate(verifyEmailSchema), async (req, res, next) => {
+    try {
+        const { token } = req.body as { token: string };
+        const record = await prisma.emailVerification.findUnique({ where: { token } });
+        if (!record || record.usedAt || record.expiresAt < new Date()) {
+            return res.status(400).json({ error: "This verification link is invalid or has expired." });
+        }
+
+        await prisma.$transaction([
+            prisma.user.update({ where: { id: record.userId }, data: { emailVerified: new Date() } }),
+            prisma.emailVerification.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
+        ]);
+
+        res.json({ ok: true });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /users/resend-verification — re-send the verification email (auth required)
+router.post("/resend-verification", requireAuth, async (req, res, next) => {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: req.user!.userId },
+            select: { id: true, email: true, emailVerified: true },
+        });
+        if (!user) return res.status(404).json({ error: "User not found" });
+        if (user.emailVerified) return res.json({ message: "Email already verified." });
+
+        // Invalidate any outstanding tokens before issuing a fresh one
+        await prisma.emailVerification.updateMany({
+            where: { userId: user.id, usedAt: null },
+            data: { usedAt: new Date() },
+        });
+        await sendVerificationEmail(user.id, user.email);
+
+        res.json({ message: "Verification email sent." });
     } catch (err) {
         next(err);
     }

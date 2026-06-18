@@ -68,6 +68,8 @@ app.use("/users/validate-user",  authLimiter);
 app.use("/users/add-user",       authLimiter);
 app.use("/users/forgot-password", forgotPasswordLimiter);
 app.use("/users/reset-password",  forgotPasswordLimiter);
+app.use("/users/verify-email",      forgotPasswordLimiter);
+app.use("/users/resend-verification", forgotPasswordLimiter);
 
 app.use("/users",         usersRouter);
 app.use("/clubs",         clubsRouter);

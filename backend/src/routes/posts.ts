@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { requireAuth, requireClub, optionalAuth } from "../middleware/auth";
 import { validate } from "../middleware/validate";
+import { generateOccurrences } from "../lib/recurrence";
 
 const localeContentSchema = z.object({
     title:       z.string().max(200).optional(),
@@ -30,6 +31,38 @@ const createPostSchema = z.object({
         textEn: z.string().max(200),
         textFr: z.string().max(200).optional(),
     })).max(6).optional(),
+});
+
+const createSeriesSchema = z.object({
+    locales:      z.record(z.string(), localeContentSchema),
+    startAt:      z.string().datetime(),
+    endAt:        z.string().datetime().optional().or(z.null()),
+    locationName: z.string().max(200).optional(),
+    address:      z.string().max(300).optional(),
+    categories:   z.array(z.string().max(50)).max(10).optional(),
+    capacity:     z.union([z.number().int().min(1).max(100000), z.string()]).optional().or(z.null()),
+    images:       z.array(z.string().url().max(500)).max(20).optional(),
+    recurrence:   z.object({
+        freq:      z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY"]),
+        interval:  z.number().int().min(1).max(12).optional(),
+        byWeekday: z.array(z.number().int().min(0).max(6)).max(7).optional(),
+        endDate:   z.string().datetime().optional().or(z.null()),
+        count:     z.number().int().min(1).max(26).optional().or(z.null()),
+    }),
+});
+
+const editSeriesSchema = z.object({
+    scope:        z.enum(["future", "all"]),
+    fromPostId:   z.string(),
+    locales:      z.record(z.string(), localeContentSchema).optional(),
+    locationName: z.string().max(200).optional().or(z.null()),
+    address:      z.string().max(300).optional().or(z.null()),
+    categories:   z.array(z.string().max(50)).max(10).optional(),
+    capacity:     z.union([z.number().int().min(1).max(100000), z.string()]).optional().or(z.null()),
+    images:       z.array(z.string().url().max(500)).max(20).optional(),
+    startHour:    z.number().int().min(0).max(23).optional().or(z.null()),
+    startMinute:  z.number().int().min(0).max(59).optional().or(z.null()),
+    durationMs:   z.number().int().positive().optional().or(z.null()),
 });
 
 const commentSchema = z.object({
@@ -211,6 +244,235 @@ router.post("/", requireAuth, requireClub, validate(createPostSchema), async (re
         }
 
         res.status(201).json(post);
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /posts/series — create a recurring event series + its occurrences
+router.post("/series", requireAuth, requireClub, validate(createSeriesSchema), async (req, res, next) => {
+    try {
+        const {
+            locales, startAt, endAt, locationName, address, categories, capacity, images, recurrence,
+        } = req.body;
+
+        const start = new Date(startAt);
+        const durationMs = endAt ? (new Date(endAt).getTime() - start.getTime()) : 2 * 3600000;
+        if (durationMs <= 0) return res.status(400).json({ error: "End time must be after start time" });
+
+        // Cover image sync (matches single-post create)
+        let finalLocales = locales;
+        if (Array.isArray(images) && images.length > 0) {
+            const loc = { ...(locales as any) };
+            if (loc.en) loc.en = { ...loc.en, posterUrl: images[0] };
+            if (loc.fr) loc.fr = { ...loc.fr, posterUrl: images[0] };
+            finalLocales = loc;
+        }
+
+        const cap = capacity != null ? parseInt(capacity) : undefined;
+        const cats = categories ?? [];
+        const imgs = Array.isArray(images) ? images : [];
+
+        const occurrences = generateOccurrences({
+            freq: recurrence.freq,
+            interval: recurrence.interval ?? 1,
+            byWeekday: recurrence.byWeekday ?? [],
+            startDate: start,
+            endDate: recurrence.endDate ? new Date(recurrence.endDate) : null,
+            count: recurrence.count ?? null,
+        });
+        if (occurrences.length === 0) return res.status(400).json({ error: "Recurrence produced no dates" });
+
+        const template = { locales: finalLocales, locationName, address, categories: cats, capacity: cap, images: imgs, durationMs };
+
+        const series = await prisma.eventSeries.create({
+            data: {
+                clubId: req.user!.userId,
+                freq: recurrence.freq,
+                interval: recurrence.interval ?? 1,
+                byWeekday: recurrence.byWeekday ?? [],
+                startDate: start,
+                endDate: recurrence.endDate ? new Date(recurrence.endDate) : null,
+                count: recurrence.count ?? null,
+                template,
+            },
+        });
+
+        await prisma.post.createMany({
+            data: occurrences.map((occ) => ({
+                clubId: req.user!.userId,
+                type: "EVENT" as const,
+                isDraft: false,
+                locales: finalLocales,
+                startAt: occ,
+                endAt: new Date(occ.getTime() + durationMs),
+                locationName: locationName ?? undefined,
+                address: address ?? undefined,
+                categories: cats,
+                images: imgs,
+                capacity: cap,
+                seriesId: series.id,
+                occurrenceDate: occ,
+            })),
+        });
+
+        // Notify followers once about the series (reference the first occurrence)
+        const first = await prisma.post.findFirst({
+            where: { seriesId: series.id },
+            orderBy: { occurrenceDate: "asc" },
+            include: { club: { select: { clubName: true } } },
+        });
+        if (first) {
+            const title = (finalLocales as any)?.en?.title ?? (finalLocales as any)?.fr?.title ?? "New event";
+            notifyFollowers(first.clubId, "EVENT", first.club.clubName ?? "", title, first.id).catch(console.error);
+        }
+
+        res.status(201).json({ series, occurrences: occurrences.length, firstPostId: first?.id ?? null });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// DELETE /posts/series/:id — cancel a series. scope=future (default) keeps past
+// occurrences for history/analytics; scope=all removes every occurrence.
+router.delete("/series/:id", requireAuth, requireClub, async (req, res, next) => {
+    try {
+        const series = await prisma.eventSeries.findUnique({ where: { id: req.params.id }, select: { id: true, clubId: true } });
+        if (!series) return res.status(404).json({ error: "Series not found" });
+        if (series.clubId !== req.user!.userId) return res.status(403).json({ error: "Forbidden" });
+
+        const scope = req.query.scope === "all" ? "all" : "future";
+        await prisma.post.deleteMany({
+            where: {
+                seriesId: series.id,
+                ...(scope === "future" ? { startAt: { gte: new Date() } } : {}),
+            },
+        });
+        // End the series so the top-up job stops adding occurrences.
+        await prisma.eventSeries.update({ where: { id: series.id }, data: { endDate: new Date() } });
+
+        res.json({ ok: true, scope });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// PATCH /posts/series/:id — edit a recurring series.
+// scope "all" updates every upcoming occurrence; "future" updates the edited
+// occurrence and those after it. Occurrences are updated in place (same postId)
+// so existing RSVPs are preserved; attendees of any occurrence whose time
+// changes are notified (RSVPs are kept by default, they can cancel themselves).
+router.patch("/series/:id", requireAuth, requireClub, validate(editSeriesSchema), async (req, res, next) => {
+    try {
+        const userId = req.user!.userId;
+        const { scope, fromPostId, locales, locationName, address, categories, capacity, images, startHour, startMinute, durationMs } = req.body;
+
+        const series = await prisma.eventSeries.findUnique({ where: { id: req.params.id } });
+        if (!series) return res.status(404).json({ error: "Series not found" });
+        if (series.clubId !== userId) return res.status(403).json({ error: "Forbidden" });
+
+        const fromPost = await prisma.post.findUnique({ where: { id: fromPostId }, select: { id: true, seriesId: true, occurrenceDate: true } });
+        if (!fromPost || fromPost.seriesId !== series.id || !fromPost.occurrenceDate) {
+            return res.status(400).json({ error: "fromPostId is not part of this series" });
+        }
+
+        const now = new Date();
+        const boundary = scope === "future" ? fromPost.occurrenceDate : now;
+
+        const targets = await prisma.post.findMany({
+            where: { seriesId: series.id, occurrenceDate: { gte: boundary } },
+            select: { id: true, startAt: true, endAt: true, occurrenceDate: true, locales: true },
+        });
+
+        // Cover-image sync into locales
+        let finalLocales = locales;
+        if (locales && Array.isArray(images) && images.length > 0) {
+            const loc = { ...(locales as any) };
+            if (loc.en) loc.en = { ...loc.en, posterUrl: images[0] };
+            if (loc.fr) loc.fr = { ...loc.fr, posterUrl: images[0] };
+            finalLocales = loc;
+        }
+        const cap = capacity != null ? parseInt(capacity) : undefined;
+        const timeChanging = startHour != null && startMinute != null;
+
+        const changedTimePostIds: string[] = [];
+
+        await prisma.$transaction(
+            targets.map((t) => {
+                const data: any = {};
+                if (finalLocales) data.locales = finalLocales;
+                if (locationName !== undefined) data.locationName = locationName ?? null;
+                if (address !== undefined) data.address = address ?? null;
+                if (Array.isArray(categories)) data.categories = categories;
+                if (capacity !== undefined) data.capacity = cap ?? null;
+                if (Array.isArray(images)) data.images = images;
+
+                if (timeChanging && t.occurrenceDate) {
+                    const newStart = new Date(t.occurrenceDate);
+                    newStart.setHours(startHour, startMinute, 0, 0);
+                    const dur = durationMs ?? (t.endAt && t.startAt ? t.endAt.getTime() - t.startAt.getTime() : 2 * 3600000);
+                    const newEnd = new Date(newStart.getTime() + dur);
+                    if (!t.startAt || newStart.getTime() !== t.startAt.getTime()) changedTimePostIds.push(t.id);
+                    data.startAt = newStart;
+                    data.endAt = newEnd;
+                    data.occurrenceDate = newStart;
+                }
+                return prisma.post.update({ where: { id: t.id }, data });
+            })
+        );
+
+        // Keep the series template (and start time-of-day for future top-ups) in sync.
+        const newTemplate: any = { ...(series.template as any) };
+        if (finalLocales) newTemplate.locales = finalLocales;
+        if (locationName !== undefined) newTemplate.locationName = locationName ?? null;
+        if (address !== undefined) newTemplate.address = address ?? null;
+        if (Array.isArray(categories)) newTemplate.categories = categories;
+        if (capacity !== undefined) newTemplate.capacity = cap ?? null;
+        if (Array.isArray(images)) newTemplate.images = images;
+        if (durationMs != null) newTemplate.durationMs = durationMs;
+        const seriesData: any = { template: newTemplate };
+        if (timeChanging) {
+            const sd = new Date(series.startDate);
+            sd.setHours(startHour, startMinute, 0, 0);
+            seriesData.startDate = sd;
+        }
+        await prisma.eventSeries.update({ where: { id: series.id }, data: seriesData });
+
+        // Notify attendees of occurrences whose time changed (future only).
+        if (changedTimePostIds.length > 0) {
+            const club = await prisma.user.findUnique({ where: { id: series.clubId }, select: { clubName: true } });
+            const futureChanged = await prisma.post.findMany({
+                where: { id: { in: changedTimePostIds }, startAt: { gte: now } },
+                select: { id: true, locales: true, rsvps: { select: { userId: true, user: { select: { pushToken: true } } } } },
+            });
+            const notifications: any[] = [];
+            const pushes: any[] = [];
+            for (const p of futureChanged) {
+                const title = (p.locales as any)?.en?.title ?? (p.locales as any)?.fr?.title ?? "An event";
+                for (const r of p.rsvps) {
+                    notifications.push({
+                        userId: r.userId,
+                        type: "EVENT",
+                        title: "Event time changed",
+                        body: `${title} from ${club?.clubName ?? "a club"} has a new time. Tap to review — your RSVP is still saved.`,
+                        metadata: { postId: p.id, postType: "EVENT" },
+                    });
+                    if (r.user.pushToken) {
+                        pushes.push({ to: r.user.pushToken, title: "Event time changed", body: `${title} has a new time. Your RSVP is still saved.`, data: { postId: p.id, postType: "EVENT" }, sound: "default" });
+                    }
+                }
+            }
+            if (notifications.length) await prisma.notification.createMany({ data: notifications, skipDuplicates: true });
+            if (pushes.length) {
+                fetch("https://exp.host/--/api/v2/push/send", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Accept: "application/json" },
+                    body: JSON.stringify(pushes),
+                }).catch(console.error);
+            }
+        }
+
+        res.json({ ok: true, scope, updated: targets.length, notified: changedTimePostIds.length });
     } catch (err) {
         next(err);
     }
@@ -590,6 +852,7 @@ router.get("/popular", optionalAuth, async (req, res, next) => {
                 startAt: p.startAt,
                 endAt: p.endAt,
                 locationName: p.locationName,
+                isRecurring: !!p.seriesId,
                 likes: p._count.likes,
                 comments: p._count.comments,
                 isLiked: likesArr.length > 0,
@@ -708,6 +971,7 @@ router.get("/feed", requireAuth, async (req, res, next) => {
                 endAt: p.endAt,
                 locationName: p.locationName,
                 categories: p.categories,
+                isRecurring: !!p.seriesId,
                 likes: p._count.likes,
                 comments: p._count.comments,
                 rsvpCount: p._count.rsvps,
