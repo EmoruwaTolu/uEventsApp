@@ -24,6 +24,8 @@ const createPostSchema = z.object({
     address:          z.string().max(300).optional(),
     categories:       z.array(z.string().max(50)).max(10).optional(),
     capacity:         z.union([z.number().int().min(1).max(100000), z.string()]).optional().or(z.null()),
+    freeFood:         z.boolean().optional(),
+    recapPrivate:     z.boolean().optional(),
     images:           z.array(z.string().url().max(500)).max(20).optional(),
     pollExpiresAt:    z.string().datetime().optional().or(z.null()),
     pollAllowMultiple: z.boolean().optional(),
@@ -41,6 +43,7 @@ const createSeriesSchema = z.object({
     address:      z.string().max(300).optional(),
     categories:   z.array(z.string().max(50)).max(10).optional(),
     capacity:     z.union([z.number().int().min(1).max(100000), z.string()]).optional().or(z.null()),
+    freeFood:     z.boolean().optional(),
     images:       z.array(z.string().url().max(500)).max(20).optional(),
     recurrence:   z.object({
         freq:      z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY"]),
@@ -59,6 +62,7 @@ const editSeriesSchema = z.object({
     address:      z.string().max(300).optional().or(z.null()),
     categories:   z.array(z.string().max(50)).max(10).optional(),
     capacity:     z.union([z.number().int().min(1).max(100000), z.string()]).optional().or(z.null()),
+    freeFood:     z.boolean().optional(),
     images:       z.array(z.string().url().max(500)).max(20).optional(),
     startHour:    z.number().int().min(0).max(23).optional().or(z.null()),
     startMinute:  z.number().int().min(0).max(59).optional().or(z.null()),
@@ -86,19 +90,33 @@ async function notifyFollowers(
     clubName: string,
     postTitle: string,
     postId: string,
+    categories: string[] = [],
 ) {
-    // Fetch all followers + their push tokens; EVENTS pref gets events only, ALL gets everything, NONE gets nothing
+    // Recipients = club followers (respecting notifPref) ∪ users who follow a
+    // matching topic. Deduped by userId; the posting club never notifies itself.
+    const recipients = new Map<string, string | null>(); // userId -> pushToken
+
     const follows = await prisma.follow.findMany({
         where: {
             clubId,
-            notifPref: postType === "EVENT"
-                ? { in: ["ALL", "EVENTS"] }
-                : "ALL",
+            notifPref: postType === "EVENT" ? { in: ["ALL", "EVENTS"] } : "ALL",
         },
         select: { userId: true, user: { select: { pushToken: true } } },
     });
+    for (const f of follows) recipients.set(f.userId, f.user.pushToken ?? null);
 
-    if (!follows.length) return;
+    if (categories.length > 0) {
+        const topicFollows = await prisma.interestFollow.findMany({
+            where: { category: { in: categories } },
+            select: { userId: true, user: { select: { pushToken: true } } },
+        });
+        for (const tf of topicFollows) {
+            if (!recipients.has(tf.userId)) recipients.set(tf.userId, tf.user.pushToken ?? null);
+        }
+    }
+
+    recipients.delete(clubId); // never notify the poster
+    if (recipients.size === 0) return;
 
     const titleMap: Record<string, string> = {
         EVENT:        `New event from ${clubName}`,
@@ -111,8 +129,8 @@ async function notifyFollowers(
 
     // Create in-app notifications
     await prisma.notification.createMany({
-        data: follows.map((f) => ({
-            userId: f.userId,
+        data: [...recipients.keys()].map((userId) => ({
+            userId,
             type: notifType,
             title: notifTitle,
             body: postTitle,
@@ -121,8 +139,8 @@ async function notifyFollowers(
         skipDuplicates: true,
     });
 
-    // Send Expo push notifications to followers who have a token
-    const pushTokens = follows.map((f) => f.user.pushToken).filter(Boolean) as string[];
+    // Send Expo push notifications to recipients who have a token
+    const pushTokens = [...recipients.values()].filter(Boolean) as string[];
     if (!pushTokens.length) return;
 
     const messages = pushTokens.map((token) => ({
@@ -189,7 +207,7 @@ router.post("/", requireAuth, requireClub, validate(createPostSchema), async (re
         const {
             type, locales, isDraft = true, publishAt,
             startAt, endAt, locationName, address, categories,
-            capacity,
+            capacity, freeFood, recapPrivate,
             pollExpiresAt, pollAllowMultiple,
             pollOptions,
             images,
@@ -225,6 +243,8 @@ router.post("/", requireAuth, requireClub, validate(createPostSchema), async (re
                 categories:   categories   ?? [],
                 images:       Array.isArray(images) ? images : [],
                 capacity:     capacity != null ? parseInt(capacity) : undefined,
+                freeFood:     freeFood ?? false,
+                recapPrivate: recapPrivate ?? false,
                 pollExpiresAt:    pollExpiresAt    ? new Date(pollExpiresAt) : undefined,
                 pollAllowMultiple: pollAllowMultiple ?? false,
                 pollOptions: pollOptions?.length ? {
@@ -240,7 +260,7 @@ router.post("/", requireAuth, requireClub, validate(createPostSchema), async (re
         // Send notifications to followers when published immediately (not scheduled)
         if (!effectiveIsDraft) {
             const title = (post.locales as any)?.en?.title ?? (post.locales as any)?.fr?.title ?? "New post";
-            notifyFollowers(post.clubId, post.type, post.club.clubName ?? "", title, post.id).catch(console.error);
+            notifyFollowers(post.clubId, post.type, post.club.clubName ?? "", title, post.id, post.categories ?? []).catch(console.error);
         }
 
         res.status(201).json(post);
@@ -253,7 +273,7 @@ router.post("/", requireAuth, requireClub, validate(createPostSchema), async (re
 router.post("/series", requireAuth, requireClub, validate(createSeriesSchema), async (req, res, next) => {
     try {
         const {
-            locales, startAt, endAt, locationName, address, categories, capacity, images, recurrence,
+            locales, startAt, endAt, locationName, address, categories, capacity, freeFood, images, recurrence,
         } = req.body;
 
         const start = new Date(startAt);
@@ -283,7 +303,7 @@ router.post("/series", requireAuth, requireClub, validate(createSeriesSchema), a
         });
         if (occurrences.length === 0) return res.status(400).json({ error: "Recurrence produced no dates" });
 
-        const template = { locales: finalLocales, locationName, address, categories: cats, capacity: cap, images: imgs, durationMs };
+        const template = { locales: finalLocales, locationName, address, categories: cats, capacity: cap, freeFood: !!freeFood, images: imgs, durationMs };
 
         const series = await prisma.eventSeries.create({
             data: {
@@ -311,6 +331,7 @@ router.post("/series", requireAuth, requireClub, validate(createSeriesSchema), a
                 categories: cats,
                 images: imgs,
                 capacity: cap,
+                freeFood: !!freeFood,
                 seriesId: series.id,
                 occurrenceDate: occ,
             })),
@@ -324,7 +345,7 @@ router.post("/series", requireAuth, requireClub, validate(createSeriesSchema), a
         });
         if (first) {
             const title = (finalLocales as any)?.en?.title ?? (finalLocales as any)?.fr?.title ?? "New event";
-            notifyFollowers(first.clubId, "EVENT", first.club.clubName ?? "", title, first.id).catch(console.error);
+            notifyFollowers(first.clubId, "EVENT", first.club.clubName ?? "", title, first.id, cats).catch(console.error);
         }
 
         res.status(201).json({ series, occurrences: occurrences.length, firstPostId: first?.id ?? null });
@@ -365,7 +386,7 @@ router.delete("/series/:id", requireAuth, requireClub, async (req, res, next) =>
 router.patch("/series/:id", requireAuth, requireClub, validate(editSeriesSchema), async (req, res, next) => {
     try {
         const userId = req.user!.userId;
-        const { scope, fromPostId, locales, locationName, address, categories, capacity, images, startHour, startMinute, durationMs } = req.body;
+        const { scope, fromPostId, locales, locationName, address, categories, capacity, freeFood, images, startHour, startMinute, durationMs } = req.body;
 
         const series = await prisma.eventSeries.findUnique({ where: { id: req.params.id } });
         if (!series) return res.status(404).json({ error: "Series not found" });
@@ -405,6 +426,7 @@ router.patch("/series/:id", requireAuth, requireClub, validate(editSeriesSchema)
                 if (address !== undefined) data.address = address ?? null;
                 if (Array.isArray(categories)) data.categories = categories;
                 if (capacity !== undefined) data.capacity = cap ?? null;
+                if (typeof freeFood === "boolean") data.freeFood = freeFood;
                 if (Array.isArray(images)) data.images = images;
 
                 if (timeChanging && t.occurrenceDate) {
@@ -428,6 +450,7 @@ router.patch("/series/:id", requireAuth, requireClub, validate(editSeriesSchema)
         if (address !== undefined) newTemplate.address = address ?? null;
         if (Array.isArray(categories)) newTemplate.categories = categories;
         if (capacity !== undefined) newTemplate.capacity = cap ?? null;
+        if (typeof freeFood === "boolean") newTemplate.freeFood = freeFood;
         if (Array.isArray(images)) newTemplate.images = images;
         if (durationMs != null) newTemplate.durationMs = durationMs;
         const seriesData: any = { template: newTemplate };
@@ -853,10 +876,130 @@ router.get("/popular", optionalAuth, async (req, res, next) => {
                 endAt: p.endAt,
                 locationName: p.locationName,
                 isRecurring: !!p.seriesId,
+                freeFood: p.freeFood,
                 likes: p._count.likes,
                 comments: p._count.comments,
                 isLiked: likesArr.length > 0,
                 isFollowing: followedIds.has(p.club.id),
+                poll: p.type === "POLL" ? {
+                    expiresAt: p.pollExpiresAt,
+                    allowMultiple: p.pollAllowMultiple,
+                    totalVotes,
+                    userVote: voteMap[p.id] ?? null,
+                    options: p.pollOptions.map((o) => ({ id: o.id, textEn: o.textEn, textFr: o.textFr, votes: o._count.votes })),
+                } : null,
+            };
+        }));
+    } catch (err) {
+        next(err);
+    }
+});
+
+// GET /posts/for-you — personalized discovery ranking with reason labels.
+// Scores upcoming events + recent posts by followed clubs, followed topics,
+// popularity (log-scaled), and time-proximity, and attaches a human reason
+// ("Because you follow X", "Matches your interest: Y", "Popular this week").
+router.get("/for-you", requireAuth, async (req, res, next) => {
+    try {
+        const userId = req.user!.userId;
+        const now = new Date();
+
+        const [follows, topics] = await Promise.all([
+            prisma.follow.findMany({ where: { userId }, select: { clubId: true } }),
+            prisma.interestFollow.findMany({ where: { userId }, select: { category: true } }),
+        ]);
+        const followedIds = new Set(follows.map((f) => f.clubId));
+        const followedTopics = topics.map((t) => t.category);
+
+        // Candidate pool: any non-draft post that isn't the user's own club, and
+        // — for dated events — isn't already over. Non-events (no startAt) stay in.
+        const posts = await prisma.post.findMany({
+            where: {
+                isDraft: false,
+                clubId: { not: userId },
+                OR: [
+                    { startAt: null },
+                    { startAt: { gte: now } },
+                    { endAt: { gte: now } },
+                ],
+            },
+            orderBy: { createdAt: "desc" },
+            take: 120,
+            include: {
+                club: { select: { id: true, clubName: true, logoUrl: true } },
+                pollOptions: { include: { _count: { select: { votes: true } } } },
+                _count: { select: { likes: true, comments: true, rsvps: true } },
+                likes: { where: { userId }, select: { userId: true } },
+                rsvps: { where: { userId }, select: { userId: true } },
+            },
+        });
+
+        const pollIds = posts.filter((p) => p.type === "POLL").map((p) => p.id);
+        const userVotes = pollIds.length
+            ? await prisma.pollVote.findMany({
+                  where: { userId, option: { postId: { in: pollIds } } },
+                  select: { optionId: true, option: { select: { postId: true } } },
+              })
+            : [];
+        const voteMap: Record<string, string> = {};
+        for (const v of userVotes) voteMap[v.option.postId] = v.optionId;
+
+        const scored = posts.map((p) => {
+            const isEvent = p.type === "EVENT";
+            const cats = p.categories ?? [];
+            const matchedTopic = followedTopics.find((t) => cats.includes(t));
+            const fromFollowed = followedIds.has(p.club.id);
+            const engagement = p._count.likes * 2 + p._count.rsvps * 3 + p._count.comments;
+
+            let score = Math.log2(1 + engagement) * 10;
+            if (fromFollowed) score += 100;
+            if (matchedTopic) score += 60;
+
+            let daysUntil = Infinity;
+            if (isEvent && p.startAt) {
+                daysUntil = (new Date(p.startAt).getTime() - now.getTime()) / 86400000;
+                score += Math.max(0, 40 - Math.max(0, daysUntil) * 4);
+            } else {
+                const ageDays = (now.getTime() - new Date(p.createdAt).getTime()) / 86400000;
+                score += Math.max(0, 20 - ageDays * 2);
+            }
+
+            let reason: string;
+            if (fromFollowed) reason = `Because you follow ${p.club.clubName}`;
+            else if (matchedTopic) reason = `Matches your interest: ${matchedTopic}`;
+            else if (engagement >= 8) reason = "Popular this week";
+            else if (daysUntil <= 3) reason = "Happening soon";
+            else reason = "Recommended for you";
+
+            return { p, score, reason };
+        });
+
+        scored.sort((a, b) => b.score - a.score);
+
+        res.json(scored.slice(0, 25).map(({ p, reason }) => {
+            const totalVotes = p.pollOptions.reduce((sum, o) => sum + o._count.votes, 0);
+            return {
+                id: p.id,
+                clubId: p.club.id,
+                clubName: p.club.clubName,
+                clubAvatar: p.club.logoUrl,
+                type: p.type.toLowerCase(),
+                createdAt: p.createdAt,
+                locales: p.locales,
+                images: p.images,
+                startAt: p.startAt,
+                endAt: p.endAt,
+                locationName: p.locationName,
+                categories: p.categories,
+                isRecurring: !!p.seriesId,
+                freeFood: p.freeFood,
+                likes: p._count.likes,
+                comments: p._count.comments,
+                rsvpCount: p._count.rsvps,
+                isLiked: p.likes.length > 0,
+                isRsvped: p.rsvps.length > 0,
+                isFollowing: followedIds.has(p.club.id),
+                reason,
                 poll: p.type === "POLL" ? {
                     expiresAt: p.pollExpiresAt,
                     allowMultiple: p.pollAllowMultiple,
@@ -913,19 +1056,23 @@ router.get("/feed", requireAuth, async (req, res, next) => {
     try {
         const userId = req.user!.userId;
 
-        const follows = await prisma.follow.findMany({
-            where: { userId },
-            select: { clubId: true },
-        });
+        const [follows, topics] = await Promise.all([
+            prisma.follow.findMany({ where: { userId }, select: { clubId: true } }),
+            prisma.interestFollow.findMany({ where: { userId }, select: { category: true } }),
+        ]);
         const followedIds = new Set(follows.map((f) => f.clubId));
+        const followedTopics = topics.map((t) => t.category);
+        const clubIds = [...followedIds].filter((id) => id !== userId);
 
-        // Fetch only posts from followed clubs
+        // Posts from followed clubs OR matching a followed topic (interest).
+        const orConds: any[] = [];
+        if (clubIds.length > 0) orConds.push({ clubId: { in: clubIds } });
+        if (followedTopics.length > 0) orConds.push({ categories: { hasSome: followedTopics } });
+
         const posts = await prisma.post.findMany({
             where: {
                 isDraft: false,
-                ...(followedIds.size > 0
-                    ? { clubId: { in: [...followedIds].filter(id => id !== userId) } }
-                    : { id: { in: [] } }),
+                ...(orConds.length > 0 ? { OR: orConds } : { id: { in: [] } }),
             },
             orderBy: { createdAt: "desc" },
             take: 60,
@@ -972,6 +1119,7 @@ router.get("/feed", requireAuth, async (req, res, next) => {
                 locationName: p.locationName,
                 categories: p.categories,
                 isRecurring: !!p.seriesId,
+                freeFood: p.freeFood,
                 likes: p._count.likes,
                 comments: p._count.comments,
                 rsvpCount: p._count.rsvps,
@@ -1062,7 +1210,7 @@ router.patch("/:id", requireAuth, requireClub, async (req, res, next) => {
         const {
             locales, isDraft, publishAt,
             startAt, endAt, locationName, address, categories,
-            capacity,
+            capacity, freeFood, recapPrivate,
             pollExpiresAt, pollAllowMultiple,
             images,
         } = req.body;
@@ -1102,6 +1250,8 @@ router.patch("/:id", requireAuth, requireClub, async (req, res, next) => {
                 categories:   categories   ?? undefined,
                 images:       Array.isArray(images) ? images : undefined,
                 capacity:     capacity != null ? parseInt(capacity) : undefined,
+                freeFood:     typeof freeFood === "boolean" ? freeFood : undefined,
+                recapPrivate: typeof recapPrivate === "boolean" ? recapPrivate : undefined,
                 pollExpiresAt:     pollExpiresAt     ? new Date(pollExpiresAt) : undefined,
                 pollAllowMultiple: pollAllowMultiple ?? undefined,
             },
@@ -1507,6 +1657,128 @@ router.get("/:id/checkins", requireAuth, async (req, res, next) => {
                 year: c.user.year ?? null,
             })),
         });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// ── Post-event recaps ───────────────────────────────────────────────────────
+const recapPhotoSchema = z.object({ url: z.string().url().max(500) });
+const recapRatingSchema = z.object({ rating: z.number().int().min(1).max(5) });
+
+async function isCheckedIn(userId: string, postId: string): Promise<boolean> {
+    const c = await prisma.checkIn.findUnique({ where: { postId_userId: { postId, userId } } });
+    return !!c;
+}
+function eventOver(post: { startAt: Date | null; endAt: Date | null }): boolean {
+    const end = post.endAt ?? post.startAt;
+    return !!end && end < new Date();
+}
+
+// GET /posts/:id/recap — gallery + average rating. Public unless recapPrivate,
+// in which case only checked-in attendees (or the club) may view.
+router.get("/:id/recap", optionalAuth, async (req, res, next) => {
+    try {
+        const userId = req.user?.userId;
+        const post = await prisma.post.findUnique({
+            where: { id: req.params.id },
+            select: { id: true, clubId: true, recapPrivate: true, startAt: true, endAt: true },
+        });
+        if (!post) return res.status(404).json({ error: "Post not found" });
+
+        const isOwner = userId === post.clubId;
+        const attendee = userId ? await isCheckedIn(userId, post.id) : false;
+
+        if (post.recapPrivate && !attendee && !isOwner) {
+            return res.json({ visible: false, eventOver: eventOver(post) });
+        }
+
+        const [photos, ratingAgg, myRating] = await Promise.all([
+            prisma.eventPhoto.findMany({
+                where: { postId: post.id },
+                orderBy: { createdAt: "desc" },
+                include: { user: { select: { id: true, firstName: true, avatarUrl: true } } },
+            }),
+            prisma.eventRating.aggregate({ where: { postId: post.id }, _avg: { rating: true }, _count: true }),
+            userId ? prisma.eventRating.findUnique({ where: { postId_userId: { postId: post.id, userId } } }) : null,
+        ]);
+
+        res.json({
+            visible: true,
+            eventOver: eventOver(post),
+            canContribute: !!userId && attendee && eventOver(post),
+            avgRating: ratingAgg._avg.rating ?? null,
+            ratingCount: ratingAgg._count,
+            myRating: myRating?.rating ?? null,
+            photos: photos.map((p) => ({
+                id: p.id,
+                url: p.url,
+                userId: p.userId,
+                by: p.user.firstName ?? "Someone",
+                avatarUrl: p.user.avatarUrl ?? null,
+                createdAt: p.createdAt,
+                canDelete: !!userId && (p.userId === userId || isOwner),
+            })),
+        });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /posts/:id/recap/photo — checked-in attendees only, after the event ends
+// TODO(moderation): before accepting a photo URL, run it through an image-moderation
+// check (e.g. Cloudinary moderation add-on / AWS Rekognition / Hive) to reject NSFW or
+// disallowed content. For now we rely on the Report/block flow + club-owner removal.
+router.post("/:id/recap/photo", requireAuth, validate(recapPhotoSchema), async (req, res, next) => {
+    try {
+        const userId = req.user!.userId;
+        const post = await prisma.post.findUnique({ where: { id: req.params.id }, select: { id: true, startAt: true, endAt: true } });
+        if (!post) return res.status(404).json({ error: "Post not found" });
+        if (!eventOver(post)) return res.status(400).json({ error: "You can add photos once the event has ended." });
+        if (!(await isCheckedIn(userId, post.id))) return res.status(403).json({ error: "Only people who attended can add photos." });
+
+        const photo = await prisma.eventPhoto.create({ data: { postId: post.id, userId, url: req.body.url } });
+        res.status(201).json({ id: photo.id, url: photo.url });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// DELETE /posts/:id/recap/photo/:photoId — uploader or club owner
+router.delete("/:id/recap/photo/:photoId", requireAuth, async (req, res, next) => {
+    try {
+        const userId = req.user!.userId;
+        const photo = await prisma.eventPhoto.findUnique({
+            where: { id: req.params.photoId },
+            include: { post: { select: { clubId: true } } },
+        });
+        if (!photo || photo.postId !== req.params.id) return res.status(404).json({ error: "Photo not found" });
+        if (photo.userId !== userId && photo.post.clubId !== userId) return res.status(403).json({ error: "Forbidden" });
+
+        await prisma.eventPhoto.delete({ where: { id: photo.id } });
+        res.json({ ok: true });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /posts/:id/recap/rating { rating } — checked-in attendees only, after the event
+router.post("/:id/recap/rating", requireAuth, validate(recapRatingSchema), async (req, res, next) => {
+    try {
+        const userId = req.user!.userId;
+        const post = await prisma.post.findUnique({ where: { id: req.params.id }, select: { id: true, startAt: true, endAt: true } });
+        if (!post) return res.status(404).json({ error: "Post not found" });
+        if (!eventOver(post)) return res.status(400).json({ error: "You can rate once the event has ended." });
+        if (!(await isCheckedIn(userId, post.id))) return res.status(403).json({ error: "Only people who attended can rate." });
+
+        await prisma.eventRating.upsert({
+            where: { postId_userId: { postId: post.id, userId } },
+            create: { postId: post.id, userId, rating: req.body.rating },
+            update: { rating: req.body.rating },
+        });
+
+        const agg = await prisma.eventRating.aggregate({ where: { postId: post.id }, _avg: { rating: true }, _count: true });
+        res.json({ ok: true, avgRating: agg._avg.rating ?? null, ratingCount: agg._count, myRating: req.body.rating });
     } catch (err) {
         next(err);
     }

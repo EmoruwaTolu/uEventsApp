@@ -52,6 +52,7 @@ export async function runSeriesTopUp() {
                 categories: Array.isArray(tpl.categories) ? tpl.categories : [],
                 images: Array.isArray(tpl.images) ? tpl.images : [],
                 capacity: tpl.capacity ?? undefined,
+                freeFood: !!tpl.freeFood,
                 seriesId: s.id,
                 occurrenceDate: occ,
             })),

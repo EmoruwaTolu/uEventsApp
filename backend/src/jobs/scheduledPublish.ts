@@ -6,7 +6,10 @@ async function notifyFollowers(
     clubName: string,
     postTitle: string,
     postId: string,
+    categories: string[] = [],
 ) {
+    const recipients = new Map<string, string | null>(); // userId -> pushToken
+
     const follows = await prisma.follow.findMany({
         where: {
             clubId,
@@ -14,7 +17,20 @@ async function notifyFollowers(
         },
         select: { userId: true, user: { select: { pushToken: true } } },
     });
-    if (!follows.length) return;
+    for (const f of follows) recipients.set(f.userId, f.user.pushToken ?? null);
+
+    if (categories.length > 0) {
+        const topicFollows = await prisma.interestFollow.findMany({
+            where: { category: { in: categories } },
+            select: { userId: true, user: { select: { pushToken: true } } },
+        });
+        for (const tf of topicFollows) {
+            if (!recipients.has(tf.userId)) recipients.set(tf.userId, tf.user.pushToken ?? null);
+        }
+    }
+
+    recipients.delete(clubId);
+    if (recipients.size === 0) return;
 
     const titleMap: Record<string, string> = {
         EVENT:        `New event from ${clubName}`,
@@ -26,8 +42,8 @@ async function notifyFollowers(
     const notifType = postType === "EVENT" ? "EVENT" : "POST";
 
     await prisma.notification.createMany({
-        data: follows.map((f) => ({
-            userId: f.userId,
+        data: [...recipients.keys()].map((userId) => ({
+            userId,
             type: notifType,
             title: notifTitle,
             body: postTitle,
@@ -36,7 +52,7 @@ async function notifyFollowers(
         skipDuplicates: true,
     });
 
-    const pushTokens = follows.map((f) => f.user.pushToken).filter(Boolean) as string[];
+    const pushTokens = [...recipients.values()].filter(Boolean) as string[];
     if (!pushTokens.length) return;
 
     fetch("https://exp.host/--/api/v2/push/send", {
@@ -70,6 +86,6 @@ export async function runScheduledPublish() {
         });
 
         const title = (post.locales as any)?.en?.title ?? (post.locales as any)?.fr?.title ?? "New post";
-        notifyFollowers(post.clubId, post.type, post.club.clubName ?? "", title, post.id).catch(console.error);
+        notifyFollowers(post.clubId, post.type, post.club.clubName ?? "", title, post.id, post.categories ?? []).catch(console.error);
     }
 }

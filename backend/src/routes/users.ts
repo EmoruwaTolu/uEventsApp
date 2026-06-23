@@ -233,6 +233,48 @@ router.patch("/me", requireAuth, validate(patchMeSchema), async (req, res, next)
     }
 });
 
+// GET /users/me/topics — categories (interests) the current user follows
+router.get("/me/topics", requireAuth, async (req, res, next) => {
+    try {
+        const rows = await prisma.interestFollow.findMany({
+            where: { userId: req.user!.userId },
+            select: { category: true },
+            orderBy: { createdAt: "asc" },
+        });
+        res.json(rows.map((r) => r.category));
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /users/me/topics { category } — follow a topic
+const topicSchema = z.object({ category: z.string().min(1).max(80) });
+router.post("/me/topics", requireAuth, validate(topicSchema), async (req, res, next) => {
+    try {
+        const { category } = req.body as { category: string };
+        await prisma.interestFollow.upsert({
+            where: { userId_category: { userId: req.user!.userId, category } },
+            create: { userId: req.user!.userId, category },
+            update: {},
+        });
+        res.status(201).json({ ok: true, category });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// DELETE /users/me/topics/:category — unfollow a topic
+router.delete("/me/topics/:category", requireAuth, async (req, res, next) => {
+    try {
+        await prisma.interestFollow.deleteMany({
+            where: { userId: req.user!.userId, category: req.params.category },
+        });
+        res.json({ ok: true });
+    } catch (err) {
+        next(err);
+    }
+});
+
 // GET /users/me/follows — clubs the current user follows
 router.get("/me/follows", requireAuth, async (req, res, next) => {
     try {
@@ -273,6 +315,53 @@ router.get("/me/rsvps", requireAuth, async (req, res, next) => {
             orderBy: { createdAt: "desc" },
         });
         res.json(rsvps.map((r) => r.post));
+    } catch (err) {
+        next(err);
+    }
+});
+
+// GET /users/me/attendance — events the user has checked in to (real attendance)
+router.get("/me/attendance", requireAuth, async (req, res, next) => {
+    try {
+        const checkIns = await prisma.checkIn.findMany({
+            where: { userId: req.user!.userId },
+            include: {
+                post: {
+                    select: {
+                        id: true, locales: true, startAt: true, categories: true,
+                        club: { select: { id: true, clubName: true, logoUrl: true } },
+                    },
+                },
+            },
+            orderBy: { checkedAt: "desc" },
+        });
+
+        // Current academic semester start: Winter (Jan), Spring/Summer (May), Fall (Sep).
+        const now = new Date();
+        const m = now.getMonth();
+        const semStartMonth = m < 4 ? 0 : m < 8 ? 4 : 8;
+        const semesterStart = new Date(now.getFullYear(), semStartMonth, 1);
+        const semesterLabel = `${["Winter", "Spring/Summer", "Fall"][semStartMonth / 4]} ${now.getFullYear()}`;
+
+        const events = checkIns.map((c) => {
+            const loc = (c.post.locales as any) ?? {};
+            return {
+                id: c.post.id,
+                title: loc.en?.title ?? loc.fr?.title ?? "Event",
+                clubName: c.post.club?.clubName ?? "",
+                clubLogo: c.post.club?.logoUrl ?? null,
+                startAt: c.post.startAt,
+                checkedAt: c.checkedAt,
+                categories: c.post.categories ?? [],
+            };
+        });
+
+        res.json({
+            total: checkIns.length,
+            thisSemester: checkIns.filter((c) => c.checkedAt >= semesterStart).length,
+            semesterLabel,
+            events,
+        });
     } catch (err) {
         next(err);
     }

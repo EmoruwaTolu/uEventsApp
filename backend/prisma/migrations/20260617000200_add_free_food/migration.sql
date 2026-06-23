@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Post" ADD COLUMN "freeFood" BOOLEAN NOT NULL DEFAULT false;

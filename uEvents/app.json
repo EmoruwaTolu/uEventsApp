@@ -1,0 +1,59 @@
+{
+  "expo": {
+    "name": "uEvents",
+    "slug": "uEvents",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "scheme": "uevents",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F5F4F0"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cssa.uevents"
+    },
+    "android": {
+      "package": "com.cssa.uevents",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F5F4F0"
+      },
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#8C0327"
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Allow uEvents to add events to your calendar."
+        }
+      ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "5c09391b-15e2-46b6-b6f6-b883d62135c6"
+      }
+    }
+  }
+}
