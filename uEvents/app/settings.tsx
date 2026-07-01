@@ -315,7 +315,7 @@ export default function SettingsScreen() {
     async function pickAvatar() {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== "granted") {
-            Alert.alert("Permission needed", "Please allow photo library access.");
+            Alert.alert(t.permissionNeededTitle, t.photoPermissionMsg);
             return;
         }
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -328,7 +328,7 @@ export default function SettingsScreen() {
     }
 
     async function saveProfile() {
-        if (!name.trim()) { Alert.alert("Name is required"); return; }
+        if (!name.trim()) { Alert.alert(t.nameRequired); return; }
         setSavingProfile(true);
         try {
             let finalAvatarUrl = avatarUrl || undefined;
@@ -344,14 +344,14 @@ export default function SettingsScreen() {
             closeModal();
             showToast("Profile updated");
         } catch (e: any) {
-            Alert.alert("Error", e.message ?? "Could not save profile.");
+            Alert.alert(t.errorTitle, e.message ?? t.couldNotSaveProfile);
         } finally {
             setSavingProfile(false);
         }
     }
 
     async function saveClubProfile() {
-        if (!clubName.trim()) { Alert.alert("Club name is required"); return; }
+        if (!clubName.trim()) { Alert.alert(t.clubNameRequired); return; }
         setSavingClubProfile(true);
         try {
             await authApi("/users/me", {
@@ -369,16 +369,16 @@ export default function SettingsScreen() {
             closeModal();
             showToast("Club profile updated");
         } catch (e: any) {
-            Alert.alert("Error", e.message ?? "Could not save profile.");
+            Alert.alert(t.errorTitle, e.message ?? t.couldNotSaveProfile);
         } finally {
             setSavingClubProfile(false);
         }
     }
 
     async function savePassword() {
-        if (!currentPw || !newPw || !confirmPw) { Alert.alert("Fill in all fields"); return; }
-        if (newPw !== confirmPw) { Alert.alert("Passwords don't match"); return; }
-        if (newPw.length < 8) { Alert.alert("Password must be at least 8 characters"); return; }
+        if (!currentPw || !newPw || !confirmPw) { Alert.alert(t.fillAllFields); return; }
+        if (newPw !== confirmPw) { Alert.alert(t.passwordsDontMatch); return; }
+        if (newPw.length < 8) { Alert.alert(t.passwordMin8); return; }
         setSavingPw(true);
         try {
             const res = await authApi<{ token?: string }>("/users/me/password", {
@@ -390,34 +390,34 @@ export default function SettingsScreen() {
             closeModal();
             showToast("Password changed");
         } catch (e: any) {
-            Alert.alert("Error", e.message ?? "Could not change password.");
+            Alert.alert(t.errorTitle, e.message ?? t.couldNotChangePassword);
         } finally {
             setSavingPw(false);
         }
     }
 
     function confirmLogout() {
-        Alert.alert("Log Out", "Are you sure you want to log out?", [
-            { text: "Cancel", style: "cancel" },
-            { text: "Log Out", style: "destructive", onPress: () => signOut() },
+        Alert.alert(t.logOutTitle, t.logOutMsg, [
+            { text: t.cancelBtn, style: "cancel" },
+            { text: t.logOutAction, style: "destructive", onPress: () => signOut() },
         ]);
     }
 
     function confirmDeleteAccount() {
         Alert.alert(
-            "Delete Account",
-            "This will permanently delete your account and all your data. This cannot be undone.",
+            t.deleteAccountTitle,
+            t.deleteAccountMsg,
             [
-                { text: "Cancel", style: "cancel" },
+                { text: t.cancelBtn, style: "cancel" },
                 {
-                    text: "Delete Account",
+                    text: t.deleteAccountAction,
                     style: "destructive",
                     onPress: async () => {
                         try {
                             await authApi("/users/me", { method: "DELETE" });
                             signOut();
                         } catch (e: any) {
-                            Alert.alert("Error", e?.message ?? "Could not delete account. Please try again.");
+                            Alert.alert(t.errorTitle, e?.message ?? t.couldNotDeleteAccount);
                         }
                     },
                 },

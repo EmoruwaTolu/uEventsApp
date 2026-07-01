@@ -12,6 +12,7 @@ import { useApi } from "../lib/useApi";
 import { useToast } from "../lib/ToastContext";
 import { uploadImage } from "../lib/uploadImage";
 import { useTheme } from "../lib/ThemeContext";
+import { useT } from "../lib/LangContext";
 import type { AppColors } from "../styles/theme";
 
 type FeedbackType = "BUG_REPORT" | "FEATURE_REQUEST";
@@ -177,6 +178,7 @@ export default function FeedbackModal() {
     const authApi = useApi();
     const { showToast } = useToast();
     const { colors: C } = useTheme();
+    const t = useT();
     const styles = useMemo(() => makeFeedbackStyles(C), [C]);
 
     const [feedbackType, setFeedbackType] = useState<FeedbackType>("BUG_REPORT");
@@ -187,7 +189,7 @@ export default function FeedbackModal() {
     async function pickScreenshot() {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== "granted") {
-            Alert.alert("Permission needed", "Please allow photo library access.");
+            Alert.alert(t.permissionNeededTitle, t.photoPermissionMsg);
             return;
         }
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -200,7 +202,7 @@ export default function FeedbackModal() {
 
     async function submit() {
         if (!message.trim()) {
-            Alert.alert("Please describe your feedback.");
+            Alert.alert(t.feedbackEmpty);
             return;
         }
         setSubmitting(true);
@@ -221,7 +223,7 @@ export default function FeedbackModal() {
             showToast("Feedback sent — thank you!");
             router.back();
         } catch (e: any) {
-            Alert.alert("Error", e.message ?? "Could not send feedback.");
+            Alert.alert(t.errorTitle, e.message ?? t.feedbackError);
         } finally {
             setSubmitting(false);
         }

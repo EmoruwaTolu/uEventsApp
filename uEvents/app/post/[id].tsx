@@ -11,7 +11,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useApi } from "../../lib/useApi";
 import { useToast } from "../../lib/ToastContext";
 import { useRsvp } from "../../lib/RsvpContext";
-import { useLang, pickLocale } from "../../lib/LangContext";
+import { useLikes } from "../../lib/LikeContext";
+import { useBookmarks } from "../../lib/BookmarkContext";
+import { useLang, pickLocale, useT } from "../../lib/LangContext";
 import { useAuth } from "../../auth/AuthContext";
 import { PostDetailSkeleton } from "../../components/SkeletonLoader";
 import { useTheme } from "../../lib/ThemeContext";
@@ -465,19 +467,19 @@ export default function PostDetailScreen() {
     const insets = useSafeAreaInsets();
     const { showToast, showActionToast } = useToast();
     const { lang } = useLang();
+    const t = useT();
     const { session } = useAuth();
     const scrollRef = useRef<ScrollView>(null);
     const { colors: C } = useTheme();
     const s = useMemo(() => makePostStyles(C), [C]);
 
     const { isRsvped, toggleRsvp: ctxToggleRsvp } = useRsvp();
+    const { resolve: resolveLike, toggleLike: toggleLikeCtx } = useLikes();
+    const { resolve: resolveBookmark, toggleBookmark: toggleBookmarkCtx } = useBookmarks();
     const [post, setPost] = useState<ApiPost | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [fetchError, setFetchError] = useState(false);
-    const [isLiked, setIsLiked] = useState(false);
-    const [likeCount, setLikeCount] = useState(0);
-    const [isBookmarked, setIsBookmarked] = useState(false);
     const [rsvpCount, setRsvpCount] = useState(0);
     const [pollOptions, setPollOptions] = useState<PollOption[]>([]);
     const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -503,10 +505,7 @@ export default function PostDetailScreen() {
         authApi<ApiPost>(`/posts/${id}`)
             .then((data) => {
                 setPost(data);
-                setLikeCount(data._count?.likes ?? 0);
                 setRsvpCount(data._count?.rsvps ?? 0);
-                setIsLiked(data.isLiked ?? false);
-                setIsBookmarked(data.isBookmarked ?? false);
                 setPollOptions(data.pollOptions ?? []);
                 setSelectedOption(data.userVote ?? null);
             })
@@ -552,28 +551,6 @@ export default function PostDetailScreen() {
         return () => clearInterval(tick);
     }, [lastCommentAt, post?.slowModeSeconds]);
 
-    async function toggleLike() {
-        const next = !isLiked;
-        setIsLiked(next);
-        setLikeCount((c) => c + (next ? 1 : -1));
-        try {
-            await authApi(`/posts/${id}/like`, { method: next ? "POST" : "DELETE" });
-        } catch {
-            setIsLiked(!next);
-            setLikeCount((c) => c + (next ? -1 : 1));
-        }
-    }
-
-    async function toggleBookmark() {
-        const next = !isBookmarked;
-        setIsBookmarked(next);
-        try {
-            await authApi(`/posts/${id}/bookmark`, { method: next ? "POST" : "DELETE" });
-        } catch {
-            setIsBookmarked(!next);
-        }
-    }
-
     async function toggleRsvp() {
         const next = !isRsvped(id!);
         setRsvpCount((c) => c + (next ? 1 : -1));
@@ -598,7 +575,7 @@ export default function PostDetailScreen() {
                 )
             );
         } catch {
-            Alert.alert("Vote failed", "Your vote could not be submitted. Please try again.");
+            Alert.alert(t.voteFailedTitle, t.voteFailedMsg);
         } finally {
             setVotingId(null);
         }
@@ -632,7 +609,7 @@ export default function PostDetailScreen() {
                 setSlowCooldown(post.slowModeSeconds);
             }
         } catch {
-            Alert.alert("Failed to post", "Your comment could not be submitted. Please try again.");
+            Alert.alert(t.failedToPostTitle, t.commentSubmitError);
         } finally {
             setCommentSubmitting(false);
         }
@@ -648,7 +625,7 @@ export default function PostDetailScreen() {
                 setComments((c) => c.map((x) => ({ ...x, isPinned: x.id === commentId })));
             }
         } catch {
-            Alert.alert("Failed", "Could not update pinned comment.");
+            Alert.alert(t.failedTitle, t.couldNotPinComment);
         }
     }
 
@@ -687,41 +664,53 @@ export default function PostDetailScreen() {
     }
 
     function reportPost() {
-        const REASONS = ["Spam", "Misleading", "Inappropriate content", "Harassment", "Other"];
-        Alert.alert("Report Post", "Why are you reporting this?",
+        const REASONS = [
+            { value: "Spam", label: t.reasonSpam },
+            { value: "Misleading", label: t.reasonMisleading },
+            { value: "Inappropriate content", label: t.reasonInappropriate },
+            { value: "Harassment", label: t.reasonHarassment },
+            { value: "Other", label: t.reasonOther },
+        ];
+        Alert.alert(t.reportPostTitle, t.reportPostMsg,
             [
                 ...REASONS.map((r) => ({
-                    text: r,
+                    text: r.label,
                     onPress: async () => {
                         try {
-                            await authApi(`/reports/posts/${id}`, { method: "POST", body: JSON.stringify({ reason: r }) });
-                            showToast("Post reported. Thank you.");
+                            await authApi(`/reports/posts/${id}`, { method: "POST", body: JSON.stringify({ reason: r.value }) });
+                            showToast(t.reportThanks);
                         } catch {
-                            showToast("Could not send report", "error");
+                            showToast(t.reportError, "error");
                         }
                     },
                 })),
-                { text: "Cancel", style: "cancel" },
+                { text: t.cancelBtn, style: "cancel" },
             ]
         );
     }
 
     function reportComment(commentId: string) {
-        const REASONS = ["Spam", "Harassment", "Inappropriate content", "Misinformation", "Other"];
-        Alert.alert("Report Comment", "Why are you reporting this comment?",
+        const REASONS = [
+            { value: "Spam", label: t.reasonSpam },
+            { value: "Harassment", label: t.reasonHarassment },
+            { value: "Inappropriate content", label: t.reasonInappropriate },
+            { value: "Misinformation", label: t.reasonMisinformation },
+            { value: "Other", label: t.reasonOther },
+        ];
+        Alert.alert(t.reportCommentTitle, t.reportCommentMsg,
             [
                 ...REASONS.map((r) => ({
-                    text: r,
+                    text: r.label,
                     onPress: async () => {
                         try {
-                            await authApi(`/reports/comments/${commentId}`, { method: "POST", body: JSON.stringify({ reason: r }) });
-                            showToast("Comment reported. Thank you.");
+                            await authApi(`/reports/comments/${commentId}`, { method: "POST", body: JSON.stringify({ reason: r.value }) });
+                            showToast(t.reportThanks);
                         } catch {
-                            showToast("Could not send report", "error");
+                            showToast(t.reportError, "error");
                         }
                     },
                 })),
-                { text: "Cancel", style: "cancel" },
+                { text: t.cancelBtn, style: "cancel" },
             ]
         );
     }
@@ -730,7 +719,7 @@ export default function PostDetailScreen() {
         if (!cameraPermission?.granted) {
             const result = await requestCameraPermission();
             if (!result.granted) {
-                Alert.alert("Camera access needed", "Please allow camera access to scan the check-in QR code.");
+                Alert.alert(t.cameraAccessTitle, t.cameraAccessMsg);
                 return;
             }
         }
@@ -804,6 +793,8 @@ export default function PostDetailScreen() {
         );
     }
 
+    const like = resolveLike(id!, { liked: post.isLiked ?? false, count: post._count?.likes ?? 0 });
+    const bm = resolveBookmark(id!, post.isBookmarked ?? false);
     const locale = pickLocale(post.locales, lang);
     const title = locale.title ?? "";
     const body = locale.body ?? "";
@@ -857,9 +848,9 @@ export default function PostDetailScreen() {
                             </Pressable>
                         </>
                     ) : (
-                        <Pressable onPress={toggleBookmark} style={s.topBarBtn} hitSlop={8} accessibilityLabel={isBookmarked ? "Remove bookmark" : "Bookmark post"} accessibilityRole="button">
+                        <Pressable onPress={() => toggleBookmarkCtx(id!, bm)} style={s.topBarBtn} hitSlop={8} accessibilityLabel={bm ? "Remove bookmark" : "Bookmark post"} accessibilityRole="button">
                             <Ionicons
-                                name={isBookmarked ? "bookmark" : "bookmark-outline"}
+                                name={bm ? "bookmark" : "bookmark-outline"}
                                 size={19}
                                 color={C.primary}
                             />
@@ -1023,15 +1014,15 @@ export default function PostDetailScreen() {
 
                     {/* Actions bar */}
                     <View style={s.actionsBar}>
-                        <Pressable style={s.actionBtn} onPress={toggleLike} accessibilityLabel={isLiked ? "Unlike post" : "Like post"} accessibilityRole="button">
+                        <Pressable style={s.actionBtn} onPress={() => toggleLikeCtx(id!, like)} accessibilityLabel={like.liked ? "Unlike post" : "Like post"} accessibilityRole="button">
                             <Ionicons
-                                name={isLiked ? "heart" : "heart-outline"}
+                                name={like.liked ? "heart" : "heart-outline"}
                                 size={20}
-                                color={isLiked ? C.primary : C.textLight}
+                                color={like.liked ? C.primary : C.textLight}
                             />
-                            {likeCount > 0 && !post.hideLikeCount && (
-                                <Text style={[s.actionCount, isLiked && s.actionCountActive]}>
-                                    {likeCount}
+                            {like.count > 0 && !post.hideLikeCount && (
+                                <Text style={[s.actionCount, like.liked && s.actionCountActive]}>
+                                    {like.count}
                                 </Text>
                             )}
                         </Pressable>

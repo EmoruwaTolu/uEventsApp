@@ -8,7 +8,7 @@ import ProfilePage from "../../components/profile/ProfileScreen";
 import ClubProfileView from "../../components/ClubProfileView";
 import { useApi } from "../../lib/useApi";
 import { useAuth } from "../../auth/AuthContext";
-import { useLang, pickLocale } from "../../lib/LangContext";
+import { useLang, pickLocale, useT } from "../../lib/LangContext";
 import { useToast } from "../../lib/ToastContext";
 import { ProfileSkeleton } from "../../components/SkeletonLoader";
 import { useTheme } from "../../lib/ThemeContext";
@@ -83,6 +83,7 @@ export default function ProfileScreen() {
     const authApi = useApi();
     const { lang } = useLang();
     const { showToast } = useToast();
+    const t = useT();
     const isFocused = useIsFocused();
     const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
     const { colors: C } = useTheme();
@@ -123,7 +124,7 @@ export default function ProfileScreen() {
                 authApi<Attendance>("/users/me/attendance").then(setAttendance).catch(() => {});
                 authApi<string[]>("/users/me/topics").then((tp) => setFollowedTopics(new Set(tp))).catch(() => {});
             }
-        }).catch(() => showToast("Could not load profile. Pull down to retry.", "error")).finally(() => { if (isRefresh) setRefreshing(false); });
+        }).catch(() => showToast(t.profileLoadError, "error")).finally(() => { if (isRefresh) setRefreshing(false); });
         authApi<ApiClub[]>("/users/me/follows").then(setFollowedClubs).catch(() => {});
     }, [session?.token]);
 
@@ -154,7 +155,7 @@ export default function ProfileScreen() {
             const more = await authApi<ApiPost[]>(`/users/me/rsvps?limit=${PAGE}&offset=${rsvpPosts.length}`);
             setRsvpPosts((prev) => [...prev, ...more]);
             setHasMoreRsvps(more.length === PAGE);
-        } catch {} finally { setLoadingMoreRsvps(false); }
+        } catch { showToast(t.loadMoreError, "error"); } finally { setLoadingMoreRsvps(false); }
     }, [loadingMoreRsvps, hasMoreRsvps, rsvpPosts.length]);
 
     const loadMoreBookmarks = useCallback(async () => {
@@ -164,7 +165,7 @@ export default function ProfileScreen() {
             const more = await authApi<ApiPost[]>(`/users/me/bookmarks?limit=${PAGE}&offset=${bookmarkedPosts.length}`);
             setBookmarkedPosts((prev) => [...prev, ...more]);
             setHasMoreBookmarks(more.length === PAGE);
-        } catch {} finally { setLoadingMoreBookmarks(false); }
+        } catch { showToast(t.loadMoreError, "error"); } finally { setLoadingMoreBookmarks(false); }
     }, [loadingMoreBookmarks, hasMoreBookmarks, bookmarkedPosts.length]);
 
     const loadMoreActivity = useCallback(async () => {
@@ -174,7 +175,7 @@ export default function ProfileScreen() {
             const more = await authApi<ApiActivity[]>(`/users/me/activity?limit=${PAGE}&offset=${activityPosts.length}`);
             setActivityPosts((prev) => [...prev, ...more]);
             setHasMoreActivity(more.length === PAGE);
-        } catch {} finally { setLoadingMoreActivity(false); }
+        } catch { showToast(t.loadMoreError, "error"); } finally { setLoadingMoreActivity(false); }
     }, [loadingMoreActivity, hasMoreActivity, activityPosts.length]);
 
     useEffect(() => {

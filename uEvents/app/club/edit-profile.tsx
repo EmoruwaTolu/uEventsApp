@@ -11,6 +11,7 @@ import { useApi } from "../../lib/useApi";
 import { useAuth } from "../../auth/AuthContext";
 import { uploadImage } from "../../lib/uploadImage";
 import { useToast } from "../../lib/ToastContext";
+import { useT } from "../../lib/LangContext";
 import { useTheme } from "../../lib/ThemeContext";
 import type { AppColors } from "../../styles/theme";
 
@@ -135,6 +136,7 @@ export default function EditClubProfile() {
     const { session } = useAuth();
     const { showToast } = useToast();
     const { colors: C } = useTheme();
+    const t = useT();
     const styles = useMemo(() => makeEditProfileStyles(C), [C]);
 
     const [loading, setLoading] = useState(true);
@@ -172,7 +174,7 @@ export default function EditClubProfile() {
     async function pickLogo() {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== "granted") {
-            Alert.alert("Permission needed", "Please allow photo library access.");
+            Alert.alert(t.permissionNeededTitle, t.photoPermissionMsg);
             return;
         }
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -188,7 +190,7 @@ export default function EditClubProfile() {
 
     async function save() {
         if (!clubName.trim()) {
-            Alert.alert("Club name is required");
+            Alert.alert(t.clubNameRequired);
             return;
         }
         setSaving(true);
@@ -214,7 +216,7 @@ export default function EditClubProfile() {
             showToast("Profile saved");
             router.back();
         } catch (e: any) {
-            Alert.alert("Error", e.message ?? "Could not save changes.");
+            Alert.alert(t.errorTitle, e.message ?? t.couldNotSaveChanges);
         } finally {
             setSaving(false);
         }

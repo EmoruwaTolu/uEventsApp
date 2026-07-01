@@ -16,6 +16,7 @@ import { useGuestGuard } from "../../lib/useGuestGuard";
 import { useGuestModal } from "../../lib/GuestModalContext";
 import { useLang, useT, pickLocale } from "../../lib/LangContext";
 import { useToast } from "../../lib/ToastContext";
+import { useLikes } from "../../lib/LikeContext";
 import { api } from "../../lib/api";
 import { FeedCardSkeleton, ErrorRetry } from "../../components/SkeletonLoader";
 
@@ -47,8 +48,19 @@ type ApiFeedPost = {
     rsvpCount?: number;
     comments: number;
     isLiked: boolean;
+    isBookmarked?: boolean;
     isFollowing?: boolean;
     reason?: string;
+    isPast?: boolean;
+    hasRecap?: boolean;
+    recapPhotos?: string[];
+    recapPhotoCount?: number;
+    recapContributors?: { name: string; avatarUrl?: string | null }[];
+    recapContributorCount?: number;
+    crowdCount?: number;
+    canRate?: boolean;
+    rating?: { avg: number | null; count: number; mine: number };
+    topComment?: { id: string; author: string; avatarUrl?: string | null; content: string; upvotes?: number; replyCount?: number } | null;
     poll?: {
         expiresAt?: string;
         totalVotes: number;
@@ -103,8 +115,18 @@ function mapPost(p: ApiFeedPost, lang: "en" | "fr"): FeedPost {
         likes: p.likes,
         comments: p.comments,
         isLiked: p.isLiked,
+        isBookmarked: p.isBookmarked,
         isFollowing: p.isFollowing ?? false,
         reason: p.reason,
+        hasRecap: p.hasRecap,
+        recapPhotos: p.recapPhotos,
+        recapPhotoCount: p.recapPhotoCount,
+        recapContributors: p.recapContributors,
+        recapContributorCount: p.recapContributorCount,
+        crowdCount: p.crowdCount,
+        canRate: p.canRate,
+        rating: p.rating,
+        topComment: p.topComment ?? undefined,
         poll: p.poll
             ? {
                   question: locale.title ?? "",
@@ -133,6 +155,7 @@ export default function HomeScreen() {
     const { showGuestModal } = useGuestModal();
     const isGuest = session?.role === "guest";
     const { showToast } = useToast();
+    const { overrides: likeOverrides, resolve: resolveLike, toggleLike: toggleLikeCtx } = useLikes();
     const [feedPosts, setFeedPosts] = useState<FeedPost[]>([]);
     const feedPostsLengthRef = useRef(0);
     const [discoverPosts, setDiscoverPosts] = useState<FeedPost[]>([]);
@@ -151,6 +174,7 @@ export default function HomeScreen() {
     const [verifyDismissed, setVerifyDismissed] = useState(false);
     const showVerifyBanner = session?.role === "user" && session?.emailVerified === false && !verifyDismissed;
     const [feedFilter, setFeedFilter] = useState<"ALL" | "event" | "poll" | "announcement" | "freefood">("ALL");
+    const [forYouFilter, setForYouFilter] = useState<"ALL" | "events" | "recaps" | "polls">("ALL");
     const { lang } = useLang();
     const t = useT();
     const greetingText = (() => {
@@ -160,12 +184,31 @@ export default function HomeScreen() {
         return t.goodEvening;
     })();
     const { width: screenWidth } = useWindowDimensions();
+    // Overlay the shared like state so a like made on a detail screen (or here)
+    // is reflected immediately, without waiting for the next feed refetch.
+    const applyLikeOverrides = useCallback((list: FeedPost[]) =>
+        list.map((p) => {
+            const o = likeOverrides.get(p.id);
+            return o ? { ...p, isLiked: o.liked, likes: o.count } : p;
+        }), [likeOverrides]);
+
     const filteredPosts = useMemo(
-        () => feedFilter === "ALL" ? feedPosts :
+        () => applyLikeOverrides(
+            feedFilter === "ALL" ? feedPosts :
             feedFilter === "freefood" ? feedPosts.filter(p => p.freeFood) :
             feedFilter === "announcement" ? feedPosts.filter(p => p.type === "announcement" || p.type === "update") :
-            feedPosts.filter(p => p.type === feedFilter),
-        [feedPosts, feedFilter]
+            feedPosts.filter(p => p.type === feedFilter)
+        ),
+        [feedPosts, feedFilter, applyLikeOverrides]
+    );
+    const discoverFiltered = useMemo(
+        () => applyLikeOverrides(
+            forYouFilter === "ALL" ? discoverPosts :
+            forYouFilter === "recaps" ? discoverPosts.filter(p => p.hasRecap) :
+            forYouFilter === "polls" ? discoverPosts.filter(p => p.type === "poll") :
+            discoverPosts.filter(p => p.type === "event" && !p.hasRecap)
+        ),
+        [discoverPosts, forYouFilter, applyLikeOverrides]
     );
     const slideAnim = useRef(new Animated.Value(0)).current;
     const indicatorX = slideAnim.interpolate({
@@ -330,24 +373,12 @@ export default function HomeScreen() {
         if (onboardingActiveRef.current) setShowOnboarding(true);
     }, []));
 
-    function updateLike(postId: string, wasLiked: boolean) {
-        const updater = (prev: FeedPost[]) =>
-            prev.map((p) =>
-                p.id === postId
-                    ? { ...p, isLiked: !wasLiked, likes: (p.likes ?? 0) + (wasLiked ? -1 : 1) }
-                    : p
-            );
-        setFeedPosts(updater);
-        setDiscoverPosts(updater);
-    }
-
     function handleLike(postId: string) {
         if (guestGuard()) return;
         const post = feedPosts.find((p) => p.id === postId) ?? discoverPosts.find((p) => p.id === postId);
-        const wasLiked = post?.isLiked ?? false;
-        updateLike(postId, wasLiked);
-        authApi(`/posts/${postId}/like`, { method: wasLiked ? "DELETE" : "POST" })
-            .catch(() => updateLike(postId, !wasLiked)); // revert on error
+        const base = { liked: post?.isLiked ?? false, count: post?.likes ?? 0 };
+        // Toggle from the currently displayed state (override wins over base).
+        toggleLikeCtx(postId, resolveLike(postId, base));
     }
 
     function handlePollVote(postId: string, optionId: string) {
@@ -391,7 +422,7 @@ export default function HomeScreen() {
         }).catch(() => {
             setFeedPosts(revert);
             setDiscoverPosts(revert);
-            Alert.alert("Vote failed", "Your vote could not be submitted. Please try again.");
+            Alert.alert(t.voteFailedTitle, t.voteFailedMsg);
         });
     }
 
@@ -425,7 +456,7 @@ export default function HomeScreen() {
                     );
                 }
             }
-            Alert.alert("Error", isNowFollowing ? t.followError : t.unfollowError);
+            Alert.alert(t.errorTitle, isNowFollowing ? t.followError : t.unfollowError);
         }
     }
 
@@ -559,10 +590,11 @@ export default function HomeScreen() {
                         onPostPress={handlePostPress}
                         onClubPress={(clubId) => router.push(`/club/${clubId}`)}
                         onLikePress={handleLike}
-                        onCommentPress={(postId, type) => type === "event"
-                            ? router.push({ pathname: "/event/[id]", params: { id: postId } })
+                        onCommentPress={(postId, type, opts) => type === "event"
+                            ? router.push({ pathname: "/event/[id]", params: { id: postId, ...(opts?.commentId ? { highlightComment: opts.commentId } : {}), ...(opts?.focus ? { focusComment: "1" } : {}) } })
                             : router.push({ pathname: "/post/[id]", params: { id: postId } })
                         }
+                        onAddRecapPhoto={(postId) => router.push({ pathname: "/event/[id]", params: { id: postId, addPhoto: "1" } })}
                         onPollVote={handlePollVote}
                         onFollowPress={handleFollow}
                         ListHeaderComponent={
@@ -671,24 +703,46 @@ export default function HomeScreen() {
                     {forYouMounted ? (
                     <SocialFeed
                         style={{ width: screenWidth, flex: 1 }}
-                        posts={loading || feedError ? [] : discoverPosts}
+                        posts={loading || feedError ? [] : discoverFiltered}
                         refreshControl={
                             <RefreshControl refreshing={refreshing} onRefresh={() => fetchFeed(true)} tintColor={C.primary} />
                         }
                         onPostPress={handlePostPress}
                         onClubPress={(clubId) => router.push(`/club/${clubId}`)}
                         onLikePress={handleLike}
-                        onCommentPress={(postId, type) => type === "event"
-                            ? router.push({ pathname: "/event/[id]", params: { id: postId } })
+                        onCommentPress={(postId, type, opts) => type === "event"
+                            ? router.push({ pathname: "/event/[id]", params: { id: postId, ...(opts?.commentId ? { highlightComment: opts.commentId } : {}), ...(opts?.focus ? { focusComment: "1" } : {}) } })
                             : router.push({ pathname: "/post/[id]", params: { id: postId } })
                         }
+                        onAddRecapPhoto={(postId) => router.push({ pathname: "/event/[id]", params: { id: postId, addPhoto: "1" } })}
                         onPollVote={handlePollVote}
                         onFollowPress={handleFollow}
                         ListHeaderComponent={
-                            <View style={styles.mastheadScrollable}>
-                                <Text style={styles.mastheadHeading}>{t.yourFeed}</Text>
-                                <View style={styles.mastheadAccent} />
-                            </View>
+                            <>
+                                <View style={styles.mastheadScrollable}>
+                                    <Text style={styles.mastheadHeading}>{t.yourFeed}</Text>
+                                    <View style={styles.mastheadAccent} />
+                                </View>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingBottom: 8 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 8, flexDirection: "row", alignItems: "center" }}>
+                                    {([
+                                        { value: "ALL", label: "ALL" },
+                                        { value: "events", label: "EVENTS" },
+                                        { value: "recaps", label: "RECAPS" },
+                                        { value: "polls", label: "POLLS" },
+                                    ] as const).map((f) => (
+                                        <Pressable
+                                            key={f.value}
+                                            onPress={() => setForYouFilter(f.value)}
+                                            accessibilityRole="button"
+                                            accessibilityLabel={`Filter by ${f.label}`}
+                                            accessibilityState={{ selected: forYouFilter === f.value }}
+                                            style={{ paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1.5, borderColor: forYouFilter === f.value ? C.primary : C.borderWarm, backgroundColor: forYouFilter === f.value ? C.primary : C.surface }}
+                                        >
+                                            <Text numberOfLines={1} maxFontSizeMultiplier={1.4} style={{ fontSize: 10, fontWeight: "800", letterSpacing: 1, color: forYouFilter === f.value ? "#fff" : C.textMuted }}>{f.label}</Text>
+                                        </Pressable>
+                                    ))}
+                                </ScrollView>
+                            </>
                         }
                         ListEmptyComponent={
                             loading ? (

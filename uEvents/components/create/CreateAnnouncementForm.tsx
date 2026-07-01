@@ -119,7 +119,7 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
             return;
         }
         if (scheduled && (!scheduleDate || scheduleDate <= new Date())) {
-            Alert.alert("Invalid schedule", "Please pick a future date and time.");
+            Alert.alert(t.invalidScheduleTitle, t.invalidScheduleMsg);
             return;
         }
         if (!silent) setSubmitting(true);
@@ -179,7 +179,7 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
                 onSuccess?.();
             }
         } catch (err: any) {
-            if (!silent) Alert.alert("Error", err?.message ?? "Failed to save");
+            if (!silent) Alert.alert(t.errorTitle, err?.message ?? t.failedToSave);
         } finally {
             if (!silent) setSubmitting(false);
         }
@@ -189,6 +189,8 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
         if (Platform.OS === "android") setPickerTarget(null);
         if (!selected) return;
         setScheduleDate((prev) => {
+            // iOS uses a combined date+time wheel — the selection carries both.
+            if (Platform.OS === "ios") return new Date(selected);
             const base = prev ?? new Date();
             const next = new Date(base);
             if (pickerTarget === "sched-date") {
@@ -355,11 +357,11 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
                                 </View>
                                 <DateTimePicker
                                     value={scheduleDate ?? new Date()}
-                                    mode={pickerTarget === "sched-date" ? "date" : "time"}
-                                    minimumDate={pickerTarget === "sched-date" ? new Date() : undefined}
+                                    mode="datetime"
+                                    minimumDate={new Date()}
                                     display="spinner"
                                     onChange={onPickerChange}
-                                    style={{ width: "100%", backgroundColor: "#000" }}
+                                    style={{ width: "100%", backgroundColor: "#FFFFFF" }} themeVariant="light" textColor="#111827"
                                 />
                             </View>
                         </BottomSheet>
@@ -480,7 +482,7 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
                         minimumDate={new Date()}
                         display="spinner"
                         onChange={(_, d) => { if (d) setExpiresAt(d); }}
-                        style={{ width: "100%", backgroundColor: "#000" }}
+                        style={{ width: "100%", backgroundColor: "#FFFFFF" }} themeVariant="light" textColor="#111827"
                     />
                 </View>
             </BottomSheet>
@@ -500,7 +502,7 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
                         minimumDate={new Date()}
                         display="spinner"
                         onChange={(_, d) => { if (d) setCommentsLockDate(d); }}
-                        style={{ width: "100%", backgroundColor: "#000" }}
+                        style={{ width: "100%", backgroundColor: "#FFFFFF" }} themeVariant="light" textColor="#111827"
                     />
                 </View>
             </BottomSheet>
@@ -712,7 +714,7 @@ const s = StyleSheet.create({
         backgroundColor: "rgba(0,0,0,0.35)",
     },
     pickerSheet: {
-        backgroundColor: "#000",
+        backgroundColor: "#FFFFFF",
         borderTopWidth: StyleSheet.hairlineWidth,
         borderTopColor: "#D1CBC3",
         paddingBottom: 34,

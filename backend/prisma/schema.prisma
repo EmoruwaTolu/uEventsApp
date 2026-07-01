@@ -217,6 +217,7 @@ model Comment {
   postId    String
   content   String
   parentId  String?
+  upvotes   Int       @default(0)
   createdAt DateTime  @default(now())
   post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
   user      User      @relation(fields: [userId], references: [id])

@@ -202,7 +202,7 @@ export default function MyPostsScreen() {
                             await authApi(`/posts/${id}`, { method: "PATCH", body: JSON.stringify({ isDraft: true }) });
                             setPosts((prev) => prev.map((p) => p.id === id ? { ...p, isDraft: true } : p));
                         } catch {
-                            Alert.alert("Error", "Failed to unpublish post.");
+                            Alert.alert(t.errorTitle, t.failedToUnpublish);
                         }
                     },
                 },
@@ -217,7 +217,7 @@ export default function MyPostsScreen() {
                 p.isDraft ? p : { ...p, isPinned: p.id === id ? !currentlyPinned : false }
             ));
         } catch {
-            Alert.alert("Error", "Failed to update pin.");
+            Alert.alert(t.errorTitle, t.failedToUpdatePin);
         }
     }
 
@@ -232,7 +232,7 @@ export default function MyPostsScreen() {
                         await authApi(`/posts/${id}`, { method: "DELETE" });
                         setPosts((prev) => prev.filter((p) => p.id !== id));
                     } catch (e) {
-                        Alert.alert("Error", "Failed to delete post.");
+                        Alert.alert(t.errorTitle, t.failedToDeletePost);
                     }
                 },
             },

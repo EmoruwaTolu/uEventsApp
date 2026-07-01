@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
-    View, Text, ScrollView, Pressable, Share, TextInput, Keyboard,
+    View, Text, ScrollView, Pressable, Share, TextInput, Keyboard, Animated,
     StyleSheet, ActivityIndicator, useWindowDimensions, Linking, Platform, KeyboardAvoidingView, Alert, RefreshControl, FlatList,
 } from "react-native";
 import { Image as ExpoImage } from "expo-image";
@@ -13,6 +13,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useApi } from "../../lib/useApi";
 import { useRsvp } from "../../lib/RsvpContext";
+import { useLikes } from "../../lib/LikeContext";
+import { useBookmarks } from "../../lib/BookmarkContext";
 import { useAuth } from "../../auth/AuthContext";
 import { useGuestGuard } from "../../lib/useGuestGuard";
 import { useLang, pickLocale, useT } from "../../lib/LangContext";
@@ -125,11 +127,12 @@ async function syncToCalendar(
     startAt?: string, endAt?: string, title?: string, location?: string,
     existingCalId?: string | null,
     onSuccess?: (msg: string) => void,
+    t?: any,
 ): Promise<CalEntry | null> {
     if (!startAt) return null;
     const { status } = await Calendar.requestCalendarPermissionsAsync();
     if (status !== "granted") {
-        Alert.alert("Permission required", "Please allow calendar access to add this event.");
+        Alert.alert(t.calendarPermTitle, t.calendarPermMsg);
         return null;
     }
     const start = new Date(startAt);
@@ -149,7 +152,7 @@ async function syncToCalendar(
                 await Calendar.updateEventAsync(existingCalId, details);
                 const entry = { calId: existingCalId, startAt };
                 await AsyncStorage.setItem(calKey(postId), JSON.stringify(entry));
-                onSuccess?.(`Updated "${title}" in Calendar`);
+                onSuccess?.(t.updatedInCalendarNamed(title ?? ""));
                 return entry;
             } catch {}
         }
@@ -158,16 +161,16 @@ async function syncToCalendar(
             Platform.OS === "ios" ? c.allowsModifications && c.source?.name === "iCloud" : c.isPrimary
         ) ?? calendars.find((c) => c.allowsModifications);
         if (!defaultCal) {
-            Alert.alert("No calendar found", "Could not find a writable calendar on your device.");
+            Alert.alert(t.noCalendarTitle, t.noCalendarMsg);
             return null;
         }
         const newId = await Calendar.createEventAsync(defaultCal.id, details);
         const entry = { calId: newId, startAt };
         await AsyncStorage.setItem(calKey(postId), JSON.stringify(entry));
-        onSuccess?.(`Added "${title}" to Calendar`);
+        onSuccess?.(t.addedToCalendarNamed(title ?? ""));
         return entry;
     } catch {
-        Alert.alert("Error", "Could not add the event to your calendar.");
+        Alert.alert(t.errorTitle, t.calendarAddError);
         return null;
     }
 }
@@ -181,22 +184,28 @@ export default function EventPage() {
     const authApi = useApi();
     const { showToast, showActionToast } = useToast();
     const { width: screenWidth } = useWindowDimensions();
-    const { id } = useLocalSearchParams<{ id: string }>();
+    const { id, focusComment, highlightComment, addPhoto } = useLocalSearchParams<{ id: string; focusComment?: string; highlightComment?: string; addPhoto?: string }>();
     const scrollRef = useRef<ScrollView>(null);
+    const commentInputRef = useRef<TextInput>(null);
+    const commentsSectionY = useRef(0);
+    const recapSectionY = useRef(0);
+    const commentLayouts = useRef<Record<string, number>>({});
+    const [highlightedComment, setHighlightedComment] = useState<string | null>(null);
+    const highlightAnim = useRef(new Animated.Value(0)).current;
+    const deepLinkHandled = useRef(false);
 
     const { session } = useAuth();
     const { lang } = useLang();
     const t = useT();
     const guestGuard = useGuestGuard();
     const { isRsvped, isWaitlisted, toggleRsvp: ctxToggleRsvp } = useRsvp();
+    const { resolve: resolveLike, toggleLike: toggleLikeCtx } = useLikes();
+    const { resolve: resolveBookmark, toggleBookmark: toggleBookmarkCtx } = useBookmarks();
     const [event, setEvent] = useState<ApiEvent | null>(null);
     const [loading, setLoading] = useState(true);
     const [fetchError, setFetchError] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [rsvpLoading, setRsvpLoading] = useState(false);
-    const [isBookmarked, setIsBookmarked] = useState(false);
-    const [isLiked, setIsLiked] = useState(false);
-    const [likeCount, setLikeCount] = useState(0);
     const [recommended, setRecommended] = useState<RecommendedEvent[]>([]);
     const [recap, setRecap] = useState<RecapData | null>(null);
     const [recapUploading, setRecapUploading] = useState(false);
@@ -229,7 +238,7 @@ export default function EventPage() {
         if (calEntry && !calNeedsUpdate) { showToast(t.inCalendar); return; }
         const entry = await syncToCalendar(
             id, event?.startAt, event?.endAt, title, event?.locationName,
-            calNeedsUpdate ? calEntry?.calId : null, showToast,
+            calNeedsUpdate ? calEntry?.calId : null, showToast, t,
         );
         if (entry) setCalEntry(entry);
     }
@@ -251,13 +260,13 @@ export default function EventPage() {
             setRecap((r) => r ? { ...r, avgRating: res.avgRating, ratingCount: res.ratingCount, myRating: res.myRating } : r);
             showToast("Thanks for rating!");
         } catch (e: any) {
-            Alert.alert("Couldn't rate", e?.message ?? "Please try again.");
+            Alert.alert(t.couldntRateTitle, e?.message ?? t.genericTryAgain);
         }
     }
 
     async function addRecapPhoto() {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== "granted") { Alert.alert("Permission needed", "Please allow photo library access."); return; }
+        if (status !== "granted") { Alert.alert(t.permissionNeededTitle, t.photoPermissionMsg); return; }
         const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"] as any, quality: 0.9 });
         if (result.canceled || !result.assets?.[0]) return;
         setRecapUploading(true);
@@ -269,16 +278,16 @@ export default function EventPage() {
             setRecap((r) => r ? { ...r, photos: [{ id: photo.id, url: photo.url, userId: session?.userId ?? "", by: "You", canDelete: true }, ...(r.photos ?? [])] } : r);
             showToast("Photo added");
         } catch (e: any) {
-            Alert.alert("Upload failed", e?.message ?? "Please try again.");
+            Alert.alert(t.uploadFailedTitle, e?.message ?? t.genericTryAgain);
         } finally {
             setRecapUploading(false);
         }
     }
 
     function deleteRecapPhoto(photoId: string) {
-        Alert.alert("Remove photo", "Remove this photo from the recap?", [
-            { text: "Cancel", style: "cancel" },
-            { text: "Remove", style: "destructive", onPress: async () => {
+        Alert.alert(t.removePhotoTitle, t.removePhotoMsg, [
+            { text: t.cancelBtn, style: "cancel" },
+            { text: t.removeBtn, style: "destructive", onPress: async () => {
                 setRecap((r) => r ? { ...r, photos: (r.photos ?? []).filter((p) => p.id !== photoId) } : r);
                 try { await authApi(`/posts/${id}/recap/photo/${photoId}`, { method: "DELETE" }); } catch {}
             } },
@@ -304,7 +313,7 @@ export default function EventPage() {
         if (isRefresh) setRefreshing(true); else setLoading(true);
         setFetchError(false);
         authApi<ApiEvent>(`/posts/${id}`)
-            .then((data) => { setEvent(data); setIsBookmarked(!!data.isBookmarked); setIsLiked(!!data.isLiked); setLikeCount(data._count?.likes ?? 0); })
+            .then((data) => { setEvent(data); })
             .catch(() => setFetchError(true))
             .finally(() => isRefresh ? setRefreshing(false) : setLoading(false));
         authApi<RecommendedEvent[]>("/events?upcoming=true&limit=10")
@@ -316,6 +325,37 @@ export default function EventPage() {
     }
 
     useEffect(() => { loadEvent(); }, [id]);
+
+    // Deep-link from the feed: focus the composer ("Join the conversation"),
+    // scroll to + highlight a specific comment (tapped TOP COMMENT), or open the
+    // recap photo picker ("Add yours").
+    useEffect(() => {
+        if (deepLinkHandled.current) return;
+        if (!focusComment && !highlightComment && !addPhoto) return;
+        if (loading) return;                                   // page content (ScrollView/input) not mounted yet
+        if (highlightComment && comments.length === 0) return; // wait for comments to load
+        if (addPhoto && !recap) return;                        // wait for the recap section to exist
+        deepLinkHandled.current = true;
+        // Let the ScrollView lay out + measure section offsets before acting.
+        const timer = setTimeout(() => {
+            if (highlightComment) {
+                const y = commentsSectionY.current + (commentLayouts.current[highlightComment] ?? 0) - 90;
+                scrollRef.current?.scrollTo({ y: Math.max(0, y), animated: true });
+                setHighlightedComment(highlightComment);
+                // Hold the colour briefly, then fade it gently back to the card.
+                highlightAnim.setValue(1);
+                Animated.timing(highlightAnim, { toValue: 0, duration: 1800, delay: 900, useNativeDriver: false })
+                    .start(({ finished }) => { if (finished) setHighlightedComment(null); });
+            } else if (focusComment) {
+                scrollRef.current?.scrollToEnd({ animated: true });
+                commentInputRef.current?.focus();
+            } else if (addPhoto) {
+                scrollRef.current?.scrollTo({ y: Math.max(0, recapSectionY.current - 60), animated: true });
+                if (recap?.canContribute) setTimeout(() => addRecapPhoto(), 450);
+            }
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [loading, comments, recap, focusComment, highlightComment, addPhoto]);
 
     const pendingDeletes = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
@@ -357,47 +397,59 @@ export default function EventPage() {
     }
 
     function reportPost() {
-        const REASONS = ["Spam", "Misleading event details", "Inappropriate content", "Harassment", "Other"];
-        Alert.alert("Report Event", "Why are you reporting this event?",
+        const REASONS = [
+            { value: "Spam", label: t.reasonSpam },
+            { value: "Misleading event details", label: t.reasonMisleading },
+            { value: "Inappropriate content", label: t.reasonInappropriate },
+            { value: "Harassment", label: t.reasonHarassment },
+            { value: "Other", label: t.reasonOther },
+        ];
+        Alert.alert(t.reportEventTitle, t.reportEventMsg,
             [
                 ...REASONS.map((r) => ({
-                    text: r,
+                    text: r.label,
                     onPress: async () => {
                         try {
                             await authApi(`/reports/posts/${id}`, {
                                 method: "POST",
-                                body: JSON.stringify({ reason: r }),
+                                body: JSON.stringify({ reason: r.value }),
                             });
-                            showToast("Event reported. Thank you.");
+                            showToast(t.reportThanks);
                         } catch {
-                            showToast("Could not send report", "error");
+                            showToast(t.reportError, "error");
                         }
                     },
                 })),
-                { text: "Cancel", style: "cancel" },
+                { text: t.cancelBtn, style: "cancel" },
             ]
         );
     }
 
     function reportComment(commentId: string) {
-        const REASONS = ["Spam", "Harassment", "Inappropriate content", "Misinformation", "Other"];
-        Alert.alert("Report Comment", "Why are you reporting this comment?",
+        const REASONS = [
+            { value: "Spam", label: t.reasonSpam },
+            { value: "Harassment", label: t.reasonHarassment },
+            { value: "Inappropriate content", label: t.reasonInappropriate },
+            { value: "Misinformation", label: t.reasonMisinformation },
+            { value: "Other", label: t.reasonOther },
+        ];
+        Alert.alert(t.reportCommentTitle, t.reportCommentMsg,
             [
                 ...REASONS.map((r) => ({
-                    text: r,
+                    text: r.label,
                     onPress: async () => {
                         try {
                             await authApi(`/reports/comments/${commentId}`, {
                                 method: "POST",
-                                body: JSON.stringify({ reason: r }),
+                                body: JSON.stringify({ reason: r.value }),
                             });
-                            showToast("Comment reported. Thank you.");
+                            showToast(t.reportThanks);
                         } catch {
-                            showToast("Could not send report", "error");
+                            showToast(t.reportError, "error");
                         }
                     },
                 })),
-                { text: "Cancel", style: "cancel" },
+                { text: t.cancelBtn, style: "cancel" },
             ]
         );
     }
@@ -425,7 +477,7 @@ export default function EventPage() {
             }
             Keyboard.dismiss();
         } catch {
-            Alert.alert("Error", "Failed to post comment. Please try again.");
+            Alert.alert(t.errorTitle, t.commentPostError);
         } finally {
             setCommentLoading(false);
         }
@@ -472,6 +524,8 @@ export default function EventPage() {
 
     const isPostOwner = session?.userType === "CLUB" && session?.userId === event?.club?.id;
 
+    const like = resolveLike(id!, { liked: event.isLiked ?? false, count: event._count?.likes ?? 0 });
+    const bm = resolveBookmark(id!, event.isBookmarked ?? false);
     const locale = pickLocale(event?.locales, lang);
     const title = locale.title ?? "Untitled Event";
     const body = locale.body ?? "";
@@ -550,43 +604,25 @@ export default function EventPage() {
                         ) : (
                             <>
                                 <Pressable
-                                    onPress={async () => {
-                                        const next = !isLiked;
-                                        setIsLiked(next);
-                                        setLikeCount((c) => Math.max(0, c + (next ? 1 : -1)));
-                                        try {
-                                            await authApi(`/posts/${id}/like`, { method: next ? "POST" : "DELETE" });
-                                        } catch {
-                                            setIsLiked(!next);
-                                            setLikeCount((c) => Math.max(0, c + (next ? -1 : 1)));
-                                        }
-                                    }}
+                                    onPress={() => toggleLikeCtx(id!, like)}
                                     style={[styles.topBarBtn, { flexDirection: "row", alignItems: "center", gap: 4 }]}
                                     hitSlop={8}
-                                    accessibilityLabel={isLiked ? "Unlike event" : "Like event"}
+                                    accessibilityLabel={like.liked ? "Unlike event" : "Like event"}
                                     accessibilityRole="button"
                                 >
-                                    <Ionicons name={isLiked ? "heart" : "heart-outline"} size={20} color="#8C0327" />
-                                    {likeCount > 0 && !event.hideLikeCount && (
-                                        <Text style={{ fontSize: 13, fontWeight: "700", color: "#8C0327" }}>{likeCount}</Text>
+                                    <Ionicons name={like.liked ? "heart" : "heart-outline"} size={20} color="#8C0327" />
+                                    {like.count > 0 && !event.hideLikeCount && (
+                                        <Text style={{ fontSize: 13, fontWeight: "700", color: "#8C0327" }}>{like.count}</Text>
                                     )}
                                 </Pressable>
                                 <Pressable
-                                    onPress={async () => {
-                                        const next = !isBookmarked;
-                                        setIsBookmarked(next);
-                                        try {
-                                            await authApi(`/posts/${id}/bookmark`, { method: next ? "POST" : "DELETE" });
-                                        } catch {
-                                            setIsBookmarked(!next);
-                                        }
-                                    }}
+                                    onPress={() => toggleBookmarkCtx(id!, bm)}
                                     style={styles.topBarBtn}
                                     hitSlop={8}
-                                    accessibilityLabel={isBookmarked ? "Remove bookmark" : "Bookmark event"}
+                                    accessibilityLabel={bm ? "Remove bookmark" : "Bookmark event"}
                                     accessibilityRole="button"
                                 >
-                                    <Ionicons name={isBookmarked ? "bookmark" : "bookmark-outline"} size={19} color="#8C0327" />
+                                    <Ionicons name={bm ? "bookmark" : "bookmark-outline"} size={19} color="#8C0327" />
                                 </Pressable>
                                 <Pressable
                                     style={styles.topBarBtn}
@@ -884,7 +920,7 @@ export default function EventPage() {
 
                 {/* ── Post-event recap ── */}
                 {isPast && recap && (
-                    <View style={styles.recapSection}>
+                    <View style={styles.recapSection} onLayout={(e) => { recapSectionY.current = e.nativeEvent.layout.y; }}>
                         <Text style={styles.recapEyebrow}>EVENT RECAP</Text>
                         <View style={styles.recapAccent} />
                         {!recap.visible ? (
@@ -1027,7 +1063,7 @@ export default function EventPage() {
                     )}
 
                     {/* ── Comments ── */}
-                    <View style={[styles.card, styles.commentsSection]}>
+                    <View style={[styles.card, styles.commentsSection]} onLayout={(e) => { commentsSectionY.current = e.nativeEvent.layout.y; }}>
                         <Text style={styles.sectionLabel}>{t.comments}</Text>
                         <Text style={styles.commentsCount}>
                             {t.commentCount(comments.length)}
@@ -1088,7 +1124,16 @@ export default function EventPage() {
                                 const avatar = c.user?.avatarUrl ?? c.user?.logoUrl;
                                 const isClub = c.user?.type === "CLUB";
                                 return (
-                                    <View key={c.id} style={styles.commentRow}>
+                                    <View key={c.id} style={styles.commentRow} onLayout={(e) => { commentLayouts.current[c.id] = e.nativeEvent.layout.y; }}>
+                                        {highlightedComment === c.id && (
+                                            <Animated.View
+                                                pointerEvents="none"
+                                                style={{
+                                                    position: "absolute", top: 0, bottom: 0, left: -16, right: -16,
+                                                    backgroundColor: highlightAnim.interpolate({ inputRange: [0, 1], outputRange: [`${C.primaryBg}00`, C.primaryBg] }),
+                                                }}
+                                            />
+                                        )}
                                         <View style={[styles.commentAvatar, isClub && styles.commentAvatarClub]}>
                                             {avatar
                                                 ? <ExpoImage source={{ uri: avatar }} style={styles.commentAvatarImg} contentFit="cover" transition={200} />
@@ -1210,6 +1255,7 @@ export default function EventPage() {
             {/* ── Comment input bar ── */}
             <View style={styles.commentBar}>
                 <TextInput
+                    ref={commentInputRef}
                     style={styles.commentInput}
                     placeholder={t.addCommentPlaceholder}
                     placeholderTextColor="#9CA3AF"
@@ -1610,6 +1656,11 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
     commentRow: {
         flexDirection: "row", gap: 10, paddingVertical: 12,
         borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border,
+    },
+    commentRowHighlight: {
+        backgroundColor: C.primaryBg,
+        marginHorizontal: -16, paddingHorizontal: 16,
+        borderLeftWidth: 3, borderLeftColor: C.primary,
     },
     commentAvatar: {
         width: 32, height: 32, borderRadius: 16,

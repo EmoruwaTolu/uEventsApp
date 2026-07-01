@@ -10,6 +10,7 @@ import PatternBackground from "../components/PatternBackground";
 import { useAuth } from "../auth/AuthContext";
 import { useApi } from "../lib/useApi";
 import { useTheme } from "../lib/ThemeContext";
+import { useT } from "../lib/LangContext";
 import type { AppColors } from "../styles/theme";
 
 type Step = 1 | 2 | 3;
@@ -176,6 +177,7 @@ export default function ClubOnboarding() {
     const { completeOnboarding } = useAuth();
     const authApi = useApi();
     const { colors: C } = useTheme();
+    const t = useT();
     const s = useMemo(() => makeStyles(C), [C]);
 
     const [step, setStep] = useState<Step>(1);
@@ -212,7 +214,7 @@ export default function ClubOnboarding() {
             await completeOnboarding();
             router.replace("/(tabs)");
         } catch (e: any) {
-            Alert.alert("Error", e.message ?? "Could not save. Please try again.");
+            Alert.alert(t.errorTitle, e.message ?? t.couldNotSave);
         } finally {
             setSaving(false);
         }
@@ -300,7 +302,7 @@ export default function ClubOnboarding() {
                                     <Pressable
                                         style={[s.nextBtn, !clubName.trim() && s.nextBtnDisabled]}
                                         onPress={() => {
-                                            if (!clubName.trim()) { Alert.alert("Club name is required"); return; }
+                                            if (!clubName.trim()) { Alert.alert(t.clubNameRequired); return; }
                                             setStep(2);
                                         }}
                                     >

@@ -7,6 +7,8 @@ import { View, ActivityIndicator, Text, Pressable, StyleSheet } from "react-nati
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider, useAuth } from "../auth/AuthContext";
 import { RsvpProvider } from "../lib/RsvpContext";
+import { LikeProvider } from "../lib/LikeContext";
+import { BookmarkProvider } from "../lib/BookmarkContext";
 import { LangProvider } from "../lib/LangContext";
 import { ToastProvider } from "../lib/ToastContext";
 import { GuestModalProvider } from "../lib/GuestModalContext";
@@ -125,13 +127,17 @@ export default function RootLayout() {
                 <AuthProvider>
                     <LangProvider>
                         <RsvpProvider>
-                            <ToastProvider>
-                                <GuestModalProvider>
-                                    <StatusBar style="dark" backgroundColor="#D0D0D0" />
-                                    <Gate />
-                                    <OfflineBanner />
-                                </GuestModalProvider>
-                            </ToastProvider>
+                            <LikeProvider>
+                                <BookmarkProvider>
+                                    <ToastProvider>
+                                        <GuestModalProvider>
+                                            <StatusBar style="dark" backgroundColor="#D0D0D0" />
+                                            <Gate />
+                                            <OfflineBanner />
+                                        </GuestModalProvider>
+                                    </ToastProvider>
+                                </BookmarkProvider>
+                            </LikeProvider>
                         </RsvpProvider>
                     </LangProvider>
                 </AuthProvider>

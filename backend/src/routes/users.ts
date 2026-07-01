@@ -309,12 +309,23 @@ router.get("/me/rsvps", requireAuth, async (req, res, next) => {
                         startAt: true, endAt: true, locationName: true,
                         club: { select: { id: true, clubName: true, logoUrl: true } },
                         _count: { select: { rsvps: true } },
+                        // A few real attendees for the "X, Y and N others are going" row.
+                        rsvps: {
+                            take: 3,
+                            orderBy: { createdAt: "asc" },
+                            select: { user: { select: { id: true, firstName: true, avatarUrl: true } } },
+                        },
                     },
                 },
             },
             orderBy: { createdAt: "desc" },
         });
-        res.json(rsvps.map((r) => r.post));
+        res.json(rsvps.map((r) => {
+            const { rsvps: preview, ...post } = r.post as typeof r.post & {
+                rsvps: { user: { id: string; firstName: string | null; avatarUrl: string | null } }[];
+            };
+            return { ...post, rsvpPreview: (preview ?? []).map((p) => p.user) };
+        }));
     } catch (err) {
         next(err);
     }
@@ -323,13 +334,17 @@ router.get("/me/rsvps", requireAuth, async (req, res, next) => {
 // GET /users/me/attendance — events the user has checked in to (real attendance)
 router.get("/me/attendance", requireAuth, async (req, res, next) => {
     try {
+        const userId = req.user!.userId;
         const checkIns = await prisma.checkIn.findMany({
-            where: { userId: req.user!.userId },
+            where: { userId },
             include: {
                 post: {
                     select: {
                         id: true, locales: true, startAt: true, categories: true,
+                        freeFood: true, images: true,
                         club: { select: { id: true, clubName: true, logoUrl: true } },
+                        // The current user's own rating for this event (if they left one).
+                        recapRatings: { where: { userId }, select: { rating: true } },
                     },
                 },
             },
@@ -343,16 +358,39 @@ router.get("/me/attendance", requireAuth, async (req, res, next) => {
         const semesterStart = new Date(now.getFullYear(), semStartMonth, 1);
         const semesterLabel = `${["Winter", "Spring/Summer", "Fall"][semStartMonth / 4]} ${now.getFullYear()}`;
 
+        // Attendance streak: consecutive Monday-start weeks (ending this week, or
+        // last week if nothing yet this week) that contain at least one check-in.
+        const weekIndex = (d: Date): number => {
+            const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+            const dow = (date.getUTCDay() + 6) % 7; // 0 = Monday
+            date.setUTCDate(date.getUTCDate() - dow);
+            return Math.floor(date.getTime() / (7 * 86400000));
+        };
+        const attendedWeeks = new Set(checkIns.map((c) => weekIndex(c.checkedAt)));
+        const thisWeek = weekIndex(now);
+        let streakWeeks = 0;
+        let cursor = attendedWeeks.has(thisWeek) ? thisWeek : thisWeek - 1;
+        while (attendedWeeks.has(cursor)) { streakWeeks++; cursor--; }
+
+        // Free meals: distinct check-ins to events that advertised free food.
+        const freeMeals = checkIns.filter((c) => c.post.freeFood).length;
+
         const events = checkIns.map((c) => {
             const loc = (c.post.locales as any) ?? {};
+            const imageUrl =
+                loc.en?.posterUrl ?? loc.en?.imageUrl ??
+                loc.fr?.posterUrl ?? loc.fr?.imageUrl ??
+                c.post.images?.[0] ?? c.post.club?.logoUrl ?? null;
             return {
                 id: c.post.id,
                 title: loc.en?.title ?? loc.fr?.title ?? "Event",
                 clubName: c.post.club?.clubName ?? "",
                 clubLogo: c.post.club?.logoUrl ?? null,
+                imageUrl,
                 startAt: c.post.startAt,
                 checkedAt: c.checkedAt,
                 categories: c.post.categories ?? [],
+                rating: c.post.recapRatings?.[0]?.rating ?? null,
             };
         });
 
@@ -360,6 +398,8 @@ router.get("/me/attendance", requireAuth, async (req, res, next) => {
             total: checkIns.length,
             thisSemester: checkIns.filter((c) => c.checkedAt >= semesterStart).length,
             semesterLabel,
+            streakWeeks,
+            freeMeals,
             events,
         });
     } catch (err) {

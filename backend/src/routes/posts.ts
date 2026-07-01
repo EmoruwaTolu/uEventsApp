@@ -899,6 +899,9 @@ router.get("/popular", optionalAuth, async (req, res, next) => {
 // Scores upcoming events + recent posts by followed clubs, followed topics,
 // popularity (log-scaled), and time-proximity, and attaches a human reason
 // ("Because you follow X", "Matches your interest: Y", "Popular this week").
+// Minimum post likes before a top comment is surfaced in the For You feed.
+const TOP_COMMENT_MIN_LIKES = 10;
+
 router.get("/for-you", requireAuth, async (req, res, next) => {
     try {
         const userId = req.user!.userId;
@@ -921,6 +924,9 @@ router.get("/for-you", requireAuth, async (req, res, next) => {
                     { startAt: null },
                     { startAt: { gte: now } },
                     { endAt: { gte: now } },
+                    // Past events still surface if they have a recap to show off.
+                    { recapPhotos: { some: {} } },
+                    { recapRatings: { some: {} } },
                 ],
             },
             orderBy: { createdAt: "desc" },
@@ -928,9 +934,25 @@ router.get("/for-you", requireAuth, async (req, res, next) => {
             include: {
                 club: { select: { id: true, clubName: true, logoUrl: true } },
                 pollOptions: { include: { _count: { select: { votes: true } } } },
-                _count: { select: { likes: true, comments: true, rsvps: true } },
+                _count: { select: { likes: true, comments: true, rsvps: true, recapPhotos: true, checkIns: true } },
                 likes: { where: { userId }, select: { userId: true } },
+                bookmarks: { where: { userId }, select: { userId: true } },
                 rsvps: { where: { userId }, select: { userId: true } },
+                checkIns: { where: { userId }, select: { userId: true } },
+                recapPhotos: {
+                    take: 12, orderBy: { createdAt: "desc" },
+                    select: { url: true, userId: true, user: { select: { type: true, firstName: true, lastName: true, clubName: true, avatarUrl: true, logoUrl: true } } },
+                },
+                recapRatings: { select: { rating: true, userId: true } },
+                comments: {
+                    where: { parentId: null },
+                    orderBy: { createdAt: "desc" },
+                    take: 1,
+                    include: {
+                        user: { select: { type: true, firstName: true, lastName: true, avatarUrl: true, clubName: true, logoUrl: true } },
+                        _count: { select: { replies: true } },
+                    },
+                },
             },
         });
 
@@ -964,11 +986,16 @@ router.get("/for-you", requireAuth, async (req, res, next) => {
                 score += Math.max(0, 20 - ageDays * 2);
             }
 
+            const past = isEvent && !!p.endAt && new Date(p.endAt) < now;
+            // Surface recap-rich past events prominently (the For You "moment").
+            const hasRecapContent = past && (p._count.recapPhotos > 0 || (p.recapRatings ?? []).length > 0);
+            if (hasRecapContent) score += 45;
             let reason: string;
             if (fromFollowed) reason = `Because you follow ${p.club.clubName}`;
             else if (matchedTopic) reason = `Matches your interest: ${matchedTopic}`;
             else if (engagement >= 8) reason = "Popular this week";
-            else if (daysUntil <= 3) reason = "Happening soon";
+            else if (!past && isEvent && p.startAt && daysUntil >= 0 && daysUntil <= 3) reason = "Happening soon";
+            else if (past) reason = "Catch the recap";
             else reason = "Recommended for you";
 
             return { p, score, reason };
@@ -978,6 +1005,43 @@ router.get("/for-you", requireAuth, async (req, res, next) => {
 
         res.json(scored.slice(0, 25).map(({ p, reason }) => {
             const totalVotes = p.pollOptions.reduce((sum, o) => sum + o._count.votes, 0);
+
+            // Recap / rating summary (past events with attendee contributions)
+            const isPastEvent = p.type === "EVENT" && !!p.endAt && new Date(p.endAt) < now;
+            const ratings = p.recapRatings ?? [];
+            const ratingCount = ratings.length;
+            const avgRating = ratingCount ? ratings.reduce((s, r) => s + r.rating, 0) / ratingCount : null;
+            const myRating = ratings.find((r) => r.userId === userId)?.rating ?? 0;
+            const attended = (p.checkIns ?? []).length > 0;
+            const hasRecap = isPastEvent && (p._count.recapPhotos > 0 || ratingCount > 0);
+
+            // Distinct photo contributors (for the "Maya, Jordan & N others" row)
+            const seenContrib = new Set<string>();
+            const contributors: { name: string; avatarUrl: string | null }[] = [];
+            for (const ph of (p.recapPhotos ?? [])) {
+                if (seenContrib.has(ph.userId)) continue;
+                seenContrib.add(ph.userId);
+                const u = ph.user;
+                contributors.push({
+                    name: u.type === "CLUB" ? (u.clubName ?? "Club") : (u.firstName ?? "Student"),
+                    avatarUrl: u.avatarUrl ?? u.logoUrl ?? null,
+                });
+            }
+
+            // Top comment preview — only on non-recap posts that have cleared a
+            // like threshold (a conversation worth surfacing), never on recaps.
+            const tc = (!hasRecap && p._count.likes >= TOP_COMMENT_MIN_LIKES) ? p.comments?.[0] : undefined;
+            const topComment = tc ? {
+                id: tc.id,
+                author: tc.user.type === "CLUB"
+                    ? (tc.user.clubName ?? "Club")
+                    : [tc.user.firstName, tc.user.lastName].filter(Boolean).join(" ").trim() || "Student",
+                avatarUrl: tc.user.avatarUrl ?? tc.user.logoUrl ?? null,
+                content: tc.content,
+                upvotes: tc.upvotes,
+                replyCount: tc._count.replies,
+            } : null;
+
             return {
                 id: p.id,
                 clubId: p.club.id,
@@ -997,9 +1061,21 @@ router.get("/for-you", requireAuth, async (req, res, next) => {
                 comments: p._count.comments,
                 rsvpCount: p._count.rsvps,
                 isLiked: p.likes.length > 0,
+                isBookmarked: p.bookmarks.length > 0,
                 isRsvped: p.rsvps.length > 0,
                 isFollowing: followedIds.has(p.club.id),
                 reason,
+                // For You enrichments
+                isPast: isPastEvent,
+                hasRecap,
+                recapPhotos: (p.recapPhotos ?? []).map((ph) => ph.url),
+                recapPhotoCount: p._count.recapPhotos,
+                recapContributors: contributors.slice(0, 3),
+                recapContributorCount: contributors.length,
+                crowdCount: p._count.checkIns,
+                canRate: isPastEvent && attended,
+                rating: { avg: avgRating, count: ratingCount, mine: myRating },
+                topComment,
                 poll: p.type === "POLL" ? {
                     expiresAt: p.pollExpiresAt,
                     allowMultiple: p.pollAllowMultiple,
@@ -1056,23 +1132,24 @@ router.get("/feed", requireAuth, async (req, res, next) => {
     try {
         const userId = req.user!.userId;
 
-        const [follows, topics] = await Promise.all([
-            prisma.follow.findMany({ where: { userId }, select: { clubId: true } }),
-            prisma.interestFollow.findMany({ where: { userId }, select: { category: true } }),
-        ]);
+        const follows = await prisma.follow.findMany({ where: { userId }, select: { clubId: true } });
         const followedIds = new Set(follows.map((f) => f.clubId));
-        const followedTopics = topics.map((t) => t.category);
         const clubIds = [...followedIds].filter((id) => id !== userId);
+        const now = new Date();
 
-        // Posts from followed clubs OR matching a followed topic (interest).
-        const orConds: any[] = [];
-        if (clubIds.length > 0) orConds.push({ clubId: { in: clubIds } });
-        if (followedTopics.length > 0) orConds.push({ categories: { hasSome: followedTopics } });
-
+        // Following = posts from clubs you actually follow, forward-looking:
+        // non-events always, but events only while they're upcoming/ongoing
+        // (past events live in For You as recaps). Topic-based discovery from
+        // clubs you don't follow happens in For You, not here.
         const posts = await prisma.post.findMany({
             where: {
                 isDraft: false,
-                ...(orConds.length > 0 ? { OR: orConds } : { id: { in: [] } }),
+                clubId: { in: clubIds.length ? clubIds : ["__none__"] },
+                OR: [
+                    { type: { not: "EVENT" } },
+                    { endAt: { gte: now } },
+                    { startAt: { gte: now } },
+                ],
             },
             orderBy: { createdAt: "desc" },
             take: 60,
@@ -1083,6 +1160,7 @@ router.get("/feed", requireAuth, async (req, res, next) => {
                 },
                 _count: { select: { likes: true, comments: true, rsvps: true } },
                 likes: { where: { userId }, select: { userId: true } },
+                bookmarks: { where: { userId }, select: { userId: true } },
             },
         });
 
@@ -1124,6 +1202,7 @@ router.get("/feed", requireAuth, async (req, res, next) => {
                 comments: p._count.comments,
                 rsvpCount: p._count.rsvps,
                 isLiked: p.likes.length > 0,
+                isBookmarked: p.bookmarks.length > 0,
                 isFollowing: followedIds.has(p.club.id),
                 poll: p.type === "POLL" ? {
                     expiresAt: p.pollExpiresAt,

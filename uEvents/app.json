@@ -47,6 +47,19 @@
         {
           "calendarPermission": "Allow uEvents to add events to your calendar."
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow uEvents to use the camera to scan event check-in QR codes."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow uEvents to access your photos to upload event recaps and your profile picture.",
+          "cameraPermission": "Allow uEvents to use the camera to take event photos."
+        }
       ]
     ],
     "extra": {

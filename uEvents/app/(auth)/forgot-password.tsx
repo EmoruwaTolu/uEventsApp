@@ -9,6 +9,7 @@ import { LoginButton } from "../../components/LoginButton";
 import { LoginInput } from "../../components/LoginInput";
 import { api } from "../../lib/api";
 import { useTheme } from "../../lib/ThemeContext";
+import { useT } from "../../lib/LangContext";
 import type { AppColors } from "../../styles/theme";
 
 type Stage = "input" | "sent";
@@ -113,6 +114,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
 export default function ForgotPasswordScreen() {
     const router = useRouter();
     const { colors: C } = useTheme();
+    const t = useT();
     const s = useMemo(() => makeStyles(C), [C]);
     const [email, setEmail] = useState("");
     const [emailError, setEmailError] = useState("");
@@ -122,11 +124,11 @@ export default function ForgotPasswordScreen() {
     async function handleSubmit() {
         const trimmed = email.trim();
         if (!trimmed) {
-            setEmailError("Email is required");
+            setEmailError(t.authEmailRequired);
             return;
         }
-        if (!trimmed.toLowerCase().endsWith("@uottawa.ca")) {
-            setEmailError("Must be a uOttawa email (@uottawa.ca)");
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(trimmed)) {
+            setEmailError(t.authEmailInvalid);
             return;
         }
         setEmailError("");
@@ -159,27 +161,27 @@ export default function ForgotPasswordScreen() {
                     {/* Back */}
                     <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={12}>
                         <Text style={s.backArrow}>←</Text>
-                        <Text style={s.backText}>BACK</Text>
+                        <Text style={s.backText}>{t.back}</Text>
                     </Pressable>
 
                     {/* Header */}
                     <View style={s.header}>
-                        <Text style={s.eyebrow}>ACCOUNT</Text>
+                        <Text style={s.eyebrow}>{t.authAccountEyebrow}</Text>
                         <View style={s.titleWrap}>
                             <Text style={s.title}>uEvents</Text>
                         </View>
                         <View style={s.accent} />
                         <Text style={s.subtitle}>
                             {stage === "input"
-                                ? "Enter your email and we'll send a reset link."
-                                : "Check your inbox."}
+                                ? t.fpSubtitleInput
+                                : t.fpSubtitleSent}
                         </Text>
                     </View>
 
                     {stage === "input" ? (
                         <View style={s.form}>
                             <LoginInput
-                                label="EMAIL"
+                                label={t.authEmailLabel}
                                 placeholder="you@university.ca"
                                 keyboardType="email-address"
                                 value={email}
@@ -189,7 +191,7 @@ export default function ForgotPasswordScreen() {
                             />
                             {emailError ? <Text style={s.fieldError}>{emailError}</Text> : null}
                             <LoginButton
-                                title="SEND RESET LINK"
+                                title={t.fpSendResetBtn}
                                 onPress={handleSubmit}
                                 filled
                                 loading={loading}
@@ -198,22 +200,22 @@ export default function ForgotPasswordScreen() {
                     ) : (
                         <View style={s.form}>
                             <View style={s.sentBox}>
-                                <Text style={s.sentTitle}>EMAIL SENT</Text>
+                                <Text style={s.sentTitle}>{t.fpEmailSentTitle}</Text>
                                 <Text style={s.sentBody}>
-                                    If an account exists for{" "}
+                                    {t.fpSentBodyPrefix}
                                     <Text style={s.sentEmail}>{email.trim()}</Text>
-                                    , you'll receive a password reset link shortly.
+                                    {t.fpSentBodySuffix}
                                 </Text>
                             </View>
                             <LoginButton
-                                title="BACK TO SIGN IN"
+                                title={t.fpBackToSignIn}
                                 onPress={() => router.back()}
                                 filled
                             />
                         </View>
                     )}
 
-                    <Text style={s.powered}>Powered by the CSSA</Text>
+                    <Text style={s.powered}>{t.authPoweredBy}</Text>
                 </ScrollView>
             </SafeAreaView>
         </KeyboardAvoidingView>

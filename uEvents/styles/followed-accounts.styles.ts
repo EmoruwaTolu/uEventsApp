@@ -95,7 +95,7 @@ export const makeFollowedStyles = (C: AppColors) => StyleSheet.create({
 });
 
 export const followedStyles = makeFollowedStyles({
-    bg: "#F7F3EE", surface: "#FFFFFF", surfaceAlt: "#F9FAFB", loadingBg: "#D0D0D0",
+    bg: "#F7F3EE", surface: "#FFFFFF", surfaceAlt: "#F9FAFB", surfaceWarm: "#FAF6EF", loadingBg: "#D0D0D0",
     text: "#111827", textBody: "#374151", textMuted: "#6B7280", textLight: "#9CA3AF",
     textFaint: "#D1CBC3", primary: "#8C0327", primaryBg: "#FEE2E2", gold: "#A8763E",
     border: "#E5E7EB", borderWarm: "#E5E0D8", skeleton: "#E5E0D8",

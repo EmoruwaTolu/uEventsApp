@@ -8,7 +8,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useApi } from "../../lib/useApi";
-import { useLang } from "../../lib/LangContext";
+import { useLang, useT } from "../../lib/LangContext";
 import { useTheme } from "../../lib/ThemeContext";
 import type { AppColors } from "../../styles/theme";
 
@@ -558,6 +558,7 @@ export default function PostAnalyticsDetail() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const { width } = useWindowDimensions();
     const { colors: C } = useTheme();
+    const t = useT();
     const s = useMemo(() => makeStyles(C), [C]);
     const [post, setPost] = useState<ApiPost | null>(null);
     const [loading, setLoading] = useState(true);
@@ -619,15 +620,15 @@ export default function PostAnalyticsDetail() {
     }
 
     function deleteComment(commentId: string) {
-        Alert.alert("Delete Comment", "Remove this comment?", [
-            { text: "Cancel", style: "cancel" },
+        Alert.alert(t.deleteCommentTitle, t.removeCommentMsg, [
+            { text: t.cancelBtn, style: "cancel" },
             {
-                text: "Delete", style: "destructive", onPress: async () => {
+                text: t.deleteAction, style: "destructive", onPress: async () => {
                     try {
                         await authApi(`/posts/${id}/comments/${commentId}`, { method: "DELETE" });
                         setAllComments((c) => c.filter((x) => x.id !== commentId));
                     } catch {
-                        Alert.alert("Error", "Could not delete comment.");
+                        Alert.alert(t.errorTitle, t.couldNotDeleteComment);
                     }
                 },
             },

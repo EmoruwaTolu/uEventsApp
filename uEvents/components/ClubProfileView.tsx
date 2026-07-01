@@ -14,6 +14,7 @@ import { useLang, pickLocale } from "../lib/LangContext";
 import { useToast } from "../lib/ToastContext";
 import { ProfileSkeleton, ErrorRetry } from "./SkeletonLoader";
 import { useTheme } from "../lib/ThemeContext";
+import { useT } from "../lib/LangContext";
 import type { AppColors } from "../styles/theme";
 import { LinearGradient } from "expo-linear-gradient";
 import SocialFeed, { FeedPost } from "./SocialFeed";
@@ -156,6 +157,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
     const { session } = useAuth();
     const authApi = useApi();
     const { showToast } = useToast();
+    const t = useT();
     const { lang } = useLang();
     const isOwner = session?.userId === id;
 
@@ -253,7 +255,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
             // Revert optimistic update
             setIsFollowing(wasFollowing);
             setClub((c) => c ? { ...c, _count: { ...c._count, followedBy: c._count.followedBy + (wasFollowing ? 1 : -1) } } : c);
-            Alert.alert("Error", `Could not ${wasFollowing ? "unfollow" : "follow"} this club. Please try again.`);
+            Alert.alert(t.errorTitle, wasFollowing ? t.unfollowError : t.followError);
         }
     }
 

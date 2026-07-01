@@ -9,7 +9,9 @@ export const API_BASE = PUB.trim();
 // Fail fast instead of hanging forever when the backend is unreachable
 // (wrong LAN IP, server down, asleep). Without this, requests on a bad
 // EXPO_PUBLIC_API_BASE never resolve and the UI is stuck on skeletons.
-const DEFAULT_TIMEOUT_MS = 12000;
+// Set generously because the hosted backend (Render free tier) can cold-start
+// in ~30–50s after going idle; a tight timeout would fail testers' first request.
+const DEFAULT_TIMEOUT_MS = 45000;
 
 export async function api<T>(
     path: string,

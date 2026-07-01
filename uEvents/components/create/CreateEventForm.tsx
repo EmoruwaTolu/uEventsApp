@@ -191,18 +191,26 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
     const pickerIsDate = pickerTarget === "start-date" || pickerTarget === "end-date" || pickerTarget === "sched-date";
     const pickerIsStart = pickerTarget === "start-date" || pickerTarget === "start-time";
     const pickerIsSched = pickerTarget === "sched-date" || pickerTarget === "sched-time";
-    const pickerMode = pickerIsDate ? "date" : "time";
+    // iOS shows a single combined date+time wheel; Android picks date or time per tap.
+    const pickerCombined = Platform.OS === "ios";
+    const pickerMode = pickerCombined ? "datetime" : (pickerIsDate ? "date" : "time");
     const pickerValue = pickerIsStart
         ? (startDate ?? new Date())
         : pickerIsSched
             ? (scheduleDate ?? new Date())
             : (endDate ?? startDate ?? new Date());
+    // Start/publish can't be in the past; an end can't be before its start.
+    const pickerMinimumDate = pickerIsStart || pickerIsSched
+        ? new Date()
+        : (startDate ?? undefined);
 
     function onPickerChange(_: DateTimePickerEvent, selected?: Date) {
         if (Platform.OS === "android") { setPickerTarget(null); touch("date"); }
         if (!selected) return;
         const setter = pickerIsStart ? setStartDate : pickerIsSched ? setScheduleDate : setEndDate;
         setter((prev) => {
+            // Combined (iOS) picker carries the full date+time in one selection.
+            if (pickerCombined) return new Date(selected);
             const base = prev ?? new Date();
             const next = new Date(base);
             if (pickerIsDate) {
@@ -220,7 +228,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
             return;
         }
         if (scheduled && (!scheduleDate || scheduleDate <= new Date())) {
-            Alert.alert("Invalid schedule", "Please pick a future date and time.");
+            Alert.alert(t.invalidScheduleTitle, t.invalidScheduleMsg);
             return;
         }
         if (!silent) setSubmitting(true);
@@ -323,7 +331,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                         showToast(t.published);
                         onSuccess?.();
                     } catch (e: any) {
-                        Alert.alert("Error", e?.message ?? "Failed to save");
+                        Alert.alert(t.errorTitle, e?.message ?? t.failedToSave);
                     }
                 };
                 setSubmitting(false);
@@ -366,7 +374,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                 onSuccess?.();
             }
         } catch (err: any) {
-            if (!silent) Alert.alert("Error", err?.message ?? "Failed to save");
+            if (!silent) Alert.alert(t.errorTitle, err?.message ?? t.failedToSave);
         } finally {
             if (!silent) setSubmitting(false);
         }
@@ -515,7 +523,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                         <DateTimePicker
                             value={pickerValue}
                             mode={pickerMode}
-                            minimumDate={pickerIsDate && (pickerIsStart || pickerIsSched) ? new Date() : undefined}
+                            minimumDate={pickerMinimumDate}
                             onChange={onPickerChange}
                         />
                     )}
@@ -542,10 +550,10 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                                 <DateTimePicker
                                     value={pickerValue}
                                     mode={pickerMode}
-                                    minimumDate={pickerIsDate && pickerIsStart ? new Date() : undefined}
+                                    minimumDate={pickerMinimumDate}
                                     display="spinner"
                                     onChange={onPickerChange}
-                                    style={{ width: "100%", backgroundColor: "#000" }}
+                                    style={{ width: "100%", backgroundColor: "#FFFFFF" }} themeVariant="light" textColor="#111827"
                                 />
                             </View>
                         </BottomSheet>
@@ -938,7 +946,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                         minimumDate={new Date()}
                         display="spinner"
                         onChange={(_, d) => { if (d) setExpiresAt(d); }}
-                        style={{ width: "100%", backgroundColor: "#000" }}
+                        style={{ width: "100%", backgroundColor: "#FFFFFF" }} themeVariant="light" textColor="#111827"
                     />
                 </View>
             </BottomSheet>
@@ -958,7 +966,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                         minimumDate={new Date()}
                         display="spinner"
                         onChange={(_, d) => { if (d) setCommentsLockDate(d); }}
-                        style={{ width: "100%", backgroundColor: "#000" }}
+                        style={{ width: "100%", backgroundColor: "#FFFFFF" }} themeVariant="light" textColor="#111827"
                     />
                 </View>
             </BottomSheet>
@@ -1287,7 +1295,7 @@ const s = StyleSheet.create({
         backgroundColor: "rgba(0,0,0,0.35)",
     },
     pickerSheet: {
-        backgroundColor: "#000",
+        backgroundColor: "#FFFFFF",
         borderTopWidth: StyleSheet.hairlineWidth,
         borderTopColor: "#D1CBC3",
         paddingBottom: 34,

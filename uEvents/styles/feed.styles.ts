@@ -2,7 +2,7 @@ import { StyleSheet } from "react-native";
 import type { AppColors } from "./theme";
 
 export const makeFeedStyles = (C: AppColors) => StyleSheet.create({
-    feed: { gap: 8, padding: 8 },
+    feed: { paddingBottom: 8 },
     postCard: {
         backgroundColor: C.surface,
         borderBottomWidth: 1,
@@ -785,7 +785,7 @@ export const makeFeedStyles = (C: AppColors) => StyleSheet.create({
 });
 
 export const styles = makeFeedStyles({
-    bg: "#F7F3EE", surface: "#FFFFFF", surfaceAlt: "#F9FAFB", loadingBg: "#D0D0D0",
+    bg: "#F7F3EE", surface: "#FFFFFF", surfaceAlt: "#F9FAFB", surfaceWarm: "#FAF6EF", loadingBg: "#D0D0D0",
     text: "#111827", textBody: "#374151", textMuted: "#6B7280", textLight: "#9CA3AF",
     textFaint: "#D1CBC3", primary: "#8C0327", primaryBg: "#FEE2E2", gold: "#A8763E",
     border: "#E5E7EB", borderWarm: "#E5E0D8", skeleton: "#E5E0D8",

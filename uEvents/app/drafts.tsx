@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useApi } from "../lib/useApi";
 import { useToast } from "../lib/ToastContext";
+import { useT } from "../lib/LangContext";
 import type { DraftType } from "../lib/draftsStore";
 import { useTheme } from "../lib/ThemeContext";
 import type { AppColors } from "../styles/theme";
@@ -165,6 +166,7 @@ export default function DraftsScreen() {
     const authApi = useApi();
     const { showToast } = useToast();
     const { colors: C } = useTheme();
+    const t = useT();
     const styles = useMemo(() => makeDraftsStyles(C), [C]);
     const [drafts, setDrafts] = useState<ApiDraft[]>([]);
     const [loading, setLoading] = useState(true);
@@ -184,17 +186,17 @@ export default function DraftsScreen() {
     useFocusEffect(useCallback(() => { loadDrafts(); }, []));
 
     async function deleteDraft(id: string) {
-        Alert.alert("Delete Draft", "Are you sure?", [
-            { text: "Cancel", style: "cancel" },
+        Alert.alert(t.deleteDraftTitle, t.areYouSure, [
+            { text: t.cancelBtn, style: "cancel" },
             {
-                text: "Delete",
+                text: t.deleteAction,
                 style: "destructive",
                 onPress: async () => {
                     try {
                         await authApi(`/posts/${id}`, { method: "DELETE" });
                         setDrafts((prev) => prev.filter((d) => d.id !== id));
                     } catch {
-                        Alert.alert("Error", "Could not delete draft. Please try again.");
+                        Alert.alert(t.errorTitle, t.couldNotDeleteDraft);
                     }
                 },
             },
@@ -202,10 +204,10 @@ export default function DraftsScreen() {
     }
 
     async function cancelSchedule(id: string) {
-        Alert.alert("Cancel Schedule", "This will unschedule the post and keep it as a draft.", [
-            { text: "Keep scheduled", style: "cancel" },
+        Alert.alert(t.cancelScheduleTitle, t.cancelScheduleMsg, [
+            { text: t.keepScheduled, style: "cancel" },
             {
-                text: "Unschedule",
+                text: t.unschedule,
                 style: "destructive",
                 onPress: async () => {
                     try {
@@ -217,7 +219,7 @@ export default function DraftsScreen() {
                             prev.map((d) => d.id === id ? { ...d, publishAt: null } : d)
                         );
                     } catch {
-                        Alert.alert("Error", "Could not unschedule post.");
+                        Alert.alert(t.errorTitle, t.couldNotUnschedule);
                     }
                 },
             },

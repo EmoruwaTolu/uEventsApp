@@ -9,6 +9,7 @@ import { LoginButton } from "../../components/LoginButton";
 import { LoginInput } from "../../components/LoginInput";
 import { api } from "../../lib/api";
 import { useTheme } from "../../lib/ThemeContext";
+import { useT } from "../../lib/LangContext";
 import type { AppColors } from "../../styles/theme";
 
 type Stage = "input" | "done";
@@ -53,6 +54,7 @@ export default function ResetPasswordScreen() {
     const router = useRouter();
     const { token } = useLocalSearchParams<{ token: string }>();
     const { colors: C } = useTheme();
+    const t = useT();
     const s = useMemo(() => makeStyles(C), [C]);
 
     const [password, setPassword] = useState("");
@@ -65,15 +67,15 @@ export default function ResetPasswordScreen() {
     async function handleSubmit() {
         const trimmedPw = password.trim();
         if (trimmedPw.length < 8) {
-            setPasswordError("Password must be at least 8 characters");
+            setPasswordError(t.passwordMin8);
             return;
         }
         if (trimmedPw !== confirm) {
-            setPasswordError("Passwords do not match");
+            setPasswordError(t.passwordsDontMatch);
             return;
         }
         if (!token) {
-            setPasswordError("Invalid or missing reset token. Please request a new link.");
+            setPasswordError(t.rpInvalidToken);
             return;
         }
         setPasswordError("");
@@ -85,7 +87,7 @@ export default function ResetPasswordScreen() {
             });
             setStage("done");
         } catch (e: any) {
-            setPasswordError(e?.message ?? "This reset link is invalid or has expired.");
+            setPasswordError(e?.message ?? t.rpLinkExpired);
         } finally {
             setLoading(false);
         }
@@ -104,27 +106,27 @@ export default function ResetPasswordScreen() {
                 >
                     <Pressable onPress={() => router.replace("/(auth)/login" as any)} style={s.backBtn} hitSlop={12}>
                         <Text style={s.backArrow}>←</Text>
-                        <Text style={s.backText}>SIGN IN</Text>
+                        <Text style={s.backText}>{t.authSignInBtn}</Text>
                     </Pressable>
 
                     <View style={s.header}>
-                        <Text style={s.eyebrow}>ACCOUNT</Text>
+                        <Text style={s.eyebrow}>{t.authAccountEyebrow}</Text>
                         <View style={s.titleWrap}>
                             <Text style={s.title}>uEvents</Text>
                         </View>
                         <View style={s.accent} />
                         <Text style={s.subtitle}>
                             {stage === "input"
-                                ? "Choose a new password for your account."
-                                : "Your password has been updated."}
+                                ? t.rpSubtitleInput
+                                : t.rpSubtitleDone}
                         </Text>
                     </View>
 
                     {stage === "input" ? (
                         <View style={s.form}>
                             <LoginInput
-                                label="NEW PASSWORD"
-                                placeholder="At least 8 characters"
+                                label={t.rpNewPasswordLabel}
+                                placeholder={t.rpNewPasswordPlaceholder}
                                 secureTextEntry
                                 value={password}
                                 onChangeText={(v) => { setPassword(v); setPasswordError(""); }}
@@ -134,8 +136,8 @@ export default function ResetPasswordScreen() {
                             />
                             <LoginInput
                                 ref={confirmRef}
-                                label="CONFIRM PASSWORD"
-                                placeholder="Repeat your new password"
+                                label={t.rpConfirmLabel}
+                                placeholder={t.rpConfirmPlaceholder}
                                 secureTextEntry
                                 value={confirm}
                                 onChangeText={(v) => { setConfirm(v); setPasswordError(""); }}
@@ -145,7 +147,7 @@ export default function ResetPasswordScreen() {
                             />
                             {passwordError ? <Text style={s.fieldError}>{passwordError}</Text> : null}
                             <LoginButton
-                                title="SET NEW PASSWORD"
+                                title={t.rpSetNewBtn}
                                 onPress={handleSubmit}
                                 filled
                                 loading={loading}
@@ -154,20 +156,20 @@ export default function ResetPasswordScreen() {
                     ) : (
                         <View style={s.form}>
                             <View style={s.successBox}>
-                                <Text style={s.successTitle}>PASSWORD UPDATED</Text>
+                                <Text style={s.successTitle}>{t.rpUpdatedTitle}</Text>
                                 <Text style={s.successBody}>
-                                    Your password has been changed. You can now sign in with your new password.
+                                    {t.rpUpdatedBody}
                                 </Text>
                             </View>
                             <LoginButton
-                                title="SIGN IN"
+                                title={t.authSignInBtn}
                                 onPress={() => router.replace("/(auth)/login" as any)}
                                 filled
                             />
                         </View>
                     )}
 
-                    <Text style={s.powered}>Powered by the CSSA</Text>
+                    <Text style={s.powered}>{t.authPoweredBy}</Text>
                 </ScrollView>
             </SafeAreaView>
         </KeyboardAvoidingView>

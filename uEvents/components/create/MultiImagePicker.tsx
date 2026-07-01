@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import { useT } from "../../lib/LangContext";
 
 const BURGUNDY = "#8C0327";
 const MAX_IMAGES = 10;
@@ -24,15 +25,16 @@ type Props = {
 };
 
 export default function MultiImagePicker({ images, onChange }: Props) {
+    const t = useT();
     async function pickMore() {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== "granted") {
-            Alert.alert("Permission needed", "Please allow photo library access.");
+            Alert.alert(t.permissionNeededTitle, t.photoPermissionMsg);
             return;
         }
         const remaining = MAX_IMAGES - images.length;
         if (remaining <= 0) {
-            Alert.alert("Limit reached", `You can add up to ${MAX_IMAGES} images.`);
+            Alert.alert(t.imageLimitTitle, t.imageLimitMsg(MAX_IMAGES));
             return;
         }
         const result = await ImagePicker.launchImageLibraryAsync({

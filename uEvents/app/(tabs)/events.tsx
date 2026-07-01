@@ -1,8 +1,12 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import {
-    View, Text, ScrollView, Pressable, Image,
-    StyleSheet, ActivityIndicator, TextInput, RefreshControl, Linking,
+    View, Text, ScrollView, Pressable, Image, Animated,
+    StyleSheet, TextInput, RefreshControl, Linking,
+    LayoutAnimation, Platform, UIManager,
 } from "react-native";
+import * as Haptics from "expo-haptics";
+import * as Calendar from "expo-calendar";
+import { LinearGradient } from "expo-linear-gradient";
 import ModalScreen from "../../components/ModalScreen";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -11,11 +15,55 @@ import { useApi } from "../../lib/useApi";
 import { useAuth } from "../../auth/AuthContext";
 import { useRsvp } from "../../lib/RsvpContext";
 import { useT } from "../../lib/LangContext";
+import { useToast } from "../../lib/ToastContext";
 import { EventCardSkeleton } from "../../components/SkeletonLoader";
 import { useTheme } from "../../lib/ThemeContext";
 import type { AppColors } from "../../styles/theme";
 
-// Days/months come from i18n t.days / t.months
+const GREEN = "#16A34A";
+
+// LayoutAnimation needs an explicit opt-in on (old-architecture) Android.
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+// Smoothly animate the next layout commit — used when an RSVP moves an event
+// between the "Today on Campus" list and "Your Schedule" so rows slide/fade
+// into place instead of the page snapping down.
+function animateRsvpReflow() {
+    LayoutAnimation.configureNext(
+        LayoutAnimation.create(280, LayoutAnimation.Types.easeInEaseOut, LayoutAnimation.Properties.opacity)
+    );
+}
+
+// Pressable with a soft scale-bounce + light haptic on tap. Defined at module
+// scope so its Animated.Value isn't recreated on every parent render.
+function AnimatedPressable({
+    onPress, style, wrapperStyle, children, accessibilityLabel,
+}: {
+    onPress?: () => void;
+    style?: any;
+    wrapperStyle?: any;
+    children?: React.ReactNode;
+    accessibilityLabel?: string;
+}) {
+    const scale = useRef(new Animated.Value(1)).current;
+    const handlePress = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        Animated.sequence([
+            Animated.timing(scale, { toValue: 0.9, duration: 80, useNativeDriver: true }),
+            Animated.spring(scale, { toValue: 1, friction: 4, tension: 140, useNativeDriver: true }),
+        ]).start();
+        onPress?.();
+    };
+    return (
+        <Animated.View style={[{ transform: [{ scale }] }, wrapperStyle]}>
+            <Pressable style={style} onPress={handlePress} accessibilityRole="button" accessibilityLabel={accessibilityLabel}>
+                {children}
+            </Pressable>
+        </Animated.View>
+    );
+}
 
 // Shape returned by /events?upcoming=true
 type ApiEvent = {
@@ -30,6 +78,8 @@ type ApiEvent = {
     _count: { rsvps: number };
 };
 
+type AttendeePreview = { id: string; firstName?: string | null; avatarUrl?: string | null };
+
 // Shape returned by /users/me/rsvps (nested post)
 type RsvpPost = {
     id: string;
@@ -40,10 +90,11 @@ type RsvpPost = {
     locationName?: string;
     club?: { id: string; clubName?: string; logoUrl?: string };
     _count: { rsvps: number };
+    rsvpPreview?: AttendeePreview[];
 };
 
-type AttendedEvent = { id: string; title: string; clubName: string; clubLogo?: string | null; startAt?: string; checkedAt: string; categories: string[] };
-type AttendanceResp = { total: number; thisSemester: number; semesterLabel: string; events: AttendedEvent[] };
+type AttendedEvent = { id: string; title: string; clubName: string; clubLogo?: string | null; imageUrl?: string | null; startAt?: string; checkedAt: string; categories: string[]; rating?: number | null };
+type AttendanceResp = { total: number; thisSemester: number; semesterLabel: string; streakWeeks: number; freeMeals: number; events: AttendedEvent[] };
 
 function openMaps(query?: string) {
     if (!query) return;
@@ -67,715 +118,337 @@ function formatDateLabel(d: Date, days: string[], months: string[]): string {
     return `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}`;
 }
 
-function weekRange(today: Date, months: string[]): string {
-    const end = new Date(today);
-    end.setDate(today.getDate() + 6);
-    return `${months[today.getMonth()]} ${today.getDate()}–${end.getDate()}`;
+// Context-aware status badge for the NEXT UP hero. First match wins:
+// live now → soon (minutes) → today (hours / clock time) → tomorrow → date.
+function heroBadgeInfo(
+    ev: { startAt?: string; endAt?: string },
+    now: Date, today: Date, days: string[], months: string[], t: any
+): { text: string; live: boolean } {
+    if (!ev.startAt) return { text: t.todayBadge, live: false };
+    const start = new Date(ev.startAt);
+    const end = ev.endAt ? new Date(ev.endAt) : new Date(start.getTime() + 2 * 3600000);
+
+    if (now >= start && now <= end) return { text: t.happeningNow, live: true };
+
+    const diffMs = start.getTime() - now.getTime();
+    if (diffMs <= 0) return { text: t.todayBadge, live: false };
+
+    const mins = Math.ceil(diffMs / 60000);
+    if (mins < 60) return { text: t.startsInM(mins), live: false };
+
+    if (isSameDay(start, today)) {
+        const hrs = Math.round(mins / 60);
+        return hrs <= 4
+            ? { text: t.startsInH(hrs), live: false }
+            : { text: `${t.todayBadge} · ${formatTime(ev.startAt)}`, live: false };
+    }
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    if (isSameDay(start, tomorrow)) return { text: t.tomorrowBadge, live: false };
+
+    return { text: `${days[start.getDay()]} · ${months[start.getMonth()]} ${start.getDate()}`, live: false };
 }
 
-function isLive(startAt?: string, endAt?: string, now: Date = new Date()): boolean {
-    if (!startAt) return false;
-    const start = new Date(startAt);
-    const end = endAt ? new Date(endAt) : new Date(start.getTime() + 2 * 3600000);
-    return now >= start && now <= end;
-}
-
-function countdownText(startAt: string, now: Date): string | null {
-    const diff = new Date(startAt).getTime() - now.getTime();
-    if (diff <= 0) return null;
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return "Starting now";
-    if (mins < 60) return `Starts in ${mins}m`;
-    const hrs = Math.floor(mins / 60);
-    const rem = mins % 60;
-    return rem > 0 ? `Starts in ${hrs}h ${rem}m` : `Starts in ${hrs}h`;
-}
-
-function briefingKey(now: Date): "morningBriefing" | "afternoonBriefing" | "eveningBriefing" {
-    const h = now.getHours();
-    if (h < 12) return "morningBriefing";
-    if (h < 17) return "afternoonBriefing";
-    return "eveningBriefing";
-}
-
-function hasConflict(event: { id: string; startAt?: string; endAt?: string }, all: { id: string; startAt?: string; endAt?: string }[]): boolean {
-    if (!event.startAt) return false;
-    const s = new Date(event.startAt).getTime();
-    const e = event.endAt ? new Date(event.endAt).getTime() : s + 2 * 3600000;
-    return all.some((o) => {
-        if (o.id === event.id || !o.startAt) return false;
-        const os = new Date(o.startAt).getTime();
-        const oe = o.endAt ? new Date(o.endAt).getTime() : os + 2 * 3600000;
-        return s < oe && e > os;
-    });
+// Gently pulsing dot for the live "HAPPENING NOW" badge.
+function LiveDot() {
+    const pulse = useRef(new Animated.Value(1)).current;
+    useEffect(() => {
+        const loop = Animated.loop(Animated.sequence([
+            Animated.timing(pulse, { toValue: 0.25, duration: 700, useNativeDriver: true }),
+            Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: true }),
+        ]));
+        loop.start();
+        return () => loop.stop();
+    }, [pulse]);
+    return <Animated.View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#fff", opacity: pulse }} />;
 }
 
 const makeEventsStyles = (C: AppColors) => StyleSheet.create({
     safe: { flex: 1, backgroundColor: C.bg },
     center: { flex: 1, alignItems: "center", justifyContent: "center" },
 
-    // Header
-    header: {
-        flexDirection: "row",
-        alignItems: "center",
+    // ── Page header ──
+    pageHeader: {
         paddingHorizontal: 20,
-        paddingVertical: 14,
-        gap: 12,
-        backgroundColor: C.surface,
-        marginLeft: 12,
-        marginRight: 12,
-        marginTop: 8,
-        marginBottom: 0,
-        borderWidth: 1,
-        borderColor: C.borderWarm,
+        paddingTop: 8,
+        paddingBottom: 6,
     },
-    avatar: {
-        width: 30,
-        height: 30,
-        borderRadius: 15,
-        backgroundColor: C.textLight,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    headerTitle: {
-        flex: 1,
-        fontSize: 12,
-        fontWeight: "800",
-        color: C.text,
-        letterSpacing: 2,
-    },
-
-    // Briefing
-    briefingCard: {
-        marginHorizontal: 12,
-        marginTop: 14,
-        backgroundColor: C.surface,
-        borderWidth: 1,
-        borderColor: C.borderWarm,
-        paddingHorizontal: 20,
-        paddingTop: 16,
-        paddingBottom: 20,
-    },
-    briefingLabel: {
-        fontSize: 9,
+    kicker: {
+        fontSize: 11,
         fontWeight: "800",
         color: C.primary,
         letterSpacing: 2,
-        marginBottom: 10,
+        marginBottom: 2,
     },
-    briefingAccent: {
-        width: 32,
-        height: 2,
-        backgroundColor: C.primary,
+    headerTopRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+    },
+    bigTitle: {
+        fontSize: 38,
+        fontWeight: "900",
+        color: C.text,
+        letterSpacing: -1,
+    },
+
+    // ── Stats row ──
+    statsRow: {
+        flexDirection: "row",
+        gap: 10,
+        paddingHorizontal: 20,
+        marginTop: 10,
+    },
+    statCard: {
+        flex: 1,
+        backgroundColor: C.surface,
+        borderWidth: 1,
+        borderColor: C.borderWarm,
+        paddingVertical: 16,
+        paddingHorizontal: 12,
+    },
+    statEmoji: { fontSize: 20, marginBottom: 8 },
+    statValueRow: { flexDirection: "row", alignItems: "baseline", gap: 3 },
+    statNum: { fontSize: 26, fontWeight: "900", color: C.text, letterSpacing: -1 },
+    statUnit: { fontSize: 11, fontWeight: "700", color: C.textLight },
+    statLabel: {
+        fontSize: 9,
+        fontWeight: "800",
+        color: C.textMuted,
+        letterSpacing: 1,
+        marginTop: 6,
+    },
+
+    // ── Section header ──
+    sectionHead: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        paddingHorizontal: 20,
+        marginTop: 26,
         marginBottom: 12,
     },
-    briefingText: {
-        fontSize: 16,
-        fontWeight: "500",
-        color: C.text,
-        lineHeight: 24,
-    },
-
-    // Agenda card
-    agendaCard: {
-        backgroundColor: C.surface,
-        marginLeft: 12,
-        marginRight: 12,
-        marginTop: 14,
-        paddingBottom: 4,
-        borderWidth: 1,
-        borderTopWidth: 1,
-        borderBottomWidth: 1,
-        borderLeftWidth: 1,
-        borderRightWidth: 1,
-        borderColor: C.borderWarm,
-    },
-    agendaHeader: {
-        flexDirection: "row",
-        alignItems: "baseline",
-        justifyContent: "space-between",
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 2,
-    },
-    agendaTitle: {
-        fontSize: 24,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: -0.5,
-    },
-    agendaRange: {
-        fontSize: 11,
-        fontWeight: "600",
-        color: C.textMuted,
-        letterSpacing: 0.5,
-    },
-    todayRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-    },
-    todayLabel: {
+    sectionHeadLabel: {
         fontSize: 11,
         fontWeight: "800",
-        color: C.primary,
+        color: C.textMuted,
         letterSpacing: 2,
     },
-    todayDate: {
+    sectionHeadRight: {
         fontSize: 11,
-        fontWeight: "500",
-        color: C.textMuted,
-        letterSpacing: 0.5,
+        fontWeight: "600",
+        color: C.textLight,
+        letterSpacing: 0.3,
     },
 
-    // Hero event
+    // ── NEXT UP hero (immersive full-bleed) ──
     heroCard: {
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: C.borderWarm,
-    },
-    heroImage: {
-        width: "100%",
-        aspectRatio: 1,
-    },
-    heroBody: {
-        padding: 20,
-        gap: 8,
-    },
-    heroTitle: {
-        fontSize: 22,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: -0.4,
-        lineHeight: 28,
-    },
-    heroDesc: {
-        fontSize: 13,
-        color: C.textMuted,
-        lineHeight: 19,
-    },
-
-    // Shared
-    metaRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-    },
-    rsvpdBadge: {
-        backgroundColor: "#16A34A",
-        paddingHorizontal: 6,
-        paddingVertical: 3,
-    },
-    rsvpdText: {
-        fontSize: 8,
-        fontWeight: "800",
-        color: "#fff",
-        letterSpacing: 1,
-    },
-    eventTime: {
-        fontSize: 11,
-        fontWeight: "500",
-        color: C.textMuted,
-    },
-    locationRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 4,
-    },
-    locationText: {
-        fontSize: 11,
-        fontWeight: "600",
-        color: C.textMuted,
-        letterSpacing: 0.3,
-    },
-    cardClubName: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 1.5,
-    },
-    thumb: {
-        width: 62,
-        height: 62,
-    },
-
-    // Compact rows
-    emptyToday: {
-        paddingVertical: 24,
-        alignItems: "center",
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: C.borderWarm,
-        marginHorizontal: 20,
-    },
-    emptyTodayText: {
-        fontSize: 10,
-        fontWeight: "700",
-        color: C.textFaint,
-        letterSpacing: 2,
-    },
-    compactRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingHorizontal: 20,
-        paddingVertical: 14,
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: C.borderWarm,
-        gap: 12,
-    },
-    compactLeft: {
-        flex: 1,
-        gap: 4,
-    },
-    compactTitle: {
-        fontSize: 15,
-        fontWeight: "700",
-        color: C.text,
-        letterSpacing: -0.2,
-    },
-    compactSub: {
-        fontSize: 10,
-        fontWeight: "600",
-        color: C.textLight,
-        letterSpacing: 0.5,
-    },
-
-    // Upcoming
-    upcomingSep: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.textLight,
-        letterSpacing: 2,
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 4,
-    },
-    upcomingRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: C.borderWarm,
-        gap: 14,
-    },
-    upcomingDateCol: {
-        width: 28,
-        alignItems: "center",
-        gap: 1,
-    },
-    upcomingDayName: {
-        fontSize: 9,
-        fontWeight: "700",
-        color: C.textLight,
-        letterSpacing: 0.5,
-    },
-    upcomingDayNum: {
-        fontSize: 20,
-        fontWeight: "800",
-        color: C.text,
-        lineHeight: 24,
-    },
-
-    // Calendar button
-    calendarBtn: {
-        marginHorizontal: 20,
-        marginTop: 16,
-        marginBottom: 16,
-        borderWidth: 1.5,
-        borderColor: C.primary,
-        paddingVertical: 14,
-        alignItems: "center",
-    },
-    calendarBtnText: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 1.5,
-    },
-
-    // Recommended card
-    recCard: {
-        backgroundColor: C.surface,
-        marginLeft: 12,
-        marginRight: 12,
-        marginTop: 14,
-        paddingTop: 20,
-        paddingBottom: 20,
-        borderWidth: 1,
-        borderTopWidth: 1,
-        borderBottomWidth: 1,
-        borderLeftWidth: 1,
-        borderRightWidth: 1,
-        borderColor: C.borderWarm,
-    },
-    forYouLabel: {
-        fontSize: 10,
-        fontWeight: "700",
-        color: C.primary,
-        letterSpacing: 1.5,
-        marginBottom: 2,
-        paddingHorizontal: 20,
-    },
-    recHeading: {
-        fontSize: 24,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: -0.5,
-        marginBottom: 4,
-        paddingHorizontal: 20,
-    },
-    recRow: {
-        flexDirection: "row",
-        alignItems: "flex-start",
-        paddingVertical: 14,
-        paddingHorizontal: 20,
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: C.borderWarm,
-        gap: 12,
-    },
-    recLeft: { flex: 1, gap: 4 },
-    recMeta: { flexDirection: "row", gap: 10, alignItems: "center" },
-    recTitle: {
-        fontSize: 13,
-        fontWeight: "800",
-        color: C.text,
-        letterSpacing: -0.2,
-    },
-    recDesc: {
-        fontSize: 12,
-        color: C.textMuted,
-        lineHeight: 17,
-    },
-    recDate: {
-        fontSize: 10,
-        fontWeight: "600",
-        color: C.textLight,
-        letterSpacing: 0.3,
-        marginTop: 2,
-    },
-    detailsBtnGoing: {
-        color: "#16A34A",
-    },
-    detailsBtn: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 1,
-    },
-
-    // Featured rec card
-    featuredCard: {
-        height: 180,
-        backgroundColor: C.primary,
+        marginHorizontal: 16,
+        height: 440,
+        backgroundColor: "#1f1f1f",
         overflow: "hidden",
-        justifyContent: "flex-end",
-        marginTop: 8,
     },
-    featuredOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: "rgba(100,3,28,0.7)",
-    },
-    featuredContent: {
-        padding: 20,
+    heroImage: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%" },
+    heroBadge: {
+        position: "absolute",
+        top: 16,
+        left: 16,
+        flexDirection: "row",
+        alignItems: "center",
         gap: 6,
-    },
-    featuredTitle: {
-        fontSize: 18,
-        fontWeight: "900",
-        color: "#fff",
-        letterSpacing: -0.3,
-        lineHeight: 24,
-    },
-    featuredSub: {
-        fontSize: 11,
-        color: "rgba(255,255,255,0.65)",
-        lineHeight: 16,
-    },
-    reserveBtn: {
-        alignSelf: "flex-start",
-        marginTop: 8,
-        backgroundColor: "#fff",
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-    },
-    reserveBtnText: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 1.5,
-    },
-
-    // Archive
-    archiveCard: {
-        backgroundColor: C.surface,
-        marginLeft: 12,
-        marginRight: 12,
-        marginTop: 14,
-        borderWidth: 1,
-        borderTopWidth: 1,
-        borderBottomWidth: 1,
-        borderLeftWidth: 1,
-        borderRightWidth: 1,
-        borderColor: C.borderWarm,
-    },
-    archiveHeader: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 20,
-        paddingVertical: 20,
-    },
-    archiveLabel: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.textLight,
-        letterSpacing: 2,
-        marginBottom: 2,
-    },
-    archiveTitle: {
-        fontSize: 20,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: -0.5,
-    },
-    archiveRight: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-    },
-    archiveCount: {
-        fontSize: 13,
-        fontWeight: "700",
-        color: C.textLight,
-    },
-    archiveRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: C.borderWarm,
-        gap: 14,
-    },
-    attendedBadge: {
-        backgroundColor: C.border,
-        paddingHorizontal: 6,
-        paddingVertical: 3,
-    },
-    attendedText: {
-        fontSize: 8,
-        fontWeight: "800",
-        color: C.textMuted,
-        letterSpacing: 1,
-    },
-    archiveToggleRow: {
-        flexDirection: "row",
-        gap: 8,
-        paddingHorizontal: 16,
-        paddingBottom: 12,
-    },
-    archiveToggle: {
+        backgroundColor: C.primary,
         paddingHorizontal: 12,
         paddingVertical: 6,
-        borderWidth: 1.5,
-        borderColor: C.border,
-        backgroundColor: C.surface,
     },
+    heroBadgeText: { fontSize: 10, fontWeight: "800", color: "#fff", letterSpacing: 1.2 },
+
+    heroOverlayContent: { position: "absolute", left: 0, right: 0, bottom: 0, padding: 20, gap: 10 },
+    heroAttendRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+    avatarsRow: { flexDirection: "row" },
+    avatarMini: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 2,
+        borderColor: "rgba(255,255,255,0.9)",
+    },
+    avatarMiniText: { fontSize: 11, fontWeight: "800", color: "#fff" },
+    heroAttendText: { flex: 1, fontSize: 13, fontWeight: "600", color: "rgba(255,255,255,0.9)" },
+
+    heroTitle: { fontSize: 28, fontWeight: "900", color: "#fff", letterSpacing: -0.6, lineHeight: 32 },
+    heroClub: { fontSize: 13, fontWeight: "600", color: "rgba(255,255,255,0.8)" },
+    heroMetaRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 16, marginTop: 2 },
+    heroMetaItem: { flexDirection: "row", alignItems: "center", gap: 5 },
+    heroMetaText: { fontSize: 13, fontWeight: "600", color: "rgba(255,255,255,0.9)" },
+
+    heroActions: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 6 },
+    goingPill: {
+        flex: 1,
+        backgroundColor: GREEN,
+        paddingVertical: 14,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+    },
+    goingPillText: { fontSize: 12, fontWeight: "800", color: "#fff", letterSpacing: 1 },
+    heroQuickBtn: {
+        width: 48,
+        height: 48,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "rgba(255,255,255,0.18)",
+    },
+
+    // ── Schedule rows ──
+    schedRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 14,
+        marginHorizontal: 16,
+        paddingVertical: 14,
+        borderTopWidth: 1,
+        borderTopColor: C.borderWarm,
+    },
+    schedThumbWrap: { width: 72, height: 72, backgroundColor: C.skeleton, overflow: "hidden" },
+    schedThumb: { width: "100%", height: "100%" },
+    schedDateTag: {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        backgroundColor: C.primary,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        alignItems: "center",
+    },
+    schedDateDay: { fontSize: 8, fontWeight: "800", color: "#fff", letterSpacing: 1 },
+    schedDateNum: { fontSize: 15, fontWeight: "900", color: "#fff", lineHeight: 17 },
+    schedBody: { flex: 1, gap: 4 },
+    schedTitle: { fontSize: 16, fontWeight: "800", color: C.text, letterSpacing: -0.3 },
+    schedSub: { fontSize: 12, fontWeight: "500", color: C.textMuted },
+    goingBadge: {
+        alignSelf: "flex-start",
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 3,
+        backgroundColor: GREEN,
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        marginTop: 2,
+    },
+    goingBadgeText: { fontSize: 9, fontWeight: "800", color: "#fff", letterSpacing: 0.8 },
+
+    // ── Free food banner ──
+    foodBanner: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        marginHorizontal: 16,
+        marginTop: 18,
+        backgroundColor: C.primary,
+        paddingHorizontal: 16,
+        paddingVertical: 16,
+    },
+    foodBannerEmoji: { fontSize: 24 },
+    foodBannerBody: { flex: 1 },
+    foodBannerTitle: { fontSize: 15, fontWeight: "800", color: "#fff" },
+    foodBannerSub: { fontSize: 12, color: "rgba(255,255,255,0.8)", marginTop: 2 },
+    foodViewBtn: { borderWidth: 1.5, borderColor: "rgba(255,255,255,0.8)", paddingHorizontal: 16, paddingVertical: 8 },
+    foodViewBtnText: { fontSize: 11, fontWeight: "800", color: "#fff", letterSpacing: 1 },
+
+    // ── Today on campus rows ──
+    campusRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 14,
+        marginHorizontal: 16,
+        paddingVertical: 14,
+        borderTopWidth: 1,
+        borderTopColor: C.borderWarm,
+    },
+    campusThumb: { width: 56, height: 56, backgroundColor: C.skeleton },
+    campusBody: { flex: 1, gap: 3 },
+    campusTitle: { fontSize: 15, fontWeight: "800", color: C.text, letterSpacing: -0.2 },
+    campusSub: { fontSize: 12, fontWeight: "500", color: C.textMuted },
+    rsvpOutline: { borderWidth: 1.5, borderColor: C.primary, paddingHorizontal: 16, paddingVertical: 9 },
+    rsvpOutlineGoing: { borderColor: GREEN, backgroundColor: GREEN },
+    rsvpOutlineText: { fontSize: 11, fontWeight: "800", color: C.primary, letterSpacing: 1 },
+    rsvpOutlineTextGoing: { color: "#fff" },
+
+    // ── Attended strip ──
+    attendedStrip: { paddingLeft: 16, paddingRight: 6, gap: 12 },
+    attendedCard: { width: 150, height: 180, backgroundColor: C.skeleton, overflow: "hidden", marginRight: 12 },
+    attendedCardImg: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%" },
+    attendedCardOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.28)" },
+    attendedDateTag: { position: "absolute", top: 0, left: 0, backgroundColor: C.primary, paddingHorizontal: 8, paddingVertical: 4 },
+    attendedDateText: { fontSize: 9, fontWeight: "800", color: "#fff", letterSpacing: 1 },
+    attendedCardBody: { position: "absolute", left: 12, right: 12, bottom: 12 },
+    attendedCardTitle: { fontSize: 14, fontWeight: "900", color: "#fff", letterSpacing: -0.2 },
+    starsRow: { flexDirection: "row", gap: 2, marginTop: 4 },
+
+    // ── Category pills (preserved) ──
+    catPillsRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingBottom: 6 },
+    catPill: { paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: C.textFaint },
+    catPillActive: { backgroundColor: C.primary, borderColor: C.primary },
+    catPillText: { fontSize: 9, fontWeight: "800", color: C.textMuted, letterSpacing: 1 },
+    catPillTextActive: { color: "#fff" },
+
+    // ── Shared / empty ──
+    emptyToday: { paddingVertical: 24, alignItems: "center", marginHorizontal: 16 },
+    emptyTodayText: { fontSize: 10, fontWeight: "700", color: C.textFaint, letterSpacing: 2 },
+    thumb: { width: 62, height: 62 },
+    thumbMuted: { opacity: 0.5 },
+    metaRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+    eventTime: { fontSize: 11, fontWeight: "500", color: C.textMuted },
+    compactLeft: { flex: 1, gap: 4 },
+    compactTitle: { fontSize: 15, fontWeight: "700", color: C.text, letterSpacing: -0.2 },
+    compactSub: { fontSize: 10, fontWeight: "600", color: C.textLight, letterSpacing: 0.5 },
+    upcomingDateCol: { width: 28, alignItems: "center", gap: 1 },
+    upcomingDayName: { fontSize: 9, fontWeight: "700", color: C.textLight, letterSpacing: 0.5 },
+    upcomingDayNum: { fontSize: 20, fontWeight: "800", color: C.text, lineHeight: 24 },
+
+    // ── Past events archive (preserved) ──
+    archiveCard: {
+        backgroundColor: C.surface,
+        marginHorizontal: 16,
+        marginTop: 26,
+        borderWidth: 1,
+        borderColor: C.borderWarm,
+    },
+    archiveHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 20 },
+    archiveLabel: { fontSize: 10, fontWeight: "800", color: C.textLight, letterSpacing: 2, marginBottom: 2 },
+    archiveTitle: { fontSize: 20, fontWeight: "900", color: C.text, letterSpacing: -0.5 },
+    archiveRight: { flexDirection: "row", alignItems: "center", gap: 8 },
+    archiveCount: { fontSize: 13, fontWeight: "700", color: C.textLight },
+    archiveRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.borderWarm, gap: 14 },
+    attendedBadge: { backgroundColor: C.border, paddingHorizontal: 6, paddingVertical: 3 },
+    attendedText: { fontSize: 8, fontWeight: "800", color: C.textMuted, letterSpacing: 1 },
+    archiveToggleRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingBottom: 12 },
+    archiveToggle: { paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1.5, borderColor: C.border, backgroundColor: C.surface },
     archiveToggleActive: { borderColor: C.primary, backgroundColor: C.primary },
     archiveToggleText: { fontSize: 10, fontWeight: "800", letterSpacing: 1, color: C.textMuted },
     archiveToggleTextActive: { color: "#fff" },
     archiveEmpty: { fontSize: 13, color: C.textMuted, paddingHorizontal: 16, paddingBottom: 16 },
-    thumbMuted: {
-        opacity: 0.5,
-    },
 
-    // See all
-    seeAllBtn: {
-        marginTop: 16,
-        marginHorizontal: 20,
-        borderWidth: 1.5,
-        borderColor: C.textFaint,
-        paddingVertical: 14,
-        alignItems: "center",
-    },
-    seeAllText: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.textBody,
-        letterSpacing: 1.5,
-    },
+    // ── Error state ──
+    errorText: { fontSize: 11, fontWeight: "700", color: C.textLight, letterSpacing: 2, marginTop: 12 },
+    errorRetry: { marginTop: 16, borderWidth: 1.5, borderColor: C.primary, paddingHorizontal: 20, paddingVertical: 10 },
+    errorRetryText: { fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 1.5 },
 
-    // Search modal
-    searchBackdrop: {
-        flex: 1,
-        backgroundColor: C.overlay,
-        justifyContent: "flex-end",
-    },
-    searchSheet: {
-        backgroundColor: C.surface,
-        paddingBottom: 32,
-    },
-    searchHeader: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: C.borderWarm,
-    },
-    searchTitle: {
-        fontSize: 12,
-        fontWeight: "800",
-        color: C.text,
-        letterSpacing: 2,
-    },
-    searchInputWrap: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 10,
-        marginHorizontal: 20,
-        marginVertical: 12,
-        backgroundColor: C.surfaceAlt,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-    },
-    searchInput: {
-        flex: 1,
-        fontSize: 14,
-        color: C.text,
-        fontWeight: "500",
-    },
-    searchRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingHorizontal: 20,
-        paddingVertical: 14,
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: C.borderWarm,
-        gap: 12,
-    },
+    // ── Search modal (preserved) ──
+    searchInputWrap: { flexDirection: "row", alignItems: "center", gap: 10, marginHorizontal: 20, marginVertical: 12, backgroundColor: C.surfaceAlt, paddingHorizontal: 12, paddingVertical: 10 },
+    searchInput: { flex: 1, fontSize: 14, color: C.text, fontWeight: "500" },
+    searchRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.borderWarm, gap: 12 },
     searchRowLeft: { flex: 1, gap: 4 },
-    searchRowTitle: {
-        fontSize: 14,
-        fontWeight: "700",
-        color: C.text,
-        letterSpacing: -0.2,
-    },
-    searchRowSub: {
-        fontSize: 11,
-        color: C.textLight,
-        fontWeight: "500",
-    },
+    searchRowTitle: { fontSize: 14, fontWeight: "700", color: C.text, letterSpacing: -0.2 },
+    searchRowSub: { fontSize: 11, color: C.textLight, fontWeight: "500" },
     searchThumb: { width: 54, height: 54 },
     searchEmpty: { alignItems: "center", paddingVertical: 40 },
-    searchEmptyText: {
-        fontSize: 11,
-        fontWeight: "700",
-        color: C.textFaint,
-        letterSpacing: 2,
-    },
-
-    // Error state
-    errorText: {
-        fontSize: 11,
-        fontWeight: "700",
-        color: C.textLight,
-        letterSpacing: 2,
-        marginTop: 12,
-    },
-    errorRetry: {
-        marginTop: 16,
-        borderWidth: 1.5,
-        borderColor: C.primary,
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-    },
-    errorRetryText: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 1.5,
-    },
-
-    // Conflict badge
-    conflictBadge: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 3,
-        backgroundColor: "#FFFBEB",
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-    },
-    conflictText: {
-        fontSize: 8,
-        fontWeight: "800",
-        color: "#F59E0B",
-        letterSpacing: 0.8,
-    },
-
-    // Show more upcoming
-    showMoreBtn: {
-        marginHorizontal: 20,
-        marginTop: 4,
-        paddingVertical: 10,
-        alignItems: "center",
-    },
-    showMoreText: {
-        fontSize: 10,
-        fontWeight: "700",
-        color: C.textLight,
-        letterSpacing: 1.5,
-    },
-
-    // Live badge
-    liveBadge: {
-        backgroundColor: C.primary,
-        paddingHorizontal: 6,
-        paddingVertical: 3,
-    },
-    liveBadgeText: {
-        fontSize: 8,
-        fontWeight: "800",
-        color: "#fff",
-        letterSpacing: 1,
-    },
-
-    // Countdown
-    countdownText: {
-        fontSize: 11,
-        fontWeight: "600",
-        color: "#F59E0B",
-        letterSpacing: 0.3,
-    },
-
-    // Category pills
-    catPillsRow: {
-        flexDirection: "row",
-        gap: 8,
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-    },
-    catPill: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderWidth: 1,
-        borderColor: C.textFaint,
-    },
-    catPillActive: {
-        backgroundColor: C.primary,
-        borderColor: C.primary,
-    },
-    catPillText: {
-        fontSize: 9,
-        fontWeight: "800",
-        color: C.textMuted,
-        letterSpacing: 1,
-    },
-    catPillTextActive: {
-        color: "#fff",
-    },
+    searchEmptyText: { fontSize: 11, fontWeight: "700", color: C.textFaint, letterSpacing: 2 },
 });
 
 export default function EventsScreen() {
@@ -783,20 +456,21 @@ export default function EventsScreen() {
     const authApi = useApi();
     const { session, signOut } = useAuth();
     const { isRsvped, toggleRsvp } = useRsvp();
+    const { showToast } = useToast();
     const [allEvents, setAllEvents] = useState<ApiEvent[]>([]);
     const [rsvps, setRsvps] = useState<RsvpPost[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(true);
     const [error, setError] = useState(false);
-    const [showAllUpcoming, setShowAllUpcoming] = useState(false);
     const [searchVisible, setSearchVisible] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
-    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const [showAllRec, setShowAllRec] = useState(false);
     const [archiveOpen, setArchiveOpen] = useState(false);
     const [attended, setAttended] = useState<AttendedEvent[]>([]);
+    const [attendedTotal, setAttendedTotal] = useState(0);
+    const [streakWeeks, setStreakWeeks] = useState(0);
+    const [freeMeals, setFreeMeals] = useState(0);
     const [archiveMode, setArchiveMode] = useState<"rsvpd" | "attended">("rsvpd");
     const [now, setNow] = useState(() => new Date());
     const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
@@ -806,6 +480,8 @@ export default function EventsScreen() {
 
     const today = useMemo(() => new Date(now), [now]);
     const t = useT();
+    const days = t.days as unknown as string[];
+    const months = t.months as unknown as string[];
 
     const PAGE = 20;
 
@@ -813,11 +489,13 @@ export default function EventsScreen() {
         if (isRefresh) setRefreshing(true); else setLoading(true);
         setError(false);
         try {
-            authApi<{ avatarUrl?: string }>("/users/me")
-                .then((u) => setAvatarUrl(u.avatarUrl ?? null))
-                .catch(() => {});
             authApi<AttendanceResp>("/users/me/attendance")
-                .then((a) => setAttended(a.events ?? []))
+                .then((a) => {
+                    setAttended(a.events ?? []);
+                    setAttendedTotal(a.total ?? (a.events?.length ?? 0));
+                    setStreakWeeks(a.streakWeeks ?? 0);
+                    setFreeMeals(a.freeMeals ?? 0);
+                })
                 .catch(() => {});
             const [feed, myRsvps] = await Promise.all([
                 authApi<ApiEvent[]>(`/events?upcoming=true&limit=${PAGE}&offset=0`),
@@ -834,14 +512,14 @@ export default function EventsScreen() {
     }
 
     async function loadMoreEvents() {
-        if (loadingMore || !hasMore) return;
-        setLoadingMore(true);
+        if (!hasMore) return;
         try {
             const more = await authApi<ApiEvent[]>(`/events?upcoming=true&limit=${PAGE}&offset=${allEvents.length}`);
             setAllEvents((prev) => [...prev, ...more]);
             setHasMore(more.length === PAGE);
-        } catch {}
-        setLoadingMore(false);
+        } catch {
+            showToast(t.loadMoreError, "error");
+        }
     }
 
     useFocusEffect(useCallback(() => {
@@ -849,15 +527,20 @@ export default function EventsScreen() {
         loadData();
     }, [session?.token]));
 
+    // Tick every 30s for live/countdown accuracy
+    useEffect(() => {
+        const timer = setInterval(() => setNow(new Date()), 30000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const endOfToday = useMemo(() => { const d = new Date(today); d.setHours(23, 59, 59, 999); return d; }, [today]);
+    const startOfToday = useMemo(() => { const d = new Date(today); d.setHours(0, 0, 0, 0); return d; }, [today]);
+
     const todayEvents = useMemo(() =>
         rsvps
             .filter((e) => e.startAt && isSameDay(new Date(e.startAt), today))
             .sort((a, b) => new Date(a.startAt!).getTime() - new Date(b.startAt!).getTime()),
         [rsvps, today]);
-
-    const endOfToday = useMemo(() => {
-        const d = new Date(today); d.setHours(23, 59, 59, 999); return d;
-    }, [today]);
 
     const upcomingRsvps = useMemo(() =>
         rsvps
@@ -865,18 +548,47 @@ export default function EventsScreen() {
             .sort((a, b) => new Date(a.startAt!).getTime() - new Date(b.startAt!).getTime()),
         [rsvps, endOfToday]);
 
-    const startOfToday = useMemo(() => {
-        const d = new Date(today); d.setHours(0, 0, 0, 0); return d;
-    }, [today]);
-
     const pastRsvps = useMemo(() =>
         rsvps
             .filter((e) => e.startAt && new Date(e.startAt) < startOfToday)
             .sort((a, b) => new Date(b.startAt!).getTime() - new Date(a.startAt!).getTime()),
         [rsvps, startOfToday]);
 
+    const rsvpIds = useMemo(() => new Set(rsvps.map((r) => r.id)), [rsvps]);
+
+    const categories = useMemo(() =>
+        [...new Set(allEvents.map((e) => e.club?.category).filter(Boolean) as string[])].sort(),
+        [allEvents]);
+
+    const recommended = useMemo(() =>
+        allEvents.filter((e) =>
+            !rsvpIds.has(e.id) && (!categoryFilter || e.club?.category === categoryFilter)
+        ),
+        [allEvents, rsvpIds, categoryFilter]);
+
+    const recommendedToday = useMemo(() =>
+        recommended.filter((e) => e.startAt && isSameDay(new Date(e.startAt!), today)),
+        [recommended, today]);
+
+    // "Today on campus": prefer events happening today, else fall back to the feed.
+    const campusList = recommendedToday.length > 0 ? recommendedToday : recommended;
+
+    // Free-food banner: highlight a Food & Drink event today (placeholder association).
+    const freeFoodEvent = useMemo(() => {
+        const pool = recommendedToday.length > 0 ? recommendedToday : recommended;
+        return pool.find((e) => e.club?.category === "Food & Drink") ?? pool[0] ?? null;
+    }, [recommendedToday, recommended]);
+
+    // The NEXT UP hero: the first today RSVP that hasn't ended yet (live or
+    // upcoming), else the next upcoming RSVP. Finished events are skipped so the
+    // hero always looks forward.
+    const heroEvent =
+        todayEvents.find((e) => !e.endAt || new Date(e.endAt) >= now)
+        ?? upcomingRsvps[0] ?? null;
+
     async function handleRsvp(event: ApiEvent) {
         const next = await toggleRsvp(event.id);
+        animateRsvpReflow();
         if (next) {
             setRsvps((prev) => [...prev, {
                 id: event.id, type: event.type, locales: event.locales,
@@ -889,50 +601,39 @@ export default function EventsScreen() {
         }
     }
 
-    // Tick every 30s for live/countdown accuracy
-    useEffect(() => {
-        const t = setInterval(() => setNow(new Date()), 30000);
-        return () => clearInterval(t);
-    }, []);
+    async function cancelRsvpPost(id: string) {
+        const next = await toggleRsvp(id);
+        if (!next) {
+            animateRsvpReflow();
+            setRsvps((prev) => prev.filter((r) => r.id !== id));
+        }
+    }
 
-    const rsvpIds = useMemo(() => new Set(rsvps.map((r) => r.id)), [rsvps]);
+    // Quick action: add an event the user is going to into their device calendar.
+    async function addToCalendar(ev: RsvpPost) {
+        if (!ev.startAt) return;
+        try {
+            const { status } = await Calendar.requestCalendarPermissionsAsync();
+            if (status !== "granted") { showToast(t.calendarError, "error"); return; }
+            const cals = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+            const writable = cals.find((c) => c.allowsModifications) ?? cals[0];
+            if (!writable) { showToast(t.calendarError, "error"); return; }
+            const start = new Date(ev.startAt);
+            const end = ev.endAt ? new Date(ev.endAt) : new Date(start.getTime() + 2 * 3600000);
+            const loc = ev.locales?.en ?? ev.locales?.fr ?? {};
+            await Calendar.createEventAsync(writable.id, {
+                title: loc.title ?? "Event",
+                startDate: start,
+                endDate: end,
+                location: ev.locationName ?? undefined,
+            });
+            showToast(t.addedToCalendar);
+        } catch {
+            showToast(t.calendarError, "error");
+        }
+    }
 
-    // One-tap directions chip for agenda items (opens Maps for the venue).
-    const DirectionsBtn = ({ location }: { location?: string }) =>
-        location ? (
-            <Pressable
-                onPress={() => openMaps(location)}
-                hitSlop={6}
-                accessibilityRole="button"
-                accessibilityLabel="Get directions"
-                style={{ flexDirection: "row", alignItems: "center", gap: 3, alignSelf: "flex-start", marginTop: 8, paddingVertical: 4, paddingHorizontal: 8, borderWidth: 1, borderColor: C.borderWarm, backgroundColor: C.surface }}
-            >
-                <Ionicons name="navigate-outline" size={11} color={C.primary} />
-                <Text style={{ fontSize: 9, fontWeight: "800", letterSpacing: 1, color: C.primary }} maxFontSizeMultiplier={1.3}>DIRECTIONS</Text>
-            </Pressable>
-        ) : null;
-
-    const categories = useMemo(() =>
-        [...new Set(allEvents.map((e) => e.club?.category).filter(Boolean) as string[])].sort(),
-        [allEvents]);
-
-    const recommended = useMemo(() =>
-        allEvents.filter((e) =>
-            !rsvpIds.has(e.id) && (!categoryFilter || e.club?.category === categoryFilter)
-        ),
-        [allEvents, rsvpIds, categoryFilter]);
-
-    const briefing = useMemo(() => {
-        if (todayEvents.length === 0) return null;
-        const first = todayEvents[0];
-        const loc = first.locales?.en ?? first.locales?.fr ?? {};
-        const title = loc.title ?? "an event";
-        const time = first.startAt ? ` at ${formatTime(first.startAt)}` : "";
-        if (todayEvents.length === 1) return `You have 1 event today: ${title}${time}.`;
-        return `You have ${todayEvents.length} events today, including ${title}${time}.`;
-    }, [todayEvents]);
-
-    // Guest — show empty state with sign-up CTA
+    // ── Guest empty state ──
     if (session?.role === "guest") {
         return (
             <SafeAreaView style={s.safe} edges={["top"]}>
@@ -979,183 +680,323 @@ export default function EventsScreen() {
         );
     }
 
-    const heroEvent = todayEvents[0];
-    const restTodayEvents = todayEvents.slice(1);
+    const heroLoc = heroEvent ? (heroEvent.locales?.en ?? heroEvent.locales?.fr ?? {}) : {};
+    const heroImg = heroLoc.posterUrl ?? heroLoc.imageUrl;
+    const heroBadge = heroEvent
+        ? heroBadgeInfo(heroEvent, now, today, days, months, t)
+        : { text: "", live: false };
+    const heroGoing = heroEvent ? rsvpIds.has(heroEvent.id) : false;
+    const avatarColors = [C.primary, "#1F2937", C.gold];
+
+    // Real attendees for the hero "X, Y and N others are going" row (self excluded).
+    const myId = session?.userId;
+    const heroPreview = (heroEvent?.rsvpPreview ?? []).filter((u) => u.id !== myId);
+    const heroGoingCount = heroEvent?._count?.rsvps ?? 0;
+    const heroNames = heroPreview.slice(0, 2).map((u) => u.firstName?.trim() || "Someone").join(", ");
+    const heroNamedCount = Math.min(heroPreview.length, 2);
+    const heroOthers = Math.max((heroGoingCount - (heroGoing ? 1 : 0)) - heroNamedCount, 0);
+    const heroGoingLabel =
+        heroNamedCount > 0 ? t.friendsGoing(heroNames, heroOthers)
+        : heroGoingCount > 1 ? t.peopleGoing(heroGoingCount)
+        : t.youreGoingSolo;
+
+    const campusNotGoing = campusList.slice(0, showAllRec ? campusList.length : 4);
 
     return (
         <SafeAreaView style={s.safe} edges={["top"]}>
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 style={{ backgroundColor: C.bg }}
-                contentContainerStyle={{ paddingBottom: 80, paddingTop: 8 }}
+                contentContainerStyle={{ paddingBottom: 90 }}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadData(true)} tintColor={C.primary} />}
             >
-
                 {/* ── Header ── */}
-                <View style={s.header}>
-                    <Text style={s.headerTitle}>YOUR EVENTS</Text>
-                    <Pressable onPress={() => { setSearchQuery(""); setSearchVisible(true); }} hitSlop={8} accessibilityLabel="Search" accessibilityRole="button">
-                        <Ionicons name="search" size={20} color={C.text} />
-                    </Pressable>
+                <View style={s.pageHeader}>
+                    <Text style={s.kicker}>{t.myEventsKicker}</Text>
+                    <View style={s.headerTopRow}>
+                        <Text style={s.bigTitle}>{t.eventsTitle}</Text>
+                        <Pressable onPress={() => { setSearchQuery(""); setSearchVisible(true); }} hitSlop={8} accessibilityLabel="Search" accessibilityRole="button">
+                            <Ionicons name="search" size={22} color={C.text} />
+                        </Pressable>
+                    </View>
                 </View>
 
-                {/* ── Morning Briefing ── */}
-                {briefing && (
-                    <View style={s.briefingCard}>
-                        <Text style={s.briefingLabel}>{t[briefingKey(now)]}</Text>
-                        <View style={s.briefingAccent} />
-                        <Text style={s.briefingText}>{briefing}</Text>
+                {/* ── Stats row ── */}
+                <View style={s.statsRow}>
+                    <View style={s.statCard}>
+                        <Text style={s.statEmoji}>🔥</Text>
+                        <View style={s.statValueRow}>
+                            <Text style={s.statNum}>{streakWeeks}</Text>
+                            <Text style={s.statUnit}>{t.weekUnit}</Text>
+                        </View>
+                        <Text style={s.statLabel}>{t.statStreakLabel}</Text>
                     </View>
+                    <View style={s.statCard}>
+                        <Text style={s.statEmoji}>🎟️</Text>
+                        <View style={s.statValueRow}>
+                            <Text style={s.statNum}>{attendedTotal}</Text>
+                        </View>
+                        <Text style={s.statLabel}>{t.statAttendedLabel}</Text>
+                    </View>
+                    <View style={s.statCard}>
+                        <Text style={s.statEmoji}>🍕</Text>
+                        <View style={s.statValueRow}>
+                            <Text style={s.statNum}>{freeMeals}</Text>
+                        </View>
+                        <Text style={s.statLabel}>{t.statFreeMealsLabel}</Text>
+                    </View>
+                </View>
+
+                {/* ── NEXT UP ── */}
+                {heroEvent && (
+                    <>
+                        <View style={s.sectionHead}>
+                            <Text style={s.sectionHeadLabel}>{t.nextUp}</Text>
+                        </View>
+
+                        <View style={s.heroCard}>
+                            {/* Full-bleed image + gradient — tapping the photo opens the event */}
+                            <Pressable style={StyleSheet.absoluteFill as any} onPress={() => router.push(`/event/${heroEvent.id}` as any)} accessibilityLabel={heroLoc.title ?? "Event"} accessibilityRole="button">
+                                {heroImg
+                                    ? <Image source={{ uri: heroImg }} style={s.heroImage} resizeMode="cover" />
+                                    : <View style={[s.heroImage, { backgroundColor: "#2a2a2a" }]} />}
+                                <LinearGradient
+                                    colors={["rgba(0,0,0,0.15)", "rgba(0,0,0,0.35)", "rgba(0,0,0,0.92)"]}
+                                    locations={[0, 0.45, 1]}
+                                    style={StyleSheet.absoluteFill as any}
+                                />
+                            </Pressable>
+
+                            <View style={s.heroBadge}>
+                                {heroBadge.live && <LiveDot />}
+                                <Text style={s.heroBadgeText}>{heroBadge.text.toUpperCase()}</Text>
+                            </View>
+
+                            {/* Overlaid content — box-none lets taps on empty areas reach the photo */}
+                            <View style={s.heroOverlayContent} pointerEvents="box-none">
+                                {/* Attendees / going status */}
+                                {heroPreview.length > 0 ? (
+                                    <View style={s.heroAttendRow}>
+                                        <View style={s.avatarsRow}>
+                                            {heroPreview.slice(0, 3).map((u, i) => (
+                                                u.avatarUrl ? (
+                                                    <Image
+                                                        key={u.id}
+                                                        source={{ uri: u.avatarUrl }}
+                                                        style={[s.avatarMini, { marginLeft: i === 0 ? 0 : -8 }]}
+                                                    />
+                                                ) : (
+                                                    <View
+                                                        key={u.id}
+                                                        style={[s.avatarMini, { backgroundColor: avatarColors[i % avatarColors.length], marginLeft: i === 0 ? 0 : -8 }]}
+                                                    >
+                                                        <Text style={s.avatarMiniText}>{(u.firstName?.[0] ?? "?").toUpperCase()}</Text>
+                                                    </View>
+                                                )
+                                            ))}
+                                        </View>
+                                        <Text style={s.heroAttendText} numberOfLines={1}>{heroGoingLabel}</Text>
+                                    </View>
+                                ) : heroGoingCount > 1 ? (
+                                    <Text style={s.heroAttendText} numberOfLines={1}>{t.peopleGoing(heroGoingCount)}</Text>
+                                ) : null}
+
+                                {/* Title + club */}
+                                <Text style={s.heroTitle} numberOfLines={2}>{heroLoc.title ?? ""}</Text>
+                                {!!heroEvent.club?.clubName && (
+                                    <Text style={s.heroClub}>{heroEvent.club.clubName}</Text>
+                                )}
+
+                                {/* Meta */}
+                                <View style={s.heroMetaRow}>
+                                    {!!heroEvent.startAt && (
+                                        <View style={s.heroMetaItem}>
+                                            <Ionicons name="time-outline" size={15} color="rgba(255,255,255,0.9)" />
+                                            <Text style={s.heroMetaText}>{formatTime(heroEvent.startAt)}</Text>
+                                        </View>
+                                    )}
+                                    {!!heroEvent.locationName && (
+                                        <View style={s.heroMetaItem}>
+                                            <Ionicons name="location-outline" size={15} color="rgba(255,255,255,0.9)" />
+                                            <Text style={s.heroMetaText} numberOfLines={1}>{heroEvent.locationName}</Text>
+                                        </View>
+                                    )}
+                                </View>
+
+                                {/* Actions: GOING toggle + quick actions */}
+                                <View style={s.heroActions}>
+                                    <AnimatedPressable
+                                        wrapperStyle={{ flex: 1 }}
+                                        style={s.goingPill}
+                                        onPress={() => cancelRsvpPost(heroEvent.id)}
+                                        accessibilityLabel={heroGoing ? t.goingBtn : t.rsvpBtn}
+                                    >
+                                        <Text style={s.goingPillText}>{heroGoing ? t.goingBtn : t.rsvpBtn}</Text>
+                                        {heroGoing && <Ionicons name="checkmark" size={14} color="#fff" />}
+                                    </AnimatedPressable>
+                                    {!!heroEvent.locationName && (
+                                        <AnimatedPressable
+                                            style={s.heroQuickBtn}
+                                            onPress={() => openMaps(heroEvent.locationName)}
+                                            accessibilityLabel={t.getDirections}
+                                        >
+                                            <Ionicons name="navigate-outline" size={20} color="#fff" />
+                                        </AnimatedPressable>
+                                    )}
+                                    {!!heroEvent.startAt && (
+                                        <AnimatedPressable
+                                            style={s.heroQuickBtn}
+                                            onPress={() => addToCalendar(heroEvent)}
+                                            accessibilityLabel={t.addToCalendar}
+                                        >
+                                            <Ionicons name="calendar-outline" size={20} color="#fff" />
+                                        </AnimatedPressable>
+                                    )}
+                                </View>
+                            </View>
+                        </View>
+                    </>
                 )}
 
-                {/* ── Your Agenda ── */}
-                <View style={s.agendaCard}>
-                    <View style={s.agendaHeader}>
-                        <Text style={s.agendaTitle}>{t.mySchedule}</Text>
-                        <Text style={s.agendaRange}>{weekRange(today, t.months as unknown as string[])}</Text>
-                    </View>
+                {/* ── YOUR SCHEDULE ── */}
+                <View style={s.sectionHead}>
+                    <Text style={s.sectionHeadLabel}>{t.yourScheduleSection}</Text>
+                    <Text style={s.sectionHeadRight}>{t.upcomingCount(upcomingRsvps.length)}</Text>
+                </View>
 
-                    <View style={s.todayRow}>
-                        <Text style={s.todayLabel}>TODAY</Text>
-                        <Text style={s.todayDate}>{formatDateLabel(today, t.days as unknown as string[], t.months as unknown as string[])}</Text>
-                    </View>
-
-                    {/* Hero event (first today) */}
-                    {heroEvent ? (() => {
-                        const loc = heroEvent.locales?.en ?? heroEvent.locales?.fr ?? {};
-                        return (
-                            <Pressable style={s.heroCard} onPress={() => router.push(`/event/${heroEvent.id}` as any)}>
-                                {loc.posterUrl ?? loc.imageUrl ? (
-                                    <Image source={{ uri: loc.posterUrl ?? loc.imageUrl }} style={s.heroImage} resizeMode="cover" />
-                                ) : (
-                                    <View style={[s.heroImage, { backgroundColor: "#2a2a2a" }]} />
-                                )}
-                                <View style={s.heroBody}>
-                                    <View style={s.metaRow}>
-                                        {isLive(heroEvent.startAt, heroEvent.endAt, now)
-                                            ? <View style={s.liveBadge}><Text style={s.liveBadgeText}>● LIVE</Text></View>
-                                            : <View style={s.rsvpdBadge}><Text style={s.rsvpdText}>{t.youreGoingBtn}</Text></View>
-                                        }
-                                        {heroEvent.startAt && <Text style={s.eventTime}>{formatTime(heroEvent.startAt)}</Text>}
-                                    </View>
-                                    {!!heroEvent.club?.clubName && (
-                                        <Text style={s.cardClubName}>{heroEvent.club.clubName.toUpperCase()}</Text>
-                                    )}
-                                    <Text style={s.heroTitle}>{(loc.title ?? "").toUpperCase()}</Text>
-                                    {!isLive(heroEvent.startAt, heroEvent.endAt, now) && heroEvent.startAt && !!countdownText(heroEvent.startAt, now) && (
-                                        <Text style={s.countdownText}>{countdownText(heroEvent.startAt, now)}</Text>
-                                    )}
-                                    {!!loc.body && <Text style={s.heroDesc} numberOfLines={2}>{loc.body}</Text>}
-                                    {!!heroEvent.locationName && (
-                                        <View style={s.locationRow}>
-                                            <Ionicons name="location-outline" size={12} color={C.textMuted} />
-                                            <Text style={s.locationText}>{heroEvent.locationName.toUpperCase()}</Text>
-                                        </View>
-                                    )}
-                                    <DirectionsBtn location={heroEvent.locationName} />
-                                </View>
-                            </Pressable>
-                        );
-                    })() : (
-                        <View style={s.emptyToday}>
-                            <Text style={s.emptyTodayText}>{t.noEvents.toUpperCase()}</Text>
-                        </View>
-                    )}
-
-                    {/* Rest of today's events */}
-                    {restTodayEvents.map((event) => {
+                {upcomingRsvps.length === 0 ? (
+                    <View style={s.emptyToday}><Text style={s.emptyTodayText}>{t.noRsvps.toUpperCase()}</Text></View>
+                ) : (
+                    upcomingRsvps.map((event) => {
                         const loc = event.locales?.en ?? event.locales?.fr ?? {};
-                        const live = isLive(event.startAt, event.endAt, now);
-                        const conflict = hasConflict(event, rsvps);
-                        const cdText = !live && event.startAt ? countdownText(event.startAt, now) : null;
+                        const img = loc.posterUrl ?? loc.imageUrl;
+                        const d = new Date(event.startAt!);
+                        const sub = [event.club?.clubName, event.startAt ? formatTime(event.startAt) : null, event.locationName]
+                            .filter(Boolean).join(" · ");
                         return (
-                            <Pressable key={event.id} style={s.compactRow} onPress={() => router.push(`/event/${event.id}` as any)}>
-                                <View style={s.compactLeft}>
-                                    <View style={s.metaRow}>
-                                        {live
-                                            ? <View style={s.liveBadge}><Text style={s.liveBadgeText}>● LIVE</Text></View>
-                                            : <View style={s.rsvpdBadge}><Text style={s.rsvpdText}>{t.youreGoingBtn}</Text></View>
-                                        }
-                                        {conflict && (
-                                            <View style={s.conflictBadge}>
-                                                <Ionicons name="warning" size={10} color="#F59E0B" />
-                                                <Text style={s.conflictText}>{t.conflictBadge}</Text>
-                                            </View>
-                                        )}
-                                        {event.startAt && (
-                                            <Text style={s.eventTime}>
-                                                {formatTime(event.startAt)}{event.endAt ? ` — ${formatTime(event.endAt)}` : ""}
-                                            </Text>
-                                        )}
+                            <Pressable key={event.id} style={s.schedRow} onPress={() => router.push(`/event/${event.id}` as any)}>
+                                <View style={s.schedThumbWrap}>
+                                    {img
+                                        ? <Image source={{ uri: img }} style={s.schedThumb} resizeMode="cover" />
+                                        : <View style={[s.schedThumb, { backgroundColor: C.skeleton }]} />}
+                                    <View style={s.schedDateTag}>
+                                        <Text style={s.schedDateDay}>{days[d.getDay()]}</Text>
+                                        <Text style={s.schedDateNum}>{d.getDate()}</Text>
                                     </View>
-                                    {!!cdText && <Text style={s.countdownText}>{cdText}</Text>}
-                                    <Text style={s.compactTitle} numberOfLines={2}>{loc.title ?? ""}</Text>
-                                    <Text style={s.compactSub}>
-                                        {[event.club?.clubName, event.locationName?.toUpperCase()].filter(Boolean).join(" · ")}
-                                    </Text>
-                                    <DirectionsBtn location={event.locationName} />
                                 </View>
-                                {loc.posterUrl ?? loc.imageUrl
-                                    ? <Image source={{ uri: loc.posterUrl ?? loc.imageUrl }} style={s.thumb} resizeMode="cover" />
-                                    : <View style={[s.thumb, { backgroundColor: C.skeleton }]} />}
+                                <View style={s.schedBody}>
+                                    <Text style={s.schedTitle} numberOfLines={1}>{loc.title ?? ""}</Text>
+                                    <Text style={s.schedSub} numberOfLines={1}>{sub}</Text>
+                                    <View style={s.goingBadge}>
+                                        <Text style={s.goingBadgeText}>{t.goingBtn}</Text>
+                                        <Ionicons name="checkmark" size={10} color="#fff" />
+                                    </View>
+                                </View>
                             </Pressable>
                         );
-                    })}
+                    })
+                )}
 
-                    {/* Upcoming RSVPs */}
-                    {upcomingRsvps.length > 0 && (
-                        <>
-                            <Text style={s.upcomingSep}>{t.upcomingEvents}</Text>
-                            {(showAllUpcoming ? upcomingRsvps : upcomingRsvps.slice(0, 5)).map((event) => {
-                                const loc = event.locales?.en ?? event.locales?.fr ?? {};
-                                const d = new Date(event.startAt!);
-                                const conflict = hasConflict(event, rsvps);
+                {/* ── Free food banner ── */}
+                {freeFoodEvent && (() => {
+                    const loc = freeFoodEvent.locales?.en ?? freeFoodEvent.locales?.fr ?? {};
+                    const sub = [loc.title, freeFoodEvent.club?.clubName, freeFoodEvent.startAt ? formatTime(freeFoodEvent.startAt) : null]
+                        .filter(Boolean).join(" · ");
+                    return (
+                        <View style={s.foodBanner}>
+                            <Text style={s.foodBannerEmoji}>🍕</Text>
+                            <View style={s.foodBannerBody}>
+                                <Text style={s.foodBannerTitle}>{t.freeFoodToday}</Text>
+                                <Text style={s.foodBannerSub} numberOfLines={1}>{sub}</Text>
+                            </View>
+                            <Pressable style={s.foodViewBtn} onPress={() => router.push(`/event/${freeFoodEvent.id}` as any)}>
+                                <Text style={s.foodViewBtnText}>{t.viewBtn}</Text>
+                            </Pressable>
+                        </View>
+                    );
+                })()}
+
+                {/* ── TODAY ON CAMPUS ── */}
+                <View style={s.sectionHead}>
+                    <Text style={s.sectionHeadLabel}>{t.todayOnCampus}</Text>
+                    <Text style={s.sectionHeadRight}>{t.notGoingYet(campusList.length)}</Text>
+                </View>
+
+                {campusNotGoing.length === 0 ? (
+                    <View style={s.emptyToday}><Text style={s.emptyTodayText}>{t.noEvents.toUpperCase()}</Text></View>
+                ) : (
+                    campusNotGoing.map((event) => {
+                        const loc = event.locales?.en ?? event.locales?.fr ?? {};
+                        const img = loc.posterUrl ?? loc.imageUrl;
+                        const going = isRsvped(event.id);
+                        const sub = [event.club?.clubName, event.locationName, event.startAt ? formatTime(event.startAt) : null]
+                            .filter(Boolean).join(" · ");
+                        return (
+                            <Pressable key={event.id} style={s.campusRow} onPress={() => router.push(`/event/${event.id}` as any)}>
+                                {img
+                                    ? <Image source={{ uri: img }} style={s.campusThumb} resizeMode="cover" />
+                                    : <View style={[s.campusThumb, { backgroundColor: C.skeleton }]} />}
+                                <View style={s.campusBody}>
+                                    <Text style={s.campusTitle} numberOfLines={1}>{loc.title ?? ""}</Text>
+                                    <Text style={s.campusSub} numberOfLines={2}>{sub}</Text>
+                                </View>
+                                <AnimatedPressable
+                                    style={[s.rsvpOutline, going && s.rsvpOutlineGoing]}
+                                    onPress={() => handleRsvp(event)}
+                                    accessibilityLabel={going ? t.goingBtn : t.rsvpBtn}
+                                >
+                                    <Text style={[s.rsvpOutlineText, going && s.rsvpOutlineTextGoing]}>
+                                        {going ? t.goingBtn : t.rsvpBtn}
+                                    </Text>
+                                </AnimatedPressable>
+                            </Pressable>
+                        );
+                    })
+                )}
+
+                {campusList.length > 4 && (
+                    <Pressable style={[s.rsvpOutline, { marginHorizontal: 16, marginTop: 14, alignItems: "center" }]} onPress={() => { setShowAllRec((v) => !v); if (!showAllRec) loadMoreEvents(); }}>
+                        <Text style={s.rsvpOutlineText}>{showAllRec ? t.showLess : t.seeAllRec(campusList.length)}</Text>
+                    </Pressable>
+                )}
+
+                {/* ── ATTENDED ── */}
+                {attended.length > 0 && (
+                    <>
+                        <View style={s.sectionHead}>
+                            <Text style={s.sectionHeadLabel}>{t.attendedSection}</Text>
+                            <Text style={s.sectionHeadRight}>{t.tapToReview}</Text>
+                        </View>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.attendedStrip}>
+                            {attended.map((ev) => {
+                                const d = new Date(ev.startAt ?? ev.checkedAt);
+                                const img = ev.imageUrl ?? ev.clubLogo;
+                                const rating = ev.rating ?? 0; // 0 = not yet reviewed
                                 return (
-                                    <Pressable key={event.id} style={s.upcomingRow} onPress={() => router.push(`/event/${event.id}` as any)}>
-                                        <View style={s.upcomingDateCol}>
-                                            <Text style={s.upcomingDayName}>{(t.days as unknown as string[])[d.getDay()]}</Text>
-                                            <Text style={s.upcomingDayNum}>{d.getDate()}</Text>
+                                    <Pressable key={ev.id} style={s.attendedCard} onPress={() => router.push(`/event/${ev.id}` as any)}>
+                                        {img
+                                            ? <Image source={{ uri: img }} style={s.attendedCardImg} resizeMode="cover" />
+                                            : <View style={[s.attendedCardImg, { backgroundColor: "#3a3a3a" }]} />}
+                                        <View style={s.attendedCardOverlay} />
+                                        <View style={s.attendedDateTag}>
+                                            <Text style={s.attendedDateText}>{months[d.getMonth()]} {d.getDate()}</Text>
                                         </View>
-                                        <View style={s.compactLeft}>
-                                            <View style={s.metaRow}>
-                                                <View style={s.rsvpdBadge}><Text style={s.rsvpdText}>{t.youreGoingBtn}</Text></View>
-                                                {conflict && (
-                                            <View style={s.conflictBadge}>
-                                                <Ionicons name="warning" size={10} color="#F59E0B" />
-                                                <Text style={s.conflictText}>{t.conflictBadge}</Text>
+                                        <View style={s.attendedCardBody}>
+                                            <Text style={s.attendedCardTitle} numberOfLines={2}>{ev.title}</Text>
+                                            <View style={s.starsRow}>
+                                                {[0, 1, 2, 3, 4].map((i) => (
+                                                    <Ionicons key={i} name={i < rating ? "star" : "star-outline"} size={12} color={C.gold} />
+                                                ))}
                                             </View>
-                                        )}
-                                                {event.startAt && <Text style={s.eventTime}>{formatTime(event.startAt)}</Text>}
-                                            </View>
-                                            <Text style={s.compactTitle} numberOfLines={1}>{loc.title ?? ""}</Text>
-                                            <Text style={s.compactSub}>
-                                                {[event.club?.clubName, event.locationName?.toUpperCase()].filter(Boolean).join(" · ")}
-                                            </Text>
-                                            <DirectionsBtn location={event.locationName} />
                                         </View>
-                                        {loc.posterUrl ?? loc.imageUrl
-                                            ? <Image source={{ uri: loc.posterUrl ?? loc.imageUrl }} style={s.thumb} resizeMode="cover" />
-                                            : <View style={[s.thumb, { backgroundColor: C.skeleton }]} />}
                                     </Pressable>
                                 );
                             })}
-                        </>
-                    )}
+                        </ScrollView>
+                    </>
+                )}
 
-                    {upcomingRsvps.length > 5 && (
-                        <Pressable style={s.showMoreBtn} onPress={() => setShowAllUpcoming((v) => !v)}>
-                            <Text style={s.showMoreText}>
-                                {showAllUpcoming ? t.showLess : t.moreItems(upcomingRsvps.length - 5)}
-                            </Text>
-                        </Pressable>
-                    )}
-
-                    <Pressable style={s.calendarBtn} onPress={() => router.push("/all-events-modal" as any)}>
-                        <Text style={s.calendarBtnText}>{t.viewAll}</Text>
-                    </Pressable>
-                </View>
-
-                {/* ── Past Events Archive (RSVP'd / Attended) ── */}
+                {/* ── Past events archive (preserved) ── */}
                 {(pastRsvps.length > 0 || attended.length > 0) && (
                     <View style={s.archiveCard}>
                         <Pressable style={s.archiveHeader} onPress={() => setArchiveOpen((v) => !v)}>
@@ -1165,11 +1006,7 @@ export default function EventsScreen() {
                             </View>
                             <View style={s.archiveRight}>
                                 <Text style={s.archiveCount}>{archiveMode === "attended" ? attended.length : pastRsvps.length}</Text>
-                                <Ionicons
-                                    name={archiveOpen ? "chevron-up" : "chevron-down"}
-                                    size={16}
-                                    color={C.textLight}
-                                />
+                                <Ionicons name={archiveOpen ? "chevron-up" : "chevron-down"} size={16} color={C.textLight} />
                             </View>
                         </Pressable>
 
@@ -1205,7 +1042,7 @@ export default function EventsScreen() {
                                     return items.map((it) => (
                                         <Pressable key={it.id} style={s.archiveRow} onPress={() => router.push(`/event/${it.id}` as any)}>
                                             <View style={s.upcomingDateCol}>
-                                                <Text style={s.upcomingDayName}>{(t.days as unknown as string[])[it.date.getDay()]}</Text>
+                                                <Text style={s.upcomingDayName}>{days[it.date.getDay()]}</Text>
                                                 <Text style={[s.upcomingDayNum, { color: C.textLight }]}>{it.date.getDate()}</Text>
                                             </View>
                                             <View style={s.compactLeft}>
@@ -1213,9 +1050,7 @@ export default function EventsScreen() {
                                                     <View style={s.attendedBadge}>
                                                         <Text style={s.attendedText}>{archiveMode === "attended" ? t.archiveAttended : t.archiveRsvpd}</Text>
                                                     </View>
-                                                    <Text style={s.eventTime}>
-                                                        {(t.months as unknown as string[])[it.date.getMonth()]} {it.date.getFullYear()}
-                                                    </Text>
+                                                    <Text style={s.eventTime}>{months[it.date.getMonth()]} {it.date.getFullYear()}</Text>
                                                 </View>
                                                 <Text style={[s.compactTitle, { color: C.textMuted }]} numberOfLines={1}>{it.title}</Text>
                                                 <Text style={s.compactSub}>{[it.club, it.loc?.toUpperCase()].filter(Boolean).join(" · ")}</Text>
@@ -1230,185 +1065,58 @@ export default function EventsScreen() {
                         )}
                     </View>
                 )}
-
-                {/* ── Recommended ── */}
-                <View style={s.recCard}>
-                    <Text style={s.forYouLabel}>{t.recommended.toUpperCase()}</Text>
-                    <Text style={s.recHeading}>{t.happeningSoon}</Text>
-
-                    {/* Category filter pills */}
-                    {categories.length > 0 && (
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={s.catPillsRow}
-                        >
-                            <Pressable
-                                style={[s.catPill, !categoryFilter && s.catPillActive]}
-                                onPress={() => setCategoryFilter(null)}
-                            >
-                                <Text style={[s.catPillText, !categoryFilter && s.catPillTextActive]}>{t.filterAll}</Text>
-                            </Pressable>
-                            {categories.map((cat) => (
-                                <Pressable
-                                    key={cat}
-                                    style={[s.catPill, categoryFilter === cat && s.catPillActive]}
-                                    onPress={() => setCategoryFilter(categoryFilter === cat ? null : cat)}
-                                >
-                                    <Text style={[s.catPillText, categoryFilter === cat && s.catPillTextActive]}>
-                                        {cat.toUpperCase()}
-                                    </Text>
-                                </Pressable>
-                            ))}
-                        </ScrollView>
-                    )}
-
-                    {recommended.length === 0 ? (
-                        <View style={s.emptyToday}>
-                            <Text style={s.emptyTodayText}>{t.noEvents.toUpperCase()}</Text>
-                        </View>
-                    ) : (
-                        <>
-                            {(showAllRec ? recommended : recommended.slice(0, 3)).map((event) => {
-                                const loc = event.locales?.en ?? event.locales?.fr ?? {};
-                                const dayLabel = event.startAt
-                                    ? new Date(event.startAt).toLocaleDateString("en-CA", { weekday: "long" }).toUpperCase()
-                                    : "";
-                                const conflict = hasConflict(event, rsvps);
-                                return (
-                                    <Pressable key={event.id} style={s.recRow} onPress={() => router.push(`/event/${event.id}` as any)}>
-                                        <View style={s.recLeft}>
-                                            {!!event.club?.clubName && (
-                                                <Text style={s.cardClubName}>{event.club.clubName.toUpperCase()}</Text>
-                                            )}
-                                            <Text style={s.recTitle} numberOfLines={2}>{(loc.title ?? "").toUpperCase()}</Text>
-                                            {!!loc.body && <Text style={s.recDesc} numberOfLines={2}>{loc.body}</Text>}
-                                            <View style={s.recMeta}>
-                                                {conflict && (
-                                                    <View style={s.conflictBadge}>
-                                                        <Ionicons name="warning" size={10} color="#F59E0B" />
-                                                        <Text style={s.conflictText}>{t.conflictBadge}</Text>
-                                                    </View>
-                                                )}
-                                                {!!dayLabel && <Text style={s.recDate}>{dayLabel}</Text>}
-                                                {event._count.rsvps > 0 && (
-                                                    <Text style={s.recDate}>{event._count.rsvps} going</Text>
-                                                )}
-                                            </View>
-                                        </View>
-                                        <Pressable onPress={() => handleRsvp(event)}>
-                                            <Text style={[s.detailsBtn, isRsvped(event.id) && s.detailsBtnGoing]}>
-                                                {isRsvped(event.id) ? t.goingBtn : t.rsvpBtn}
-                                            </Text>
-                                        </Pressable>
-                                    </Pressable>
-                                );
-                            })}
-
-                            {!showAllRec && recommended[3] && (() => {
-                                const event = recommended[3];
-                                const loc = event.locales?.en ?? event.locales?.fr ?? {};
-                                const conflict = hasConflict(event, rsvps);
-                                return (
-                                    <Pressable style={s.featuredCard} onPress={() => router.push(`/event/${event.id}` as any)}>
-                                        {!!(loc.posterUrl ?? loc.imageUrl) && (
-                                            <Image source={{ uri: loc.posterUrl ?? loc.imageUrl }} style={StyleSheet.absoluteFill as any} resizeMode="cover" />
-                                        )}
-                                        <View style={s.featuredOverlay} />
-                                        <View style={s.featuredContent}>
-                                            {conflict && (
-                                                <View style={[s.conflictBadge, { alignSelf: "flex-start", marginBottom: 6 }]}>
-                                                    <Ionicons name="warning" size={10} color="#F59E0B" />
-                                                    <Text style={s.conflictText}>{t.conflictBadge}</Text>
-                                                </View>
-                                            )}
-                                            <Text style={s.featuredTitle}>{(loc.title ?? "").toUpperCase()}</Text>
-                                            {!!event.club?.clubName && (
-                                                <Text style={s.featuredSub}>{event.club.clubName.toUpperCase()}</Text>
-                                            )}
-                                            <Pressable style={s.reserveBtn} onPress={() => handleRsvp(event)}>
-                                                <Text style={s.reserveBtnText}>
-                                                    {isRsvped(event.id) ? t.youreGoingBtn : t.reserveSpot}
-                                                </Text>
-                                            </Pressable>
-                                        </View>
-                                    </Pressable>
-                                );
-                            })()}
-                        </>
-                    )}
-
-                    {recommended.length > 3 && (
-                        <Pressable style={s.seeAllBtn} onPress={() => setShowAllRec((v) => !v)}>
-                            <Text style={s.seeAllText}>{showAllRec ? t.showLess : t.seeAllRec(recommended.length)}</Text>
-                        </Pressable>
-                    )}
-
-                    {showAllRec && hasMore && (
-                        <Pressable
-                            style={[s.seeAllBtn, loadingMore && { opacity: 0.5 }]}
-                            onPress={loadMoreEvents}
-                            disabled={loadingMore}
-                        >
-                            {loadingMore
-                                ? <ActivityIndicator color={C.primary} size="small" />
-                                : <Text style={s.seeAllText}>LOAD MORE</Text>
-                            }
-                        </Pressable>
-                    )}
-                </View>
-
             </ScrollView>
-            {/* ── RSVP Search Modal ── */}
+
+            {/* ── RSVP Search Modal (preserved) ── */}
             <ModalScreen visible={searchVisible} onClose={() => setSearchVisible(false)} title={t.mySchedule} scroll={false}>
-                        <View style={s.searchInputWrap}>
-                            <Ionicons name="search-outline" size={16} color={C.textLight} />
-                            <TextInput
-                                style={s.searchInput}
-                                placeholder={t.searchEventsPlaceholder}
-                                placeholderTextColor={C.textLight}
-                                value={searchQuery}
-                                onChangeText={setSearchQuery}
-                                autoFocus
-                            />
+                <View style={s.searchInputWrap}>
+                    <Ionicons name="search-outline" size={16} color={C.textLight} />
+                    <TextInput
+                        style={s.searchInput}
+                        placeholder={t.searchEventsPlaceholder}
+                        placeholderTextColor={C.textLight}
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        autoFocus
+                    />
+                </View>
+                <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
+                    {rsvps
+                        .filter((e) => {
+                            const loc = e.locales?.en ?? e.locales?.fr ?? {};
+                            return (loc.title ?? "").toLowerCase().includes(searchQuery.toLowerCase());
+                        })
+                        .map((event) => {
+                            const loc = event.locales?.en ?? event.locales?.fr ?? {};
+                            return (
+                                <Pressable
+                                    key={event.id}
+                                    style={s.searchRow}
+                                    onPress={() => { setSearchVisible(false); router.push(`/event/${event.id}` as any); }}
+                                >
+                                    <View style={s.searchRowLeft}>
+                                        <Text style={s.searchRowTitle} numberOfLines={1}>{loc.title ?? ""}</Text>
+                                        {!!event.startAt && <Text style={s.searchRowSub}>{formatTime(event.startAt)}{event.locationName ? ` · ${event.locationName.toUpperCase()}` : ""}</Text>}
+                                    </View>
+                                    {!!(loc.posterUrl ?? loc.imageUrl)
+                                        ? <Image source={{ uri: loc.posterUrl ?? loc.imageUrl }} style={s.searchThumb} resizeMode="cover" />
+                                        : <View style={[s.searchThumb, { backgroundColor: C.skeleton }]} />}
+                                </Pressable>
+                            );
+                        })
+                    }
+                    {rsvps.filter((e) => {
+                        const loc = e.locales?.en ?? e.locales?.fr ?? {};
+                        return (loc.title ?? "").toLowerCase().includes(searchQuery.toLowerCase());
+                    }).length === 0 && (
+                        <View style={s.searchEmpty}>
+                            <Text style={s.searchEmptyText}>NO MATCHING EVENTS</Text>
+                            <Pressable onPress={() => setSearchQuery("")} style={{ marginTop: 12, backgroundColor: C.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 6 }} accessibilityRole="button" accessibilityLabel="Clear search">
+                                <Text style={{ fontSize: 11, fontWeight: "800", color: "#fff", letterSpacing: 1.5 }}>CLEAR SEARCH</Text>
+                            </Pressable>
                         </View>
-                        <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
-                            {rsvps
-                                .filter((e) => {
-                                    const loc = e.locales?.en ?? e.locales?.fr ?? {};
-                                    return (loc.title ?? "").toLowerCase().includes(searchQuery.toLowerCase());
-                                })
-                                .map((event) => {
-                                    const loc = event.locales?.en ?? event.locales?.fr ?? {};
-                                    return (
-                                        <Pressable
-                                            key={event.id}
-                                            style={s.searchRow}
-                                            onPress={() => { setSearchVisible(false); router.push(`/event/${event.id}` as any); }}
-                                        >
-                                            <View style={s.searchRowLeft}>
-                                                <Text style={s.searchRowTitle} numberOfLines={1}>{loc.title ?? ""}</Text>
-                                                {!!event.startAt && <Text style={s.searchRowSub}>{formatTime(event.startAt)}{event.locationName ? ` · ${event.locationName.toUpperCase()}` : ""}</Text>}
-                                            </View>
-                                            {!!(loc.posterUrl ?? loc.imageUrl)
-                                                ? <Image source={{ uri: loc.posterUrl ?? loc.imageUrl }} style={s.searchThumb} resizeMode="cover" />
-                                                : <View style={[s.searchThumb, { backgroundColor: C.skeleton }]} />}
-                                        </Pressable>
-                                    );
-                                })
-                            }
-                            {rsvps.filter((e) => {
-                                const loc = e.locales?.en ?? e.locales?.fr ?? {};
-                                return (loc.title ?? "").toLowerCase().includes(searchQuery.toLowerCase());
-                            }).length === 0 && (
-                                <View style={s.searchEmpty}>
-                                    <Text style={s.searchEmptyText}>NO MATCHING EVENTS</Text>
-                                    <Pressable onPress={() => setSearchQuery("")} style={{ marginTop: 12, backgroundColor: C.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 6 }} accessibilityRole="button" accessibilityLabel="Clear search">
-                                        <Text style={{ fontSize: 11, fontWeight: "800", color: "#fff", letterSpacing: 1.5 }}>CLEAR SEARCH</Text>
-                                    </Pressable>
-                                </View>
-                            )}
-                        </ScrollView>
+                    )}
+                </ScrollView>
             </ModalScreen>
         </SafeAreaView>
     );

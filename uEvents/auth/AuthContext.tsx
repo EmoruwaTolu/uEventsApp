@@ -16,6 +16,7 @@ type Ctx = {
     session: Session;
     isLoading: boolean;
     register: (first: string, last: string, email: string, password: string) => Promise<void>;
+    registerClub: (clubName: string, email: string, password: string, inviteCode: string, category?: string) => Promise<void>;
     signIn: (email: string, password: string) => Promise<void>;
     signOut: () => Promise<void>;
     continueAsGuest: () => Promise<void>;
@@ -61,6 +62,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
     }
 
+    async function registerClub(clubName: string, email: string, password: string, inviteCode: string, category?: string) {
+        const res = await api<{ token: string; user: { id: string; email: string; type: string; emailVerified?: boolean } }>(
+            "/users/add-user",
+            { method: "POST", body: JSON.stringify({ type: "CLUB", clubName, email, password, inviteCode, category }) }
+        );
+        await saveSession({
+            token: res.token, role: "user", email: res.user.email,
+            userType: res.user.type as any, userId: res.user.id,
+            needsOnboarding: true,
+            emailVerified: res.user.emailVerified ?? false,
+        });
+    }
+
     async function signIn(email: string, password: string) {
         const res = await api<{ token: string; user: { id: string; email: string; type: string; emailVerified?: boolean } }>(
             "/users/validate-user",
@@ -93,7 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     return (
-        <AuthContext.Provider value={{ session, isLoading, register, signIn, signOut, continueAsGuest, completeOnboarding, updateToken, markEmailVerified }}>
+        <AuthContext.Provider value={{ session, isLoading, register, registerClub, signIn, signOut, continueAsGuest, completeOnboarding, updateToken, markEmailVerified }}>
             {children}
         </AuthContext.Provider>
     );

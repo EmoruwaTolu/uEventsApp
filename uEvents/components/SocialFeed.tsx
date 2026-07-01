@@ -5,6 +5,8 @@ import { Image as ExpoImage } from "expo-image";
 import { makeFeedStyles } from "../styles/feed.styles";
 import { Ionicons } from "@expo/vector-icons";
 import { useRsvp } from "../lib/RsvpContext";
+import { useBookmarks } from "../lib/BookmarkContext";
+import { useT } from "../lib/LangContext";
 import { useApi } from "../lib/useApi";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../lib/api";
@@ -13,6 +15,7 @@ import { useTheme } from "../lib/ThemeContext";
 
 function SafeImage({ uri, style, resizeMode, label }: { uri: string; style: StyleProp<ImageStyle>; resizeMode?: "cover" | "contain"; label?: string }) {
     const { colors: C } = useTheme();
+    const t = useT();
     const [errored, setErrored] = useState(false);
     if (errored) {
         return <View style={[style, { backgroundColor: C.skeleton, alignItems: "center", justifyContent: "center" }]}><Ionicons name="image-outline" size={24} color={C.textFaint} /></View>;
@@ -62,7 +65,17 @@ export type FeedPost = {
     likes?: number;
     comments?: number;
     isLiked?: boolean;
+    isBookmarked?: boolean;
     reason?: string;
+    hasRecap?: boolean;
+    recapPhotos?: string[];
+    recapPhotoCount?: number;
+    recapContributors?: { name: string; avatarUrl?: string | null }[];
+    recapContributorCount?: number;
+    crowdCount?: number;
+    canRate?: boolean;
+    rating?: { avg: number | null; count: number; mine: number };
+    topComment?: { id: string; author: string; avatarUrl?: string | null; content: string; upvotes?: number; replyCount?: number };
     poll?: Poll;
 };
 
@@ -87,6 +100,7 @@ function AnimatedPollOption({
     dark?: boolean;
 }) {
     const { colors: C } = useTheme();
+    const t = useT();
     const s = useMemo(() => makeFeedStyles(C), [C]);
     const percentage = poll.totalVotes > 0 ? Math.round((option.votes / poll.totalVotes) * 100) : 0;
     const isUserVote = poll.userVote === option.id;
@@ -179,6 +193,7 @@ function AnimatedPollOption({
 
 function FollowButton({ isFollowing, onPress }: { isFollowing?: boolean; onPress: () => void }) {
     const { colors: C } = useTheme();
+    const t = useT();
     const s = useMemo(() => makeFeedStyles(C), [C]);
     const scale = useRef(new Animated.Value(1)).current;
 
@@ -228,6 +243,7 @@ function HeroCard({
     isOwner?: boolean;
 }) {
     const { colors: C } = useTheme();
+    const t = useT();
     const s = useMemo(() => makeFeedStyles(C), [C]);
     const { isRsvped, toggleRsvp } = useRsvp();
     const [rsvpLoading, setRsvpLoading] = useState(false);
@@ -359,25 +375,23 @@ function AnnouncementCard({
     onPress?: () => void;
     onClubPress?: (id: string) => void;
     onLikePress?: (id: string) => void;
-    onCommentPress?: (id: string, type: PostType) => void;
+    onCommentPress?: (id: string, type: PostType, opts?: { commentId?: string; focus?: boolean }) => void;
     onFollowToggle?: (id: string) => void;
     showFollow?: boolean;
     onEditPress?: (id: string) => void;
     onDeletePress?: (id: string) => void;
 }) {
     const { colors: C } = useTheme();
+    const t = useT();
     const s = useMemo(() => makeFeedStyles(C), [C]);
     const authApi = useApi();
-    const [isBookmarked, setIsBookmarked] = useState(false);
+    const { resolve: resolveBookmark, toggleBookmark } = useBookmarks();
+    const isBookmarked = resolveBookmark(post.id, post.isBookmarked ?? false);
 
-    const handleBookmark = useCallback(async () => {
-        const next = !isBookmarked;
-        setIsBookmarked(next);
+    const handleBookmark = useCallback(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        try {
-            await authApi(`/posts/${post.id}/bookmark`, { method: next ? "POST" : "DELETE" });
-        } catch { setIsBookmarked(!next); }
-    }, [isBookmarked, post.id, authApi]);
+        toggleBookmark(post.id, isBookmarked);
+    }, [toggleBookmark, post.id, isBookmarked]);
 
     const handleLike = useCallback(() => {
         onLikePress?.(post.id);
@@ -388,10 +402,10 @@ function AnnouncementCard({
     const deleteScale = useRef(new Animated.Value(1)).current;
 
     const handleDelete = useCallback(() => {
-        Alert.alert("Delete post", "Are you sure? This can't be undone.", [
-            { text: "Cancel", style: "cancel" },
+        Alert.alert(t.deletePostConfirmTitle, t.deletePostConfirmMsg, [
+            { text: t.cancelBtn, style: "cancel" },
             {
-                text: "Delete", style: "destructive", onPress: () => {
+                text: t.deleteAction, style: "destructive", onPress: () => {
                     Animated.parallel([
                         Animated.timing(deleteOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
                         Animated.timing(deleteScale, { toValue: 0.92, duration: 300, useNativeDriver: true }),
@@ -528,30 +542,26 @@ function TextArticleCard({
     onPress?: () => void;
     onClubPress?: (id: string) => void;
     onLikePress?: (id: string) => void;
-    onCommentPress?: (id: string, type: PostType) => void;
+    onCommentPress?: (id: string, type: PostType, opts?: { commentId?: string; focus?: boolean }) => void;
     onFollowToggle?: (id: string) => void;
     showFollow?: boolean;
     onEditPress?: (id: string) => void;
     onDeletePress?: (id: string) => void;
 }) {
     const { colors: C } = useTheme();
+    const t = useT();
     const s = useMemo(() => makeFeedStyles(C), [C]);
     const headline = post.eventTitle || post.content || "";
     const excerpt = post.eventTitle ? post.content : "";
 
     // Bookmark
     const authApi = useApi();
-    const [isBookmarked, setIsBookmarked] = useState(false);
-    const handleBookmark = useCallback(async () => {
-        const next = !isBookmarked;
-        setIsBookmarked(next);
+    const { resolve: resolveBookmark, toggleBookmark } = useBookmarks();
+    const isBookmarked = resolveBookmark(post.id, post.isBookmarked ?? false);
+    const handleBookmark = useCallback(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        try {
-            await authApi(`/posts/${post.id}/bookmark`, { method: next ? "POST" : "DELETE" });
-        } catch {
-            setIsBookmarked(!next);
-        }
-    }, [isBookmarked, post.id, authApi]);
+        toggleBookmark(post.id, isBookmarked);
+    }, [toggleBookmark, post.id, isBookmarked]);
 
     // Double-tap to like
     const lastTap = useRef<number>(0);
@@ -579,10 +589,10 @@ function TextArticleCard({
     const deleteScale = useRef(new Animated.Value(1)).current;
 
     const handleDelete = useCallback(() => {
-        Alert.alert("Delete post", "Are you sure? This can't be undone.", [
-            { text: "Cancel", style: "cancel" },
+        Alert.alert(t.deletePostConfirmTitle, t.deletePostConfirmMsg, [
+            { text: t.cancelBtn, style: "cancel" },
             {
-                text: "Delete", style: "destructive", onPress: () => {
+                text: t.deleteAction, style: "destructive", onPress: () => {
                     Animated.parallel([
                         Animated.timing(deleteOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
                         Animated.timing(deleteScale, { toValue: 0.92, duration: 300, useNativeDriver: true }),
@@ -686,6 +696,69 @@ function TextArticleCard({
 
 // ─── Event feed card ────────────────────────────────────────────────────────
 
+// In-feed star rating for past events (recaps). Read-only average for everyone;
+// tappable to submit a rating for attendees who checked in (canRate).
+function RecapStars({ postId, rating, canRate, bare }: { postId: string; rating?: { avg: number | null; count: number; mine: number }; canRate: boolean; bare?: boolean }) {
+    const { colors: C } = useTheme();
+    const t = useT();
+    const authApi = useApi();
+    const [avg, setAvg] = useState<number | null>(rating?.avg ?? null);
+    const [count, setCount] = useState(rating?.count ?? 0);
+    const [mine, setMine] = useState(rating?.mine ?? 0);
+    const [saving, setSaving] = useState(false);
+
+    const submit = useCallback(async (val: number) => {
+        if (saving || !canRate) return;
+        const prev = { mine, avg, count };
+        setSaving(true);
+        setMine(val);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        try {
+            const r = await authApi<{ avgRating: number | null; ratingCount: number; myRating: number }>(
+                `/posts/${postId}/recap/rating`, { method: "POST", body: JSON.stringify({ rating: val }) }
+            );
+            setAvg(r.avgRating); setCount(r.ratingCount); setMine(r.myRating);
+        } catch {
+            setMine(prev.mine); setAvg(prev.avg); setCount(prev.count);
+        } finally {
+            setSaving(false);
+        }
+    }, [saving, canRate, mine, avg, count, postId, authApi]);
+
+    return (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingTop: bare ? 0 : 10, borderTopWidth: bare ? 0 : StyleSheet.hairlineWidth, borderTopColor: C.borderWarm }}>
+            {/* Left: read-only average */}
+            {avg != null && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <Text style={{ fontSize: 24, fontWeight: "900", color: C.text, lineHeight: 26 }}>{avg.toFixed(1)}</Text>
+                    <View>
+                        <View style={{ flexDirection: "row", gap: 1 }}>
+                            {[1, 2, 3, 4, 5].map((i) => (
+                                <Ionicons key={i} name={i <= Math.round(avg) ? "star" : "star-outline"} size={13} color={C.gold} />
+                            ))}
+                        </View>
+                        <Text style={{ fontSize: 10, fontWeight: "800", letterSpacing: 1, color: C.textMuted, marginTop: 2 }}>{count} REVIEW{count === 1 ? "" : "S"}</Text>
+                    </View>
+                </View>
+            )}
+            <View style={{ flex: 1 }} />
+            {/* Right: personal tap-to-rate (attendees only) */}
+            {canRate && (
+                <View style={{ alignItems: "flex-end" }}>
+                    <Text style={{ fontSize: 11, fontWeight: "700", color: C.text, marginBottom: 5 }}>{mine ? `You rated this ${mine}/5` : "You were there — tap to rate"}</Text>
+                    <View style={{ flexDirection: "row", gap: 4 }}>
+                        {[1, 2, 3, 4, 5].map((i) => (
+                            <Pressable key={i} disabled={saving} onPress={() => submit(i)} hitSlop={5} accessibilityRole="button" accessibilityLabel={`Rate ${i} star${i > 1 ? "s" : ""}`}>
+                                <Ionicons name={i <= mine ? "star" : "star-outline"} size={22} color={C.gold} />
+                            </Pressable>
+                        ))}
+                    </View>
+                </View>
+            )}
+        </View>
+    );
+}
+
 function EventFeedCard({
     post,
     onPress,
@@ -696,25 +769,30 @@ function EventFeedCard({
     showFollow,
     onEditPress,
     onDeletePress,
+    onAddRecapPhoto,
     isOwner,
 }: {
     post: FeedPost;
     onPress?: () => void;
     onClubPress?: (id: string) => void;
     onLikePress?: (id: string) => void;
-    onCommentPress?: (id: string, type: PostType) => void;
+    onCommentPress?: (id: string, type: PostType, opts?: { commentId?: string; focus?: boolean }) => void;
     onFollowToggle?: (id: string) => void;
     showFollow?: boolean;
     onEditPress?: (id: string) => void;
     onDeletePress?: (id: string) => void;
+    onAddRecapPhoto?: (postId: string) => void;
     isOwner?: boolean;
 }) {
     const { colors: C } = useTheme();
+    const t = useT();
     const s = useMemo(() => makeFeedStyles(C), [C]);
     const { isRsvped, toggleRsvp } = useRsvp();
     const authApi = useApi();
     const [rsvpLoading, setRsvpLoading] = useState(false);
-    const [isBookmarked, setIsBookmarked] = useState(false);
+    const { resolve: resolveBookmark, toggleBookmark } = useBookmarks();
+    const isBookmarked = resolveBookmark(post.id, post.isBookmarked ?? false);
+    const [recapAdded, setRecapAdded] = useState(false);
 
     const handleRsvp = useCallback(async () => {
         if (rsvpLoading) return;
@@ -729,16 +807,10 @@ function EventFeedCard({
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }, [post.id, onLikePress]);
 
-    const handleBookmark = useCallback(async () => {
-        const next = !isBookmarked;
-        setIsBookmarked(next);
+    const handleBookmark = useCallback(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        try {
-            await authApi(`/posts/${post.id}/bookmark`, { method: next ? "POST" : "DELETE" });
-        } catch {
-            setIsBookmarked(!next);
-        }
-    }, [isBookmarked, post.id, authApi]);
+        toggleBookmark(post.id, isBookmarked);
+    }, [toggleBookmark, post.id, isBookmarked]);
 
     const going = isRsvped(post.id);
 
@@ -763,10 +835,10 @@ function EventFeedCard({
     const deleteScale = useRef(new Animated.Value(1)).current;
 
     const handleDelete = useCallback(() => {
-        Alert.alert("Delete post", "Are you sure? This can't be undone.", [
-            { text: "Cancel", style: "cancel" },
+        Alert.alert(t.deletePostConfirmTitle, t.deletePostConfirmMsg, [
+            { text: t.cancelBtn, style: "cancel" },
             {
-                text: "Delete", style: "destructive", onPress: () => {
+                text: t.deleteAction, style: "destructive", onPress: () => {
                     Animated.parallel([
                         Animated.timing(deleteOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
                         Animated.timing(deleteScale, { toValue: 0.92, duration: 300, useNativeDriver: true }),
@@ -793,7 +865,145 @@ function EventFeedCard({
         <Animated.View style={{ opacity: deleteOpacity, transform: [{ scale: deleteScale }] }}>
         <Pressable onPress={handleDoubleTap} style={s.evCard}>
 
-            {/* ── Banner ── */}
+            {/* Recap cards are sectioned: header → title+photos → add photo → ratings → footer. */}
+            {post.hasRecap ? (
+                <>
+                    {/* 1. Header */}
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderWarm }}>
+                        <Pressable onPress={() => onClubPress?.(post.clubId)}>
+                            {post.clubAvatar ? (
+                                <ExpoImage source={{ uri: post.clubAvatar }} style={{ width: 34, height: 34, borderRadius: 17 }} contentFit="cover" transition={200} />
+                            ) : (
+                                <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: C.primaryBg, alignItems: "center", justifyContent: "center" }}>
+                                    <Text style={{ fontSize: 11, fontWeight: "900", color: C.primary }}>{clubInitials.toUpperCase()}</Text>
+                                </View>
+                            )}
+                        </Pressable>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={{ fontSize: 13, fontWeight: "800", color: C.text }} numberOfLines={1}>{post.clubName}</Text>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: C.gold, alignSelf: "flex-start", paddingHorizontal: 6, paddingVertical: 2, marginTop: 3 }}>
+                                <Ionicons name="camera" size={9} color="#fff" />
+                                <Text style={{ fontSize: 8, fontWeight: "800", letterSpacing: 1.2, color: "#fff" }}>RECAP</Text>
+                            </View>
+                        </View>
+                        {showFollow ? (
+                            <Pressable onPress={() => onFollowToggle?.(post.clubId)} hitSlop={8} style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: C.primary, paddingHorizontal: 12, paddingVertical: 7 }} accessibilityRole="button" accessibilityLabel="Follow club">
+                                <Ionicons name="add" size={13} color="#fff" />
+                                <Text style={{ fontSize: 11, fontWeight: "800", letterSpacing: 1.5, color: "#fff" }}>FOLLOW</Text>
+                            </Pressable>
+                        ) : !!post.timestamp ? (
+                            <Text style={{ fontSize: 12, color: C.textLight }}>{post.timestamp}</Text>
+                        ) : null}
+                    </View>
+
+                    {/* 2. Title + photos (photos run edge-to-edge) */}
+                    <View style={{ paddingTop: 12, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderWarm }}>
+                        {!!post.eventTitle && (
+                            <Text style={{ fontSize: 22, fontWeight: "900", color: C.text, letterSpacing: -0.5, lineHeight: 26, paddingHorizontal: 16 }} numberOfLines={2}>{post.eventTitle.toUpperCase()}</Text>
+                        )}
+                        {(post.recapPhotos?.length ?? 0) > 0 && (() => {
+                            const photos = post.recapPhotos ?? [];
+                            const total = post.recapPhotoCount ?? photos.length;
+                            const extra = total - 3;
+                            return (
+                                <View style={{ flexDirection: "row", gap: 2 }}>
+                                    {/* Big lead photo */}
+                                    <View style={{ flex: 1.7, aspectRatio: 1 }}>
+                                        <ExpoImage source={{ uri: photos[0] }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={150} />
+                                    </View>
+                                    {photos.length > 1 && (
+                                        <View style={{ flex: 1, gap: 2 }}>
+                                            <View style={{ flex: 1 }}>
+                                                <ExpoImage source={{ uri: photos[1] }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={150} />
+                                            </View>
+                                            {photos.length > 2 && (
+                                                <View style={{ flex: 1 }}>
+                                                    <ExpoImage source={{ uri: photos[2] }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={150} />
+                                                    {extra > 0 && (
+                                                        <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center" }]}>
+                                                            <Text style={{ fontSize: 22, fontWeight: "900", color: "#fff" }}>+{extra}</Text>
+                                                        </View>
+                                                    )}
+                                                </View>
+                                            )}
+                                        </View>
+                                    )}
+                                </View>
+                            );
+                        })()}
+                    </View>
+
+                    {/* 3. Add photo row — contributor stack + names + outlined button */}
+                    {(() => {
+                        const contribs = post.recapContributors ?? [];
+                        const count = post.recapContributorCount ?? contribs.length;
+                        const photoTotal = post.recapPhotoCount ?? (post.recapPhotos?.length ?? 0);
+                        const extra = count - 2;
+                        let who = "";
+                        if (count > 2) who = `${contribs.slice(0, 2).map((c) => c.name).join(", ")} & ${extra} other${extra === 1 ? "" : "s"}`;
+                        else if (contribs.length > 0) who = contribs.map((c) => c.name).join(" & ");
+                        return (
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 8, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderWarm }}>
+                                {contribs.length > 0 && (
+                                    <View style={{ flexDirection: "row" }}>
+                                        {contribs.slice(0, 3).map((c, i) => (
+                                            <View key={i} style={{ width: 24, height: 24, borderRadius: 12, marginLeft: i === 0 ? 0 : -8, borderWidth: 1.5, borderColor: C.surface, overflow: "hidden", backgroundColor: C.primary, alignItems: "center", justifyContent: "center" }}>
+                                                {c.avatarUrl ? (
+                                                    <ExpoImage source={{ uri: c.avatarUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={150} />
+                                                ) : (
+                                                    <Text style={{ fontSize: 9, fontWeight: "900", color: "#fff" }}>{c.name.slice(0, 1).toUpperCase()}</Text>
+                                                )}
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
+                                <Text style={{ flex: 1, fontSize: 12, color: C.textMuted }} numberOfLines={1}>
+                                    {who ? <Text style={{ fontWeight: "800", color: C.text }}>{who} </Text> : null}
+                                    {who ? "added " : ""}{photoTotal} photo{photoTotal === 1 ? "" : "s"}
+                                </Text>
+                                <Pressable
+                                    onPress={() => { setRecapAdded(true); onAddRecapPhoto ? onAddRecapPhoto(post.eventId ?? post.id) : onPress?.(); }}
+                                    style={{ flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1.5, borderColor: C.primary, backgroundColor: recapAdded ? C.primary : "transparent", paddingHorizontal: 14, paddingVertical: 7 }}
+                                    accessibilityRole="button" accessibilityLabel="Add your photos"
+                                >
+                                    {recapAdded && <Ionicons name="checkmark" size={12} color="#fff" />}
+                                    <Text style={{ fontSize: 11, fontWeight: "800", letterSpacing: 0.6, color: recapAdded ? "#fff" : C.primary }}>{recapAdded ? "ADDED" : "ADD YOURS"}</Text>
+                                </Pressable>
+                            </View>
+                        );
+                    })()}
+
+                    {/* 4. Ratings */}
+                    <View style={{ backgroundColor: C.surfaceWarm, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderWarm }}>
+                        <RecapStars postId={post.id} rating={post.rating} canRate={!!post.canRate} bare />
+                    </View>
+
+                    {/* 5. Footer — likes / comments / share / bookmark */}
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 18, paddingHorizontal: 16, paddingVertical: 10 }}>
+                        <Pressable style={s.articleAction} onPress={handleLike} hitSlop={8} accessibilityRole="button" accessibilityLabel={post.isLiked ? "Unlike" : "Like"}>
+                            <Ionicons name={post.isLiked ? "heart" : "heart-outline"} size={18} color={post.isLiked ? "#8C0327" : "#9CA3AF"} />
+                            {(post.likes || 0) > 0 && <Text style={[s.articleActionText, post.isLiked && s.articleActionTextActive]}>{post.likes}</Text>}
+                        </Pressable>
+                        <Pressable style={s.articleAction} onPress={() => onCommentPress?.(post.eventId ?? post.id, post.type)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Comment">
+                            <Ionicons name="chatbubble-outline" size={17} color="#9CA3AF" />
+                            {(post.comments || 0) > 0 && <Text style={s.articleActionText}>{post.comments}</Text>}
+                        </Pressable>
+                        {(post.recapPhotoCount ?? 0) > 0 && (
+                            <View style={s.articleAction}>
+                                <Ionicons name="images-outline" size={16} color="#9CA3AF" />
+                                <Text style={s.articleActionText}>{post.recapPhotoCount} photos</Text>
+                            </View>
+                        )}
+                        <Pressable style={s.articleAction} onPress={() => Share.share({ message: post.eventTitle || post.content || "" })} hitSlop={8} accessibilityRole="button" accessibilityLabel="Share">
+                            <Ionicons name="share-outline" size={18} color="#9CA3AF" />
+                        </Pressable>
+                        <View style={{ flex: 1 }} />
+                        <Pressable style={s.articleAction} onPress={handleBookmark} hitSlop={8} accessibilityRole="button" accessibilityLabel={isBookmarked ? "Remove bookmark" : "Bookmark"}>
+                            <Ionicons name={isBookmarked ? "bookmark" : "bookmark-outline"} size={18} color={isBookmarked ? "#111827" : "#9CA3AF"} />
+                        </Pressable>
+                    </View>
+                </>
+            ) : (
             <View style={s.evBanner}>
                 {bannerUri ? (
                     <SafeImage uri={bannerUri} style={s.evBannerImage} resizeMode="cover" label={post.eventTitle ? `${post.eventTitle} event banner` : `${post.clubName} event banner`} />
@@ -828,13 +1038,14 @@ function EventFeedCard({
                                 <Text style={{ fontSize: 8, fontWeight: "800", letterSpacing: 1, color: "#fff" }}>FREE FOOD</Text>
                             </View>
                         )}
+                        {post.hasRecap && (
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: C.gold, paddingHorizontal: 7, paddingVertical: 2 }}>
+                                <Ionicons name="camera" size={9} color="#fff" />
+                                <Text style={{ fontSize: 8, fontWeight: "800", letterSpacing: 1.2, color: "#fff" }}>RECAP</Text>
+                            </View>
+                        )}
                     </View>
-                    {showFollow ? (
-                        <Pressable style={s.evFollowBadge} onPress={() => onFollowToggle?.(post.clubId)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Follow club">
-                            <Ionicons name="add" size={13} color="#fff" />
-                            <Text style={s.evFollowBadgeText}>FOLLOW</Text>
-                        </Pressable>
-                    ) : dateBadgeDay ? (
+                    {dateBadgeDay ? (
                         <View style={s.evDateBadge}>
                             <Text style={s.evDateDay}>{dateBadgeDay}</Text>
                             <Text style={s.evDateMon}>{dateBadgeMon.toUpperCase()}</Text>
@@ -842,18 +1053,8 @@ function EventFeedCard({
                     ) : null}
                 </View>
 
-                {/* Bottom: club chip + title */}
+                {/* Bottom: title (club identity moved to the body header) */}
                 <View style={s.evBannerBottom}>
-                    <Pressable onPress={() => onClubPress?.(post.clubId)} style={s.evClubChip}>
-                        {post.clubAvatar ? (
-                            <ExpoImage source={{ uri: post.clubAvatar }} style={s.evClubChipAvatar} contentFit="cover" transition={200} />
-                        ) : (
-                            <View style={[s.evClubChipAvatar, s.evClubChipAvatarFallback]}>
-                                <Text style={s.evClubChipInitials}>{clubInitials}</Text>
-                            </View>
-                        )}
-                        <Text style={s.evClubChipName} numberOfLines={1}>{post.clubName.toUpperCase()}</Text>
-                    </Pressable>
                     {!!post.eventTitle && (
                         <Text style={s.evBannerTitle} numberOfLines={2}>
                             {post.eventTitle.toUpperCase()}
@@ -861,12 +1062,31 @@ function EventFeedCard({
                     )}
                 </View>
             </View>
+            )}
 
-            {/* ── Body ── */}
+            {/* ── Body (non-recap cards; recaps render their own sections above) ── */}
+            {!post.hasRecap && (
             <View style={s.evBody}>
 
-                {/* Date + Location on one row */}
-                {(post.eventDate || post.eventLocation) && (
+                {/* Club header — logo + name above the event details */}
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 9 }}>
+                    <Pressable onPress={() => onClubPress?.(post.clubId)} style={{ flexDirection: "row", alignItems: "center", gap: 9, flex: 1, minWidth: 0 }}>
+                        {post.clubAvatar ? (
+                            <ExpoImage source={{ uri: post.clubAvatar }} style={{ width: 28, height: 28, borderRadius: 14 }} contentFit="cover" transition={200} />
+                        ) : (
+                            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: C.primaryBg, alignItems: "center", justifyContent: "center" }}>
+                                <Text style={{ fontSize: 10, fontWeight: "900", color: C.primary }}>{clubInitials.toUpperCase()}</Text>
+                            </View>
+                        )}
+                        <Text style={{ flex: 1, fontSize: 13, fontWeight: "800", color: C.text }} numberOfLines={1}>{post.clubName}</Text>
+                    </Pressable>
+                    {showFollow && (
+                        <FollowButton isFollowing={post.isFollowing} onPress={() => onFollowToggle?.(post.clubId)} />
+                    )}
+                </View>
+
+                {/* Date + Location on one row (hidden on recaps) */}
+                {!post.hasRecap && (post.eventDate || post.eventLocation) && (
                     <View style={s.evMetaRow}>
                         {!!post.eventDate && (
                             <View style={s.evMetaItem}>
@@ -884,13 +1104,51 @@ function EventFeedCard({
                     </View>
                 )}
 
-                {/* Description */}
-                {!!post.content && (
+                {/* Description (hidden on recaps — promo copy reads wrong post-event) */}
+                {!post.hasRecap && !!post.content && (
                     <Text style={s.evDesc} numberOfLines={2}>{post.content}</Text>
                 )}
 
-                {/* Tags */}
-                {(post.eventTags ?? []).length > 0 && (
+                {/* Recap photo grid + "Add yours" (For You) */}
+                {post.hasRecap && (post.recapPhotos?.length ?? 0) > 0 && (() => {
+                    const photos = post.recapPhotos ?? [];
+                    const total = post.recapPhotoCount ?? photos.length;
+                    const extra = total - 3;
+                    return (
+                        <View>
+                            <View style={{ flexDirection: "row", gap: 2, height: 150 }}>
+                                <ExpoImage source={{ uri: photos[0] }} style={{ flex: 1.7, height: "100%" }} contentFit="cover" transition={150} />
+                                {photos.length > 1 && (
+                                    <View style={{ flex: 1, gap: 2 }}>
+                                        <ExpoImage source={{ uri: photos[1] }} style={{ flex: 1, width: "100%" }} contentFit="cover" transition={150} />
+                                        {photos.length > 2 && (
+                                            <View style={{ flex: 1 }}>
+                                                <ExpoImage source={{ uri: photos[2] }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={150} />
+                                                {extra > 0 && (
+                                                    <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.55)", alignItems: "center", justifyContent: "center" }]}>
+                                                        <Text style={{ fontSize: 18, fontWeight: "900", color: "#fff" }}>+{extra}</Text>
+                                                    </View>
+                                                )}
+                                            </View>
+                                        )}
+                                    </View>
+                                )}
+                            </View>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingTop: 10, paddingBottom: 2 }}>
+                                <Ionicons name="camera-outline" size={16} color={C.primary} />
+                                <Text style={{ flex: 1, fontSize: 12, color: C.textBody }} numberOfLines={1}>
+                                    <Text style={{ fontWeight: "800" }}>{total}</Text> photo{total === 1 ? "" : "s"} from attendees
+                                </Text>
+                                <Pressable onPress={() => onAddRecapPhoto ? onAddRecapPhoto(post.eventId ?? post.id) : onPress?.()} style={{ backgroundColor: C.primary, paddingHorizontal: 14, paddingVertical: 7 }} accessibilityRole="button" accessibilityLabel="Add your photos">
+                                    <Text style={{ fontSize: 11, fontWeight: "800", letterSpacing: 0.6, color: "#fff" }}>ADD YOURS</Text>
+                                </Pressable>
+                            </View>
+                        </View>
+                    );
+                })()}
+
+                {/* Tags (hidden on recaps) */}
+                {!post.hasRecap && (post.eventTags ?? []).length > 0 && (
                     <View style={s.evTagsRow}>
                         {(post.eventTags ?? []).map((tag, i) => (
                             <View key={i} style={s.evTag}>
@@ -900,33 +1158,14 @@ function EventFeedCard({
                     </View>
                 )}
 
-                {/* RSVP strip + actions */}
-                <View style={s.evFooter}>
-                    {/* Going count */}
-                    <View style={s.evAvatarRow}>
-                        {(post.rsvpCount ?? 0) > 0 && (
-                            <>
-                                <Ionicons name="people" size={13} color={C.textMuted} />
-                                <Text style={s.evGoingText}>{post.rsvpCount} going</Text>
-                            </>
-                        )}
-                        {!onEditPress && !isPast && !isOwner && (
-                            <Pressable
-                                style={[s.evRsvpBtn, (post.rsvpCount ?? 0) > 0 && { marginLeft: 8 }, going && s.evRsvpBtnGoing]}
-                                onPress={handleRsvp}
-                                disabled={rsvpLoading}
-                                accessibilityRole="button"
-                                accessibilityLabel={going ? "Cancel RSVP" : "RSVP to event"}
-                            >
-                                <Ionicons name={going ? "checkmark-circle" : "ticket-outline"} size={12} color={going ? "#8C0327" : "#fff"} />
-                                <Text style={[s.evRsvpText, going && s.evRsvpTextGoing]}>{going ? "GOING" : "RSVP"}</Text>
-                            </Pressable>
-                        )}
-                    </View>
+                {/* In-feed recap rating (For You) */}
+                {(post.hasRecap || (post.rating?.count ?? 0) > 0) && (
+                    <RecapStars postId={post.id} rating={post.rating} canRate={!!post.canRate} />
+                )}
 
-                    <View style={{ flex: 1 }} />
-
-                    {/* Actions */}
+                {/* Footer — actions (left) · going + RSVP (right), divided from the body */}
+                <View style={[s.evFooter, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.borderWarm, paddingTop: 12 }]}>
+                    {/* Actions (left) */}
                     {!onEditPress && (
                         <>
                             <Pressable style={s.articleAction} onPress={handleLike} hitSlop={8} accessibilityRole="button" accessibilityLabel={post.isLiked ? "Unlike" : "Like"}>
@@ -959,8 +1198,70 @@ function EventFeedCard({
                             <Ionicons name="trash-outline" size={18} color="#9CA3AF" />
                         </Pressable>
                     )}
+
+                    <View style={{ flex: 1 }} />
+
+                    {/* Going count + RSVP (right) */}
+                    <View style={s.evAvatarRow}>
+                        {(post.rsvpCount ?? 0) > 0 && (
+                            <>
+                                <Ionicons name="people" size={13} color={C.textMuted} />
+                                <Text style={s.evGoingText}>{post.rsvpCount} going</Text>
+                            </>
+                        )}
+                        {!onEditPress && !isPast && !isOwner && (
+                            <Pressable
+                                style={[s.evRsvpBtn, (post.rsvpCount ?? 0) > 0 && { marginLeft: 8 }, going && s.evRsvpBtnGoing]}
+                                onPress={handleRsvp}
+                                disabled={rsvpLoading}
+                                accessibilityRole="button"
+                                accessibilityLabel={going ? "Cancel RSVP" : "RSVP to event"}
+                            >
+                                <Ionicons name={going ? "checkmark-circle" : "ticket-outline"} size={12} color={going ? "#8C0327" : "#fff"} />
+                                <Text style={[s.evRsvpText, going && s.evRsvpTextGoing]}>{going ? "GOING" : "RSVP"}</Text>
+                            </Pressable>
+                        )}
+                    </View>
                 </View>
             </View>
+            )}
+            {post.topComment && (
+                <View style={{ backgroundColor: C.surfaceWarm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.borderWarm, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 14 }}>
+                    <Text style={{ fontSize: 9, fontWeight: "800", letterSpacing: 1.6, color: C.gold, marginBottom: 10 }}>TOP COMMENT</Text>
+                    <Pressable style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }} onPress={() => onCommentPress?.(post.eventId ?? post.id, post.type, { commentId: post.topComment!.id })}>
+                        {post.topComment.avatarUrl ? (
+                            <ExpoImage source={{ uri: post.topComment.avatarUrl }} style={{ width: 30, height: 30, borderRadius: 15 }} contentFit="cover" transition={150} />
+                        ) : (
+                            <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: C.primary, alignItems: "center", justifyContent: "center" }}>
+                                <Text style={{ fontSize: 11, fontWeight: "900", color: "#fff" }}>{post.topComment.author.slice(0, 1).toUpperCase()}</Text>
+                            </View>
+                        )}
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={{ fontSize: 13, color: C.textBody, lineHeight: 19 }} numberOfLines={3}>
+                                <Text style={{ fontWeight: "800", color: C.text }}>{post.topComment.author} </Text>
+                                {post.topComment.content}
+                            </Text>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 16, marginTop: 7 }}>
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                                    <Ionicons name="caret-up" size={13} color={C.textMuted} />
+                                    <Text style={{ fontSize: 12, fontWeight: "700", color: C.textMuted }}>{post.topComment.upvotes ?? 0}</Text>
+                                </View>
+                                {(post.topComment.replyCount ?? 0) > 0 && (
+                                    <Text style={{ fontSize: 12, fontWeight: "700", color: C.textMuted }}>{post.topComment.replyCount} {post.topComment.replyCount === 1 ? "reply" : "replies"}</Text>
+                                )}
+                            </View>
+                        </View>
+                    </Pressable>
+                    <Pressable
+                        onPress={() => onCommentPress?.(post.eventId ?? post.id, post.type, { focus: true })}
+                        style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: C.borderWarm, paddingHorizontal: 12, paddingVertical: 10 }}
+                        accessibilityRole="button" accessibilityLabel="Join the conversation"
+                    >
+                        <Ionicons name="chatbubble-outline" size={14} color={C.textMuted} />
+                        <Text style={{ flex: 1, fontSize: 13, color: C.textMuted }}>Join the conversation…</Text>
+                    </Pressable>
+                </View>
+            )}
         </Pressable>
         </Animated.View>
     );
@@ -983,13 +1284,14 @@ function ImageArticleCard({
     onPress?: () => void;
     onClubPress?: (id: string) => void;
     onLikePress?: (id: string) => void;
-    onCommentPress?: (id: string, type: PostType) => void;
+    onCommentPress?: (id: string, type: PostType, opts?: { commentId?: string; focus?: boolean }) => void;
     onFollowToggle?: (id: string) => void;
     showFollow?: boolean;
     onEditPress?: (id: string) => void;
     onDeletePress?: (id: string) => void;
 }) {
     const { colors: C } = useTheme();
+    const t = useT();
     const s = useMemo(() => makeFeedStyles(C), [C]);
     const { isRsvped, toggleRsvp } = useRsvp();
     const [rsvpLoading, setRsvpLoading] = useState(false);
@@ -1005,26 +1307,21 @@ function ImageArticleCard({
     const going = isRsvped(post.id);
 
     const authApi = useApi();
-    const [isBookmarked, setIsBookmarked] = useState(false);
-    const handleBookmark = useCallback(async () => {
-        const next = !isBookmarked;
-        setIsBookmarked(next);
+    const { resolve: resolveBookmark, toggleBookmark } = useBookmarks();
+    const isBookmarked = resolveBookmark(post.id, post.isBookmarked ?? false);
+    const handleBookmark = useCallback(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        try {
-            await authApi(`/posts/${post.id}/bookmark`, { method: next ? "POST" : "DELETE" });
-        } catch {
-            setIsBookmarked(!next);
-        }
-    }, [isBookmarked, post.id, authApi]);
+        toggleBookmark(post.id, isBookmarked);
+    }, [toggleBookmark, post.id, isBookmarked]);
 
     const deleteOpacity = useRef(new Animated.Value(1)).current;
     const deleteScale = useRef(new Animated.Value(1)).current;
 
     const handleDelete = useCallback(() => {
-        Alert.alert("Delete post", "Are you sure? This can't be undone.", [
-            { text: "Cancel", style: "cancel" },
+        Alert.alert(t.deletePostConfirmTitle, t.deletePostConfirmMsg, [
+            { text: t.cancelBtn, style: "cancel" },
             {
-                text: "Delete", style: "destructive", onPress: () => {
+                text: t.deleteAction, style: "destructive", onPress: () => {
                     Animated.parallel([
                         Animated.timing(deleteOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
                         Animated.timing(deleteScale, { toValue: 0.92, duration: 300, useNativeDriver: true }),
@@ -1164,7 +1461,7 @@ function PollCard({
 }: {
     post: FeedPost;
     onLikePress?: (id: string) => void;
-    onCommentPress?: (id: string, type: PostType) => void;
+    onCommentPress?: (id: string, type: PostType, opts?: { commentId?: string; focus?: boolean }) => void;
     onClubPress?: (id: string) => void;
     onFollowToggle?: (id: string) => void;
     showFollow?: boolean;
@@ -1174,9 +1471,11 @@ function PollCard({
     onDeletePress?: (id: string) => void;
 }) {
     const { colors: C } = useTheme();
+    const t = useT();
     const s = useMemo(() => makeFeedStyles(C), [C]);
     const authApi = useApi();
-    const [isBookmarked, setIsBookmarked] = useState(false);
+    const { resolve: resolveBookmark, toggleBookmark } = useBookmarks();
+    const isBookmarked = resolveBookmark(post.id, post.isBookmarked ?? false);
     const poll = post.poll!;
 
     // Real-time results: while this card is mounted (≈ visible, since the
@@ -1209,25 +1508,19 @@ function PollCard({
         lastTap.current = now; // no navigation to delay for polls
     }, [post.isLiked, handleLike, heartAnim]);
 
-    const handleBookmark = useCallback(async () => {
-        const next = !isBookmarked;
-        setIsBookmarked(next);
+    const handleBookmark = useCallback(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        try {
-            await authApi(`/posts/${post.id}/bookmark`, { method: next ? "POST" : "DELETE" });
-        } catch {
-            setIsBookmarked(!next);
-        }
-    }, [isBookmarked, post.id, authApi]);
+        toggleBookmark(post.id, isBookmarked);
+    }, [toggleBookmark, post.id, isBookmarked]);
 
     const deleteOpacity = useRef(new Animated.Value(1)).current;
     const deleteScale = useRef(new Animated.Value(1)).current;
 
     const handleDelete = useCallback(() => {
-        Alert.alert("Delete post", "Are you sure? This can't be undone.", [
-            { text: "Cancel", style: "cancel" },
+        Alert.alert(t.deletePostConfirmTitle, t.deletePostConfirmMsg, [
+            { text: t.cancelBtn, style: "cancel" },
             {
-                text: "Delete", style: "destructive", onPress: () => {
+                text: t.deleteAction, style: "destructive", onPress: () => {
                     Animated.parallel([
                         Animated.timing(deleteOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
                         Animated.timing(deleteScale, { toValue: 0.92, duration: 300, useNativeDriver: true }),
@@ -1281,6 +1574,11 @@ function PollCard({
                 ))}
             </View>
             <View style={s.pollCardFooter}>
+                <Pressable onPress={() => onCommentPress?.(post.id, post.type)} hitSlop={6} style={{ flexDirection: "row", alignItems: "center", gap: 6 }} accessibilityRole="button" accessibilityLabel="Join the conversation">
+                    <Ionicons name="chatbubble-outline" size={13} color="rgba(255,255,255,0.85)" />
+                    <Text style={[s.pollCardFooterText, { color: "rgba(255,255,255,0.85)", textTransform: "none", fontWeight: "800" }]}>{post.comments ?? 0} comments · join in</Text>
+                </Pressable>
+                <View style={{ flex: 1 }} />
                 <Text style={s.pollCardFooterText}>{footerParts.join(" · ")}</Text>
             </View>
             {/* Footer */}
@@ -1337,11 +1635,12 @@ type SocialFeedProps = {
     onPostPress?: (post: FeedPost) => void;
     onClubPress?: (clubId: string) => void;
     onLikePress?: (postId: string) => void;
-    onCommentPress?: (postId: string, type: PostType) => void;
+    onCommentPress?: (postId: string, type: PostType, opts?: { commentId?: string; focus?: boolean }) => void;
     onPollVote?: (postId: string, optionId: string) => void;
     onFollowPress?: (clubId: string, isNowFollowing: boolean) => void;
     onEditPress?: (postId: string) => void;
     onDeletePress?: (postId: string) => void;
+    onAddRecapPhoto?: (postId: string) => void;
     // FlatList passthrough props
     ListHeaderComponent?: React.ReactElement | null;
     ListFooterComponent?: React.ReactElement | null;
@@ -1382,6 +1681,7 @@ export default function SocialFeed({
     onFollowPress,
     onEditPress,
     onDeletePress,
+    onAddRecapPhoto,
     ListHeaderComponent,
     ListFooterComponent,
     ListEmptyComponent,
@@ -1391,6 +1691,7 @@ export default function SocialFeed({
     style,
 }: SocialFeedProps) {
     const { colors: C } = useTheme();
+    const t = useT();
     const s = useMemo(() => makeFeedStyles(C), [C]);
     const [posts, setPosts] = useState<FeedPost[]>(() => interleavePosts(initialPosts));
     const authApi = useApi();
@@ -1503,7 +1804,7 @@ export default function SocialFeed({
         } else if (post.type === "event") {
             card = index === heroIdx
                 ? <HeroCard post={post} onPress={() => onPostPress?.(post)} onClubPress={onClubPress} onLikePress={onLikePress} isOwner={isOwner} />
-                : <EventFeedCard post={post} onPress={() => onPostPress?.(post)} onClubPress={onClubPress} onLikePress={onLikePress} onCommentPress={onCommentPress} onFollowToggle={handleFollowToggle} showFollow={showFollow} onEditPress={onEditPress} onDeletePress={onEditPress ? handleDeletePost : undefined} isOwner={isOwner} />;
+                : <EventFeedCard post={post} onPress={() => onPostPress?.(post)} onClubPress={onClubPress} onLikePress={onLikePress} onCommentPress={onCommentPress} onFollowToggle={handleFollowToggle} showFollow={showFollow} onEditPress={onEditPress} onDeletePress={onEditPress ? handleDeletePost : undefined} onAddRecapPhoto={onAddRecapPhoto} isOwner={isOwner} />;
         } else if (post.type === "announcement" || post.type === "update") {
             card = <AnnouncementCard post={post} onPress={() => onPostPress?.(post)} onClubPress={onClubPress} onLikePress={onLikePress} onCommentPress={onCommentPress} onFollowToggle={handleFollowToggle} showFollow={showFollow} onEditPress={onEditPress} onDeletePress={onEditPress ? handleDeletePost : undefined} />;
         } else if (post.imageUrl) {
@@ -1512,20 +1813,8 @@ export default function SocialFeed({
             card = <TextArticleCard post={post} onPress={() => onPostPress?.(post)} onClubPress={onClubPress} onLikePress={onLikePress} onCommentPress={onCommentPress} onFollowToggle={handleFollowToggle} showFollow={showFollow} onEditPress={onEditPress} onDeletePress={onEditPress ? handleDeletePost : undefined} />;
         }
 
-        // "Why you're seeing this" chip — populated by the For You ranking endpoint.
-        if (post.reason) {
-            return (
-                <View>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 2 }}>
-                        <Ionicons name="sparkles" size={12} color={C.primary} />
-                        <Text style={{ flexShrink: 1, fontSize: 11, fontWeight: "700", color: C.textMuted, letterSpacing: 0.2 }} numberOfLines={1}>{post.reason}</Text>
-                    </View>
-                    {card}
-                </View>
-            );
-        }
         return <>{card}</>;
-    }, [posts, heroIdx, unfollowedClubIds, onPostPress, onClubPress, onLikePress, onCommentPress, onEditPress, handleDeletePost, handleFollowToggle, handlePollVote, C]);
+    }, [posts, heroIdx, unfollowedClubIds, onPostPress, onClubPress, onLikePress, onCommentPress, onEditPress, onAddRecapPhoto, handleDeletePost, handleFollowToggle, handlePollVote, C]);
 
     return (
         <FlatList

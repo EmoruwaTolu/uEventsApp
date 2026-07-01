@@ -10,9 +10,10 @@ import { LoginButton } from "../../components/LoginButton";
 import { LoginInput } from "../../components/LoginInput";
 import { useAuth } from "../../auth/AuthContext";
 import { useTheme } from "../../lib/ThemeContext";
+import { useT } from "../../lib/LangContext";
 import type { AppColors } from "../../styles/theme";
 
-type Page = "landing" | "signin" | "register";
+type Page = "landing" | "signin" | "register" | "register-club";
 
 function passwordStrength(pw: string): { level: 0 | 1 | 2 | 3 | 4; label: string; color: string } {
     if (pw.length === 0) return { level: 0, label: "", color: "transparent" };
@@ -27,7 +28,7 @@ function passwordStrength(pw: string): { level: 0 | 1 | 2 | 3 | 4; label: string
     return { level: 4, label: "STRONG", color: "#059669" };
 }
 
-const PAGES: Page[] = ["landing", "signin", "register"];
+const PAGES: Page[] = ["landing", "signin", "register", "register-club"];
 
 const makeStyles = (C: AppColors) => StyleSheet.create({
     scroll: {
@@ -175,10 +176,11 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
 });
 
 export default function LoginScreen() {
-    const { signIn, register, continueAsGuest } = useAuth();
+    const { signIn, register, registerClub, continueAsGuest } = useAuth();
     const router = useRouter();
     const { width } = useWindowDimensions();
     const { colors: C } = useTheme();
+    const t = useT();
     const s = useMemo(() => makeStyles(C), [C]);
     const [page, setPage] = useState<Page>("landing");
     const slideX = useRef(new Animated.Value(0)).current;
@@ -187,6 +189,9 @@ export default function LoginScreen() {
     const [password, setPassword] = useState("");
     const [firstName, setFirst] = useState("");
     const [lastName, setLast] = useState("");
+    const [clubName, setClubName] = useState("");
+    const [category, setCategory] = useState("");
+    const [inviteCode, setInviteCode] = useState("");
     const [loading, setLoading] = useState(false);
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -225,15 +230,18 @@ export default function LoginScreen() {
         });
     }, [page, slideX, width]);
 
-    function validateEmail(v: string) {
-        if (!v.trim()) return "Email is required";
-        if (!v.trim().toLowerCase().endsWith("@uottawa.ca")) return "Must be a uOttawa email (@uottawa.ca)";
+    // Accept any properly-formatted email. Domain restrictions (e.g. requiring a
+    // school email) are enforced server-side via the SCHOOL_EMAIL_DOMAINS env so
+    // the rule can change without an app update.
+    function validateEmailBasic(v: string) {
+        if (!v.trim()) return t.authEmailRequired;
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v.trim())) return t.authEmailInvalid;
         return "";
     }
 
     async function handleSignIn() {
-        const emailErr = validateEmail(email);
-        const pwdErr = !password ? "Password is required" : "";
+        const emailErr = validateEmailBasic(email);
+        const pwdErr = !password ? t.authPasswordRequired : "";
         if (emailErr || pwdErr) {
             setErrors({ email: emailErr, password: pwdErr });
             return;
@@ -243,7 +251,7 @@ export default function LoginScreen() {
         try {
             await signIn(email.trim(), password);
         } catch (e: any) {
-            Alert.alert("Sign in failed", e?.message ?? "Please try again");
+            Alert.alert(t.signInFailed, e?.message ?? t.genericTryAgain);
         } finally {
             setLoading(false);
         }
@@ -251,12 +259,12 @@ export default function LoginScreen() {
 
     async function handleRegister() {
         const newErrors: Record<string, string> = {};
-        if (!firstName.trim()) newErrors.firstName = "First name is required";
-        if (!lastName.trim()) newErrors.lastName = "Last name is required";
-        const emailErr = validateEmail(email);
+        if (!firstName.trim()) newErrors.firstName = t.authFirstNameRequired;
+        if (!lastName.trim()) newErrors.lastName = t.authLastNameRequired;
+        const emailErr = validateEmailBasic(email);
         if (emailErr) newErrors.email = emailErr;
-        if (!password) newErrors.password = "Password is required";
-        else if (password.length < 8) newErrors.password = "Password must be at least 8 characters";
+        if (!password) newErrors.password = t.authPasswordRequired;
+        else if (password.length < 8) newErrors.password = t.passwordMin8;
         if (Object.keys(newErrors).length > 0) {
             setErrors(newErrors);
             return;
@@ -266,7 +274,30 @@ export default function LoginScreen() {
         try {
             await register(firstName.trim(), lastName.trim(), email.trim(), password);
         } catch (e: any) {
-            Alert.alert("Sign up failed", e?.message ?? "Please try again");
+            Alert.alert(t.signUpFailed, e?.message ?? t.genericTryAgain);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function handleRegisterClub() {
+        const newErrors: Record<string, string> = {};
+        if (!clubName.trim()) newErrors.clubName = t.clubNameRequired;
+        const emailErr = validateEmailBasic(email);
+        if (emailErr) newErrors.email = emailErr;
+        if (!inviteCode.trim()) newErrors.inviteCode = t.authInviteRequired;
+        if (!password) newErrors.password = t.authPasswordRequired;
+        else if (password.length < 8) newErrors.password = t.passwordMin8;
+        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
+            return;
+        }
+        setErrors({});
+        setLoading(true);
+        try {
+            await registerClub(clubName.trim(), email.trim(), password, inviteCode.trim(), category.trim() || undefined);
+        } catch (e: any) {
+            Alert.alert(t.signUpFailed, e?.message ?? t.genericTryAgain);
         } finally {
             setLoading(false);
         }
@@ -288,14 +319,14 @@ export default function LoginScreen() {
                         {page !== "landing" && (
                             <Pressable onPress={() => navigateTo("landing")} style={s.backBtn} hitSlop={12}>
                                 <Text style={s.backArrow}>←</Text>
-                                <Text style={s.backText}>BACK</Text>
+                                <Text style={s.backText}>{t.back}</Text>
                             </Pressable>
                         )}
 
                         {/* Header */}
                         <View style={s.header}>
                             <Text style={s.eyebrow}>
-                                {page === "landing" ? "WELCOME" : page === "signin" ? "SIGN IN" : "CREATE ACCOUNT"}
+                                {page === "landing" ? t.authWelcome : page === "signin" ? t.authSignInEyebrow : page === "register-club" ? t.authClubAccountEyebrow : t.authCreateAccountEyebrow}
                             </Text>
                             <View style={s.titleWrap}>
                                 <Text style={s.title}>uEvents</Text>
@@ -303,20 +334,25 @@ export default function LoginScreen() {
                             <View style={s.accent} />
                             <Text style={s.subtitle}>
                                 {page === "landing"
-                                    ? "Your campus, all in one place."
+                                    ? t.authTagline
                                     : page === "signin"
-                                    ? "Welcome back."
-                                    : "Join the community."}
+                                    ? t.authWelcomeBack
+                                    : page === "register-club"
+                                    ? t.authClubSubtitle
+                                    : t.authJoinCommunity}
                             </Text>
                         </View>
 
                         {/* Landing — choose action */}
                         {page === "landing" && (
                             <View style={s.form}>
-                                <LoginButton title="SIGN IN" onPress={() => navigateTo("signin")} filled />
-                                <LoginButton title="CREATE ACCOUNT" onPress={() => navigateTo("register")} />
+                                <LoginButton title={t.authSignInBtn} onPress={() => navigateTo("signin")} filled />
+                                <LoginButton title={t.authCreateAccountBtn} onPress={() => navigateTo("register")} />
+                                <Pressable onPress={() => navigateTo("register-club")} style={s.switchLink}>
+                                    <Text style={s.switchText}>{t.authOrganizingClubQ}<Text style={s.switchAction}>{t.authCreateClubLink}</Text></Text>
+                                </Pressable>
                                 <Pressable onPress={continueAsGuest} style={s.guestBtn}>
-                                    <Text style={s.guestText}>Continue as guest</Text>
+                                    <Text style={s.guestText}>{t.authContinueGuest}</Text>
                                 </Pressable>
                             </View>
                         )}
@@ -325,7 +361,7 @@ export default function LoginScreen() {
                         {page === "signin" && (
                             <View style={s.form}>
                                 <LoginInput
-                                    label="EMAIL"
+                                    label={t.authEmailLabel}
                                     placeholder="you@university.ca"
                                     keyboardType="email-address"
                                     value={email}
@@ -339,7 +375,7 @@ export default function LoginScreen() {
                                 {errors.email ? <Text style={s.fieldError}>{errors.email}</Text> : null}
                                 <LoginInput
                                     ref={signInPasswordRef}
-                                    label="PASSWORD"
+                                    label={t.authPasswordLabel}
                                     placeholder="••••••••"
                                     secureTextEntry
                                     showToggle
@@ -351,21 +387,21 @@ export default function LoginScreen() {
                                 />
                                 {errors.password ? <Text style={s.fieldError}>{errors.password}</Text> : null}
                                 <LoginButton
-                                    title="SIGN IN"
+                                    title={t.authSignInBtn}
                                     onPress={handleSignIn}
                                     filled
                                     loading={loading}
                                 />
                                 <Pressable onPress={() => router.push("/(auth)/forgot-password")} style={s.forgotBtn}>
-                                    <Text style={s.forgotText}>Forgot password?</Text>
+                                    <Text style={s.forgotText}>{t.authForgotPassword}</Text>
                                 </Pressable>
                                 <View style={s.divider}>
                                     <View style={s.dividerLine} />
-                                    <Text style={s.dividerText}>OR</Text>
+                                    <Text style={s.dividerText}>{t.authOr}</Text>
                                     <View style={s.dividerLine} />
                                 </View>
                                 <Pressable onPress={() => navigateTo("register")} style={s.switchLink}>
-                                    <Text style={s.switchText}>Don't have an account? <Text style={s.switchAction}>Create one</Text></Text>
+                                    <Text style={s.switchText}>{t.authNoAccountQ}<Text style={s.switchAction}>{t.authCreateOneLink}</Text></Text>
                                 </Pressable>
                             </View>
                         )}
@@ -375,7 +411,7 @@ export default function LoginScreen() {
                             <View style={s.form}>
                                 <View style={s.row}>
                                     <LoginInput
-                                        label="FIRST NAME"
+                                        label={t.authFirstNameLabel}
                                         placeholder="Alex"
                                         value={firstName}
                                         onChangeText={(v) => { setFirst(v); clearError("firstName"); }}
@@ -387,7 +423,7 @@ export default function LoginScreen() {
                                     />
                                     <LoginInput
                                         ref={regLastRef}
-                                        label="LAST NAME"
+                                        label={t.authLastNameLabel}
                                         placeholder="Smith"
                                         value={lastName}
                                         onChangeText={(v) => { setLast(v); clearError("lastName"); }}
@@ -403,7 +439,7 @@ export default function LoginScreen() {
                                 ) : null}
                                 <LoginInput
                                     ref={regEmailRef}
-                                    label="EMAIL"
+                                    label={t.authEmailLabel}
                                     placeholder="you@university.ca"
                                     keyboardType="email-address"
                                     value={email}
@@ -417,7 +453,7 @@ export default function LoginScreen() {
                                 {errors.email ? <Text style={s.fieldError}>{errors.email}</Text> : null}
                                 <LoginInput
                                     ref={regPwdRef}
-                                    label="PASSWORD"
+                                    label={t.authPasswordLabel}
                                     placeholder="••••••••"
                                     secureTextEntry
                                     showToggle
@@ -436,37 +472,122 @@ export default function LoginScreen() {
                                                 <View key={i} style={{ flex: 1, height: 3, backgroundColor: i <= str.level ? str.color : C.border }} />
                                             ))}
                                             <Text style={{ fontSize: 9, fontWeight: "800", color: str.color, letterSpacing: 1, width: 44, textAlign: "right" }}>
-                                                {str.label}
+                                                {str.level <= 1 ? t.pwWeak : str.level === 2 ? t.pwFair : str.level === 3 ? t.pwGood : t.pwStrong}
                                             </Text>
                                         </View>
                                     );
                                 })()}
                                 <LoginButton
-                                    title="CREATE ACCOUNT"
+                                    title={t.authCreateAccountBtn}
                                     onPress={handleRegister}
                                     filled
                                     loading={loading}
                                 />
                                 <View style={s.divider}>
                                     <View style={s.dividerLine} />
-                                    <Text style={s.dividerText}>OR</Text>
+                                    <Text style={s.dividerText}>{t.authOr}</Text>
                                     <View style={s.dividerLine} />
                                 </View>
                                 <Pressable onPress={() => navigateTo("signin")} style={s.switchLink}>
-                                    <Text style={s.switchText}>Already have an account? <Text style={s.switchAction}>Sign in</Text></Text>
+                                    <Text style={s.switchText}>{t.authHaveAccountQ}<Text style={s.switchAction}>{t.authSignInLink}</Text></Text>
+                                </Pressable>
+                                <Pressable onPress={() => navigateTo("register-club")} style={s.switchLink}>
+                                    <Text style={s.switchText}>{t.authRegisteringClubQ}<Text style={s.switchAction}>{t.authCreateClubLink}</Text></Text>
                                 </Pressable>
                             </View>
                         )}
 
-                        <Text style={s.powered}>Powered by the CSSA</Text>
+                        {/* Register — club */}
+                        {page === "register-club" && (
+                            <View style={s.form}>
+                                <LoginInput
+                                    label={t.authClubNameLabel}
+                                    placeholder="Computer Science Student Association"
+                                    value={clubName}
+                                    onChangeText={(v) => { setClubName(v); clearError("clubName"); }}
+                                    autoCapitalize="words"
+                                />
+                                {errors.clubName ? <Text style={s.fieldError}>{errors.clubName}</Text> : null}
+                                <LoginInput
+                                    label={t.authContactEmailLabel}
+                                    placeholder="club@email.com"
+                                    keyboardType="email-address"
+                                    value={email}
+                                    onChangeText={(v) => { setEmail(v); clearError("email"); }}
+                                    autoComplete="email"
+                                    autoCapitalize="none"
+                                    textContentType="emailAddress"
+                                />
+                                {errors.email ? <Text style={s.fieldError}>{errors.email}</Text> : null}
+                                <LoginInput
+                                    label={t.authCategoryOptionalLabel}
+                                    placeholder={t.authCategoryPlaceholder}
+                                    value={category}
+                                    onChangeText={setCategory}
+                                    autoCapitalize="words"
+                                />
+                                <LoginInput
+                                    label={t.authInviteCodeLabel}
+                                    placeholder={t.authInvitePlaceholder}
+                                    value={inviteCode}
+                                    onChangeText={(v) => { setInviteCode(v); clearError("inviteCode"); }}
+                                    autoCapitalize="none"
+                                />
+                                {errors.inviteCode ? <Text style={s.fieldError}>{errors.inviteCode}</Text> : null}
+                                <LoginInput
+                                    label={t.authPasswordLabel}
+                                    placeholder="••••••••"
+                                    secureTextEntry
+                                    showToggle
+                                    value={password}
+                                    onChangeText={(v) => { setPassword(v); clearError("password"); }}
+                                    textContentType="newPassword"
+                                    returnKeyType="go"
+                                    onSubmitEditing={handleRegisterClub}
+                                />
+                                {errors.password ? <Text style={s.fieldError}>{errors.password}</Text> : null}
+                                {password.length > 0 && (() => {
+                                    const str = passwordStrength(password);
+                                    return (
+                                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }}>
+                                            {([1, 2, 3, 4] as const).map((i) => (
+                                                <View key={i} style={{ flex: 1, height: 3, backgroundColor: i <= str.level ? str.color : C.border }} />
+                                            ))}
+                                            <Text style={{ fontSize: 9, fontWeight: "800", color: str.color, letterSpacing: 1, width: 44, textAlign: "right" }}>
+                                                {str.level <= 1 ? t.pwWeak : str.level === 2 ? t.pwFair : str.level === 3 ? t.pwGood : t.pwStrong}
+                                            </Text>
+                                        </View>
+                                    );
+                                })()}
+                                <LoginButton
+                                    title={t.authCreateClubBtn}
+                                    onPress={handleRegisterClub}
+                                    filled
+                                    loading={loading}
+                                />
+                                <View style={s.divider}>
+                                    <View style={s.dividerLine} />
+                                    <Text style={s.dividerText}>{t.authOr}</Text>
+                                    <View style={s.dividerLine} />
+                                </View>
+                                <Pressable onPress={() => navigateTo("register")} style={s.switchLink}>
+                                    <Text style={s.switchText}>{t.authNotClubQ}<Text style={s.switchAction}>{t.authCreateStudentLink}</Text></Text>
+                                </Pressable>
+                                <Pressable onPress={() => navigateTo("signin")} style={s.switchLink}>
+                                    <Text style={s.switchText}>{t.authHaveAccountQ}<Text style={s.switchAction}>{t.authSignInLink}</Text></Text>
+                                </Pressable>
+                            </View>
+                        )}
+
+                        <Text style={s.powered}>{t.authPoweredBy}</Text>
                         {page === "landing" && (
                             <View style={s.legalRow}>
                                 <Pressable onPress={() => Linking.openURL("https://uevents.app/terms")}>
-                                    <Text style={s.legalLink}>Terms of Service</Text>
+                                    <Text style={s.legalLink}>{t.authTerms}</Text>
                                 </Pressable>
                                 <Text style={s.legalDot}>·</Text>
                                 <Pressable onPress={() => Linking.openURL("https://uevents.app/privacy")}>
-                                    <Text style={s.legalLink}>Privacy Policy</Text>
+                                    <Text style={s.legalLink}>{t.authPrivacy}</Text>
                                 </Pressable>
                             </View>
                         )}
