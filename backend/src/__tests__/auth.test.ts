@@ -29,18 +29,19 @@ describe("POST /users/add-user — student registration", () => {
 });
 
 describe("POST /users/add-user — club registration", () => {
-    it("returns 403 without an invite code", async () => {
+    it("self-signs-up without an invite code as a PENDING club", async () => {
         const res = await request.post("/users/add-user").send({
             email: testEmail("auth-club-noinvite"),
             password: "Password123!",
             clubName: "No Invite Club",
             type: "CLUB",
         });
-        expect(res.status).toBe(403);
-        expect(res.body.error).toMatch(/invite/i);
+        expect(res.status).toBe(201);
+        expect(res.body.user.type).toBe("CLUB");
+        expect(res.body.user.clubStatus).toBe("PENDING");
     });
 
-    it("returns 403 with a wrong invite code", async () => {
+    it("treats a wrong invite code as a self-signup (PENDING, not rejected)", async () => {
         const res = await request.post("/users/add-user").send({
             email: testEmail("auth-club-badinvite"),
             password: "Password123!",
@@ -48,13 +49,15 @@ describe("POST /users/add-user — club registration", () => {
             type: "CLUB",
             inviteCode: "definitely-wrong",
         });
-        expect(res.status).toBe(403);
+        expect(res.status).toBe(201);
+        expect(res.body.user.clubStatus).toBe("PENDING");
     });
 
-    it("creates a club with a valid invite code", async () => {
+    it("auto-approves a club created with a valid invite code", async () => {
         const { res } = await registerClub("auth-club-ok");
         expect(res.status).toBe(201);
         expect(res.body.user.type).toBe("CLUB");
+        expect(res.body.user.clubStatus).toBe("APPROVED");
     });
 });
 

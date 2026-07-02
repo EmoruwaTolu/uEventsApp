@@ -12,6 +12,7 @@ import { uploadImage } from "../../lib/uploadImage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useApi } from "../../lib/useApi";
+import { API_BASE } from "../../lib/api";
 import { useRsvp } from "../../lib/RsvpContext";
 import { useLikes } from "../../lib/LikeContext";
 import { useBookmarks } from "../../lib/BookmarkContext";
@@ -55,6 +56,7 @@ type ApiEvent = {
     rsvpRequiresApproval?: boolean;
     isFollowing?: boolean;
     pendingRsvp?: boolean;
+    waitlistPosition?: number | null;
     previewToken?: string | null;
     images?: string[];
 };
@@ -69,11 +71,14 @@ type RecommendedEvent = {
     _count?: { rsvps: number };
 };
 
-type RecapPhoto = { id: string; url: string; userId: string; by: string; avatarUrl?: string | null; canDelete: boolean };
+type PhotoStatus = "PENDING" | "APPROVED" | "REJECTED";
+type RecapPhoto = { id: string; url: string; userId: string; by: string; avatarUrl?: string | null; canDelete: boolean; status?: PhotoStatus; canModerate?: boolean };
 type RecapData = {
     visible: boolean;
     eventOver: boolean;
     canContribute?: boolean;
+    isClubOwner?: boolean;
+    pendingPhotoCount?: number;
     avgRating?: number | null;
     ratingCount?: number;
     myRating?: number | null;
@@ -272,11 +277,11 @@ export default function EventPage() {
         setRecapUploading(true);
         try {
             const url = await uploadImage(result.assets[0].uri, session?.token);
-            const photo = await authApi<{ id: string; url: string }>(`/posts/${id}/recap/photo`, {
+            const photo = await authApi<{ id: string; url: string; status?: PhotoStatus }>(`/posts/${id}/recap/photo`, {
                 method: "POST", body: JSON.stringify({ url }),
             });
-            setRecap((r) => r ? { ...r, photos: [{ id: photo.id, url: photo.url, userId: session?.userId ?? "", by: "You", canDelete: true }, ...(r.photos ?? [])] } : r);
-            showToast("Photo added");
+            setRecap((r) => r ? { ...r, photos: [{ id: photo.id, url: photo.url, userId: session?.userId ?? "", by: "You", canDelete: true, status: photo.status ?? "PENDING" }, ...(r.photos ?? [])] } : r);
+            showToast(photo.status === "APPROVED" ? "Photo added" : "Photo submitted for review");
         } catch (e: any) {
             Alert.alert(t.uploadFailedTitle, e?.message ?? t.genericTryAgain);
         } finally {
@@ -292,6 +297,21 @@ export default function EventPage() {
                 try { await authApi(`/posts/${id}/recap/photo/${photoId}`, { method: "DELETE" }); } catch {}
             } },
         ]);
+    }
+
+    // Club owner: approve or reject a pending attendee photo.
+    async function moderateRecapPhoto(photoId: string, action: "approve" | "reject") {
+        setRecap((r) => {
+            if (!r) return r;
+            const photos = action === "approve"
+                ? (r.photos ?? []).map((p) => p.id === photoId ? { ...p, status: "APPROVED" as PhotoStatus, canModerate: false } : p)
+                : (r.photos ?? []).filter((p) => p.id !== photoId);
+            const pendingPhotoCount = Math.max(0, (r.pendingPhotoCount ?? 1) - 1);
+            return { ...r, photos, pendingPhotoCount };
+        });
+        try {
+            await authApi(`/posts/${id}/recap/photo/${photoId}`, { method: "PATCH", body: JSON.stringify({ action }) });
+        } catch {}
     }
 
     useEffect(() => {
@@ -488,6 +508,11 @@ export default function EventPage() {
         if (!id || rsvpLoading) return;
         setRsvpLoading(true);
         await ctxToggleRsvp(id);
+        // Refresh the event so capacity, "going" count and waitlist position stay accurate.
+        try {
+            const fresh = await authApi<ApiEvent>(`/posts/${id}`);
+            setEvent(fresh);
+        } catch {}
         setRsvpLoading(false);
     }
 
@@ -554,6 +579,7 @@ export default function EventPage() {
     const rsvpClosed = event?.rsvpClosed ?? false;
     const rsvpRequiresApproval = event?.rsvpRequiresApproval ?? false;
     const pendingRsvp = (event?.pendingRsvp ?? false) || (id ? isWaitlisted(id) : false);
+    const waitlistPosition = event?.waitlistPosition ?? null;
     const rsvpBlocked = isPast || rsvpClosed || isExpired || (isFull && !pendingRsvp);
     const rsvpPreview = event?.rsvpPreview ?? [];
 
@@ -577,7 +603,7 @@ export default function EventPage() {
                                 <Ionicons name="eye-outline" size={19} color="#D97706" />
                             </Pressable>
                         )}
-                        <Pressable onPress={() => Share.share({ title, message: `${title}\n\nuevents://event/${id}` })} style={styles.topBarBtn} hitSlop={8} accessibilityLabel="Share event" accessibilityRole="button">
+                        <Pressable onPress={() => Share.share({ title, message: `${title}\n\n${API_BASE}/share/event/${id}` })} style={styles.topBarBtn} hitSlop={8} accessibilityLabel="Share event" accessibilityRole="button">
                             <Ionicons name="share-outline" size={19} color="#111827" />
                         </Pressable>
                         {isPostOwner ? (
@@ -891,6 +917,14 @@ export default function EventPage() {
                             )}
                         </Pressable>
                         )}
+                        {pendingRsvp && waitlistPosition != null && (
+                            <View style={styles.waitlistPosRow}>
+                                <Ionicons name="people-outline" size={14} color="#92400E" />
+                                <Text style={styles.waitlistPosText}>
+                                    {waitlistPosition === 1 ? "You're next in line" : `#${waitlistPosition} in line`}
+                                </Text>
+                            </View>
+                        )}
                         <Pressable
                             style={styles.calendarBtn}
                             onPress={handleCalendarPress}
@@ -965,6 +999,11 @@ export default function EventPage() {
                                         </Pressable>
                                     )}
                                 </View>
+                                {recap.isClubOwner && (recap.pendingPhotoCount ?? 0) > 0 && (
+                                    <Text style={styles.recapPendingNote}>
+                                        {recap.pendingPhotoCount} {recap.pendingPhotoCount === 1 ? "photo" : "photos"} awaiting your review
+                                    </Text>
+                                )}
                                 {(recap.photos ?? []).length === 0 ? (
                                     <Text style={styles.recapEmpty}>{recap.canContribute ? "Be the first to share a photo." : "No photos yet."}</Text>
                                 ) : (
@@ -972,7 +1011,22 @@ export default function EventPage() {
                                         {recap.photos!.map((p) => (
                                             <View key={p.id} style={styles.recapThumbWrap}>
                                                 <ExpoImage source={{ uri: p.url }} style={styles.recapThumb} contentFit="cover" transition={150} accessibilityLabel={`Recap photo by ${p.by}`} />
-                                                {p.canDelete && (
+                                                {p.status === "PENDING" && !p.canModerate && (
+                                                    <View style={styles.recapPendingBadge}>
+                                                        <Ionicons name="time-outline" size={11} color="#fff" />
+                                                        <Text style={styles.recapPendingText}>Pending</Text>
+                                                    </View>
+                                                )}
+                                                {p.canModerate ? (
+                                                    <View style={styles.recapModRow}>
+                                                        <Pressable onPress={() => moderateRecapPhoto(p.id, "approve")} hitSlop={6} style={[styles.recapModBtn, styles.recapApproveBtn]} accessibilityRole="button" accessibilityLabel="Approve photo">
+                                                            <Ionicons name="checkmark" size={13} color="#fff" />
+                                                        </Pressable>
+                                                        <Pressable onPress={() => moderateRecapPhoto(p.id, "reject")} hitSlop={6} style={[styles.recapModBtn, styles.recapRejectBtn]} accessibilityRole="button" accessibilityLabel="Reject photo">
+                                                            <Ionicons name="close" size={13} color="#fff" />
+                                                        </Pressable>
+                                                    </View>
+                                                ) : p.canDelete && (
                                                     <Pressable onPress={() => deleteRecapPhoto(p.id)} hitSlop={6} style={styles.recapDelete} accessibilityRole="button" accessibilityLabel="Remove photo">
                                                         <Ionicons name="close" size={12} color="#fff" />
                                                     </Pressable>
@@ -1494,6 +1548,8 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
     },
     rsvpBtnTextDone: { color: C.primary },
     rsvpBtnTextWaitlist: { color: "#92400E" },
+    waitlistPosRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, marginTop: 8 },
+    waitlistPosText: { color: "#92400E", fontSize: 13, fontWeight: "600" },
     capacityWrap: {
         paddingHorizontal: 16,
         paddingTop: 14,
@@ -1568,6 +1624,13 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
     recapThumbWrap: { width: "31.7%", aspectRatio: 1, position: "relative" },
     recapThumb: { width: "100%", height: "100%", backgroundColor: C.skeleton },
     recapDelete: { position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: 10, backgroundColor: "rgba(0,0,0,0.55)", alignItems: "center", justifyContent: "center" },
+    recapPendingBadge: { position: "absolute", bottom: 4, left: 4, flexDirection: "row", alignItems: "center", gap: 2, backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2 },
+    recapPendingText: { color: "#fff", fontSize: 9, fontWeight: "700" },
+    recapModRow: { position: "absolute", top: 4, right: 4, flexDirection: "row", gap: 4 },
+    recapModBtn: { width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center" },
+    recapApproveBtn: { backgroundColor: "rgba(22,163,74,0.9)" },
+    recapRejectBtn: { backgroundColor: "rgba(220,38,38,0.9)" },
+    recapPendingNote: { fontSize: 12, color: "#92400E", fontWeight: "600", marginBottom: 8 },
     recommendedHeader: {
         flexDirection: "row",
         alignItems: "center",

@@ -66,6 +66,9 @@ export default function DateCarousel({
                     return (
                         <Pressable
                             onPress={() => onSelectISO(item.iso)}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected }}
+                            accessibilityLabel={item.date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
                             style={[
                                 styles.cell,
                                 selected ? styles.cellSelected : styles.cellDefault,

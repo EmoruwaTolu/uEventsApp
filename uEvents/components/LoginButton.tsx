@@ -41,6 +41,9 @@ export function LoginButton({
                 onPressIn={handlePressIn}
                 onPressOut={handlePressOut}
                 disabled={loading}
+                accessibilityRole="button"
+                accessibilityLabel={title}
+                accessibilityState={{ disabled: loading, busy: loading }}
                 style={({ pressed }) => ({
                     width: "100%",
                     paddingVertical: 16,

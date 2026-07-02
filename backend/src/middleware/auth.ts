@@ -4,7 +4,7 @@ import { prisma } from "../lib/prisma";
 
 export interface AuthPayload {
     userId: string;
-    type: "STUDENT" | "CLUB";
+    type: "STUDENT" | "CLUB" | "ADMIN";
     tokenVersion: number;
 }
 
@@ -59,4 +59,40 @@ export function requireClub(req: Request, res: Response, next: NextFunction) {
         return res.status(403).json({ error: "Club account required" });
     }
     next();
+}
+
+// Publishing guard for clubs: must be an approved club. Self-signed-up clubs
+// start PENDING and can set up their profile but not publish until an admin
+// approves them. Checks the DB since approval can change after the token issues.
+export function requireApprovedClub(req: Request, res: Response, next: NextFunction) {
+    if (req.user?.type !== "CLUB") {
+        return res.status(403).json({ error: "Club account required" });
+    }
+    prisma.user
+        .findUnique({ where: { id: req.user.userId }, select: { clubStatus: true } })
+        .then((user) => {
+            if (user?.clubStatus !== "APPROVED") {
+                return res.status(403).json({
+                    error: "Your club is pending approval. You'll be able to post once an admin approves your account.",
+                    clubStatus: user?.clubStatus ?? "PENDING",
+                });
+            }
+            next();
+        })
+        .catch(next);
+}
+
+// Admin guard. Re-checks the user's type against the DB (not just the token
+// claim) since admin is a privileged role and tokens are long-lived (30d).
+export function requireAdmin(req: Request, res: Response, next: NextFunction) {
+    if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+    prisma.user
+        .findUnique({ where: { id: req.user.userId }, select: { type: true } })
+        .then((user) => {
+            if (user?.type !== "ADMIN") {
+                return res.status(403).json({ error: "Admin access required" });
+            }
+            next();
+        })
+        .catch(next);
 }

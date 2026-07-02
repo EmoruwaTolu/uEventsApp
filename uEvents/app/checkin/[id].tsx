@@ -196,7 +196,7 @@ export default function CheckInScreen() {
         <SafeAreaView style={s.safe} edges={["top"]}>
             {/* Top bar */}
             <View style={s.topBar}>
-                <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)" as any)} style={s.backGroup}>
+                <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)" as any)} style={s.backGroup} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}>
                     <Ionicons name="arrow-back" size={18} color={C.primary} />
                     <Text style={s.backLabel}>BACK</Text>
                 </Pressable>
@@ -237,7 +237,7 @@ export default function CheckInScreen() {
                 </View>
 
                 {/* Toggle attendee list */}
-                <Pressable style={s.listToggle} onPress={() => setShowList((v) => !v)}>
+                <Pressable style={s.listToggle} onPress={() => setShowList((v) => !v)} accessibilityRole="button" accessibilityLabel={showList ? "Hide attendee list" : "View attendee list"} accessibilityState={{ expanded: showList }}>
                     <Text style={s.listToggleText}>
                         {showList ? "HIDE ATTENDEE LIST" : "VIEW ATTENDEE LIST"}
                     </Text>

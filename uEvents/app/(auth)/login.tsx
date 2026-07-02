@@ -128,6 +128,12 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         color: C.primary,
         marginTop: -6,
     },
+    inviteHint: {
+        fontSize: 12,
+        color: C.textMuted,
+        marginTop: -6,
+        lineHeight: 16,
+    },
     forgotBtn: {
         alignItems: "center",
         paddingVertical: 4,
@@ -285,7 +291,7 @@ export default function LoginScreen() {
         if (!clubName.trim()) newErrors.clubName = t.clubNameRequired;
         const emailErr = validateEmailBasic(email);
         if (emailErr) newErrors.email = emailErr;
-        if (!inviteCode.trim()) newErrors.inviteCode = t.authInviteRequired;
+        // Invite code is optional now: clubs without one are created pending admin approval.
         if (!password) newErrors.password = t.authPasswordRequired;
         else if (password.length < 8) newErrors.password = t.passwordMin8;
         if (Object.keys(newErrors).length > 0) {
@@ -533,6 +539,7 @@ export default function LoginScreen() {
                                     onChangeText={(v) => { setInviteCode(v); clearError("inviteCode"); }}
                                     autoCapitalize="none"
                                 />
+                                <Text style={s.inviteHint}>Optional. Without a code, your club is reviewed by an admin before you can post.</Text>
                                 {errors.inviteCode ? <Text style={s.fieldError}>{errors.inviteCode}</Text> : null}
                                 <LoginInput
                                     label={t.authPasswordLabel}

@@ -114,9 +114,6 @@ function formatTime(iso: string): string {
     return `${(h % 12 || 12)}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 
-function formatDateLabel(d: Date, days: string[], months: string[]): string {
-    return `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}`;
-}
 
 // Context-aware status badge for the NEXT UP hero. First match wins:
 // live now → soon (minutes) → today (hours / clock time) → tomorrow → date.
@@ -391,11 +388,6 @@ const makeEventsStyles = (C: AppColors) => StyleSheet.create({
     starsRow: { flexDirection: "row", gap: 2, marginTop: 4 },
 
     // ── Category pills (preserved) ──
-    catPillsRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingBottom: 6 },
-    catPill: { paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: C.textFaint },
-    catPillActive: { backgroundColor: C.primary, borderColor: C.primary },
-    catPillText: { fontSize: 9, fontWeight: "800", color: C.textMuted, letterSpacing: 1 },
-    catPillTextActive: { color: "#fff" },
 
     // ── Shared / empty ──
     emptyToday: { paddingVertical: 24, alignItems: "center", marginHorizontal: 16 },
@@ -473,7 +465,6 @@ export default function EventsScreen() {
     const [freeMeals, setFreeMeals] = useState(0);
     const [archiveMode, setArchiveMode] = useState<"rsvpd" | "attended">("rsvpd");
     const [now, setNow] = useState(() => new Date());
-    const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
     const { colors: C } = useTheme();
     const s = useMemo(() => makeEventsStyles(C), [C]);
@@ -556,15 +547,9 @@ export default function EventsScreen() {
 
     const rsvpIds = useMemo(() => new Set(rsvps.map((r) => r.id)), [rsvps]);
 
-    const categories = useMemo(() =>
-        [...new Set(allEvents.map((e) => e.club?.category).filter(Boolean) as string[])].sort(),
-        [allEvents]);
-
     const recommended = useMemo(() =>
-        allEvents.filter((e) =>
-            !rsvpIds.has(e.id) && (!categoryFilter || e.club?.category === categoryFilter)
-        ),
-        [allEvents, rsvpIds, categoryFilter]);
+        allEvents.filter((e) => !rsvpIds.has(e.id)),
+        [allEvents, rsvpIds]);
 
     const recommendedToday = useMemo(() =>
         recommended.filter((e) => e.startAt && isSameDay(new Date(e.startAt!), today)),

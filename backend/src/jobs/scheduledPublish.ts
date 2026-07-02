@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma";
+import { sendExpoPush } from "../lib/push";
 
 async function notifyFollowers(
     clubId: string,
@@ -53,19 +54,13 @@ async function notifyFollowers(
     });
 
     const pushTokens = [...recipients.values()].filter(Boolean) as string[];
-    if (!pushTokens.length) return;
-
-    fetch("https://exp.host/--/api/v2/push/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify(pushTokens.map((token) => ({
-            to: token,
-            title: notifTitle,
-            body: postTitle,
-            data: { postId, postType },
-            sound: "default" as const,
-        }))),
-    }).catch(console.error);
+    sendExpoPush(pushTokens.map((token) => ({
+        to: token,
+        title: notifTitle,
+        body: postTitle,
+        data: { postId, postType },
+        sound: "default" as const,
+    })));
 }
 
 export async function runScheduledPublish() {

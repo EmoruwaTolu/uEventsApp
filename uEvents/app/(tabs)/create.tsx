@@ -112,6 +112,35 @@ const makeCreateStyles = (C: AppColors) => StyleSheet.create({
         textAlign: "center",
     },
 
+    // ── Approval banner ──────────────────────────────────────────────────────
+    approvalBanner: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+        gap: 12,
+        marginHorizontal: 16,
+        marginBottom: 12,
+        padding: 14,
+        borderRadius: 10,
+        backgroundColor: "#FEF3C7",
+    },
+    approvalBannerRejected: {
+        backgroundColor: "#FEE2E2",
+    },
+    approvalTitle: {
+        fontSize: 14,
+        fontWeight: "800",
+        color: C.text,
+    },
+    approvalBody: {
+        fontSize: 12,
+        color: C.textBody,
+        lineHeight: 17,
+        marginTop: 2,
+    },
+    cardsDisabled: {
+        opacity: 0.45,
+    },
+
     // ── Cards ────────────────────────────────────────────────────────────────
     cards: {
         paddingHorizontal: 16,
@@ -367,12 +396,17 @@ export default function CreateContentScreen() {
 
     const [selectedType, setSelectedType] = useState<ContentType | null>(null);
     const [draftCount, setDraftCount] = useState<number | null>(null);
+    const [clubStatus, setClubStatus] = useState<"PENDING" | "APPROVED" | "REJECTED" | null>(null);
     const formAnim = useRef(new Animated.Value(0)).current;
+    const isApproved = clubStatus === null || clubStatus === "APPROVED";
 
     function refreshDraftCount() {
         authApi<{ id: string }[]>("/posts/mine?isDraft=true")
             .then((posts) => setDraftCount(posts.length))
             .catch(() => setDraftCount(null));
+        authApi<{ clubStatus?: "PENDING" | "APPROVED" | "REJECTED" | null }>("/users/me")
+            .then((me) => setClubStatus(me.clubStatus ?? "APPROVED"))
+            .catch(() => {});
     }
 
     useFocusEffect(useCallback(() => {
@@ -380,6 +414,7 @@ export default function CreateContentScreen() {
     }, []));
 
     function openForm(type: ContentType) {
+        if (!isApproved) return;
         setSelectedType(type);
         formAnim.setValue(0);
         Animated.spring(formAnim, {
@@ -478,8 +513,25 @@ export default function CreateContentScreen() {
                     ))}
                 </View>
 
+                {/* Pending / rejected approval banner */}
+                {!isApproved && (
+                    <View style={[styles.approvalBanner, clubStatus === "REJECTED" && styles.approvalBannerRejected]}>
+                        <Ionicons name={clubStatus === "REJECTED" ? "close-circle" : "time"} size={20} color={clubStatus === "REJECTED" ? "#B91C1C" : "#B45309"} />
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.approvalTitle}>
+                                {clubStatus === "REJECTED" ? "Club not approved" : "Pending admin approval"}
+                            </Text>
+                            <Text style={styles.approvalBody}>
+                                {clubStatus === "REJECTED"
+                                    ? "Your club application wasn't approved. Contact the uEvents team if you think this is a mistake."
+                                    : "You can set up your profile now. Posting unlocks once an admin approves your club."}
+                            </Text>
+                        </View>
+                    </View>
+                )}
+
                 {/* Content type cards */}
-                <View style={styles.cards}>
+                <View style={[styles.cards, !isApproved && styles.cardsDisabled]}>
                     {/* Analytics card */}
                     <Pressable style={[styles.analyticsCard, styles.cardFeatured]} onPress={() => router.push("/analytics" as any)}>
                         <View style={[styles.cardIcon, styles.cardIconFeatured]}>

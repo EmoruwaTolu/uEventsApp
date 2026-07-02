@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma";
+import { sendExpoPush } from "../lib/push";
 
 /**
  * Runs every minute. Finds events starting in 55–65 minutes and sends
@@ -61,18 +62,12 @@ export async function runEventReminders() {
 
         // Send Expo push notifications
         const pushTokens = toNotify.map((u) => u.pushToken).filter(Boolean) as string[];
-        if (pushTokens.length) {
-            fetch("https://exp.host/--/api/v2/push/send", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", Accept: "application/json" },
-                body: JSON.stringify(pushTokens.map((token) => ({
-                    to: token,
-                    title: notifTitle,
-                    body: notifBody,
-                    data: { postId: event.id, postType: "EVENT" },
-                    sound: "default",
-                }))),
-            }).catch(console.error);
-        }
+        sendExpoPush(pushTokens.map((token) => ({
+            to: token,
+            title: notifTitle,
+            body: notifBody,
+            data: { postId: event.id, postType: "EVENT" },
+            sound: "default" as const,
+        })));
     }
 }

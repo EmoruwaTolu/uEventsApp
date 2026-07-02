@@ -13,6 +13,8 @@ import notificationsRouter from "./routes/notifications";
 import uploadsRouter      from "./routes/uploads";
 import feedbackRouter     from "./routes/feedback";
 import reportsRouter      from "./routes/reports";
+import shareRouter        from "./routes/share";
+import calendarRouter     from "./routes/calendar";
 
 const app = express();
 
@@ -80,6 +82,8 @@ app.use("/notifications", notificationsRouter);
 app.use("/uploads",       uploadsRouter);
 app.use("/feedback",      feedbackRouter);
 app.use("/reports",       reportsRouter);
+app.use("/share",         shareRouter);
+app.use("/calendar",      calendarRouter);
 
 app.use(errorHandler);
 

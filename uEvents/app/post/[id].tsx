@@ -9,6 +9,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useApi } from "../../lib/useApi";
+import { API_BASE } from "../../lib/api";
 import { useToast } from "../../lib/ToastContext";
 import { useRsvp } from "../../lib/RsvpContext";
 import { useLikes } from "../../lib/LikeContext";
@@ -1035,7 +1036,7 @@ export default function PostDetailScreen() {
                         <Pressable
                             style={s.actionBtn}
                             hitSlop={8}
-                            onPress={() => Share.share({ message: `${title}\n\nuevents://post/${id}` })}
+                            onPress={() => Share.share({ message: `${title}\n\n${API_BASE}/share/post/${id}` })}
                             accessibilityLabel="Share post"
                             accessibilityRole="button"
                         >

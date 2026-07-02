@@ -16,7 +16,7 @@ type Ctx = {
     session: Session;
     isLoading: boolean;
     register: (first: string, last: string, email: string, password: string) => Promise<void>;
-    registerClub: (clubName: string, email: string, password: string, inviteCode: string, category?: string) => Promise<void>;
+    registerClub: (clubName: string, email: string, password: string, inviteCode?: string, category?: string) => Promise<void>;
     signIn: (email: string, password: string) => Promise<void>;
     signOut: () => Promise<void>;
     continueAsGuest: () => Promise<void>;
@@ -62,10 +62,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
     }
 
-    async function registerClub(clubName: string, email: string, password: string, inviteCode: string, category?: string) {
+    async function registerClub(clubName: string, email: string, password: string, inviteCode?: string, category?: string) {
         const res = await api<{ token: string; user: { id: string; email: string; type: string; emailVerified?: boolean } }>(
             "/users/add-user",
-            { method: "POST", body: JSON.stringify({ type: "CLUB", clubName, email, password, inviteCode, category }) }
+            { method: "POST", body: JSON.stringify({ type: "CLUB", clubName, email, password, inviteCode: inviteCode || undefined, category }) }
         );
         await saveSession({
             token: res.token, role: "user", email: res.user.email,

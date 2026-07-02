@@ -214,8 +214,25 @@ export default function SettingsScreen() {
     const backdropAnim = useRef(new Animated.Value(0)).current;
     const insets = useSafeAreaInsets();
     const isClub = session?.userType === "CLUB";
+    const [calLoading, setCalLoading] = useState(false);
 
     const closeIntentRef = useRef(0);
+
+    // Fetch the user's personal ICS feed URL and hand it to the OS to subscribe
+    // (webcal:// prompts a one-tap "add subscription" on iOS/macOS).
+    async function subscribeCalendar() {
+        if (calLoading) return;
+        setCalLoading(true);
+        try {
+            const { url, webcalUrl } = await authApi<{ url: string; webcalUrl: string }>("/users/me/calendar");
+            const canOpen = await Linking.canOpenURL(webcalUrl).catch(() => false);
+            await Linking.openURL(canOpen ? webcalUrl : url);
+        } catch {
+            showToast("Couldn't set up calendar subscription. Please try again.", "error");
+        } finally {
+            setCalLoading(false);
+        }
+    }
 
     function openModal(section: Section) {
         const intent = ++closeIntentRef.current;
@@ -500,6 +517,27 @@ export default function SettingsScreen() {
                         <Switch value={emailDigest} onValueChange={toggleEmailDigest}
                             trackColor={{ true: C.primary, false: "#D1D5DB" }} thumbColor="#fff" />
                     </View>
+                </View>
+
+                {/* ── Calendar subscription ── */}
+                <Text style={s.sectionLabel}>CALENDAR</Text>
+                <View style={s.card}>
+                    <Pressable
+                        onPress={subscribeCalendar}
+                        disabled={calLoading}
+                        style={({ pressed }) => [s.row, pressed && s.rowPressed]}
+                        accessibilityRole="button"
+                        accessibilityLabel="Subscribe to your events calendar"
+                        accessibilityHint="Adds your RSVP'd events to your device calendar and keeps them in sync"
+                    >
+                        <View style={s.rowIcon}>
+                            <Ionicons name="calendar-outline" size={18} color={C.primary} />
+                        </View>
+                        <Text style={s.rowLabel}>Subscribe to my events</Text>
+                        {calLoading
+                            ? <ActivityIndicator size="small" color={C.primary} />
+                            : <Ionicons name="chevron-forward" size={16} color={C.textLight} />}
+                    </Pressable>
                 </View>
 
                 {/* ── Language card ── */}

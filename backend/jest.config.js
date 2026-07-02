@@ -4,5 +4,7 @@ module.exports = {
     testEnvironment: "node",
     testMatch: ["**/__tests__/**/*.test.ts"],
     setupFiles: ["<rootDir>/src/__tests__/jestSetup.ts"],
-    testTimeout: 15000,
+    // Generous timeout: the suite runs against a remote (Render) Postgres, so a
+    // cold start or latency spike shouldn't be read as a test failure.
+    testTimeout: 30000,
 };

@@ -3,8 +3,21 @@ import { Stack, Redirect, useSegments } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import PatternBackground from "../components/PatternBackground";
 import React from "react";
-import { View, ActivityIndicator, Text, Pressable, StyleSheet } from "react-native";
+import { View, ActivityIndicator, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import { StatusBar } from "expo-status-bar";
+
+// Accessibility: honour the OS font-size setting everywhere, but cap the
+// multiplier so very large accessibility sizes don't shatter layouts. Applied
+// globally here rather than per-screen so every screen is covered.
+const FONT_SCALE_CAP = 1.4;
+((Text as unknown) as { defaultProps?: Record<string, unknown> }).defaultProps = {
+    ...(((Text as unknown) as { defaultProps?: Record<string, unknown> }).defaultProps ?? {}),
+    maxFontSizeMultiplier: FONT_SCALE_CAP,
+};
+((TextInput as unknown) as { defaultProps?: Record<string, unknown> }).defaultProps = {
+    ...(((TextInput as unknown) as { defaultProps?: Record<string, unknown> }).defaultProps ?? {}),
+    maxFontSizeMultiplier: FONT_SCALE_CAP,
+};
 import { AuthProvider, useAuth } from "../auth/AuthContext";
 import { RsvpProvider } from "../lib/RsvpContext";
 import { LikeProvider } from "../lib/LikeContext";

@@ -101,6 +101,11 @@ const changePasswordSchema = z.object({
 
 const router = Router();
 
+// bcrypt work factor. Kept high (12) in production; lowered under test so the
+// suite — which registers many users against a remote DB — isn't dominated by
+// hashing CPU. Security is unaffected outside the test environment.
+const BCRYPT_ROUNDS = process.env.NODE_ENV === "test" ? 4 : 12;
+
 function signToken(userId: string, type: string, tokenVersion: number) {
     return jwt.sign({ userId, type, tokenVersion }, process.env.JWT_SECRET!, { expiresIn: "30d" });
 }
@@ -120,15 +125,18 @@ router.post("/add-user", validate(registerSchema), async (req, res, next) => {
         }
 
         const isClub = type === "CLUB";
+
+        // Clubs self-register into an approval queue. A valid invite code is an
+        // optional trusted fast-path (auto-approve); otherwise the club is created
+        // PENDING and cannot publish until an admin approves it.
+        let clubStatus: "PENDING" | "APPROVED" | undefined;
         if (isClub) {
             const CLUB_INVITE_CODE = process.env.CLUB_INVITE_CODE;
-            if (!CLUB_INVITE_CODE || inviteCode !== CLUB_INVITE_CODE) {
-                return res.status(403).json({ error: "Invalid club invite code" });
-            }
+            const codeValid = !!CLUB_INVITE_CODE && inviteCode === CLUB_INVITE_CODE;
+            clubStatus = codeValid ? "APPROVED" : "PENDING";
         }
 
         // Restrict student signups to the school's email domain(s) when configured.
-        // Clubs are gated by the invite code instead and may use an org domain.
         if (!isClub && !emailDomainAllowed(email)) {
             const allowed = SCHOOL_EMAIL_DOMAINS.join(", ");
             return res.status(403).json({ error: `Please sign up with your school email (${allowed}).` });
@@ -137,13 +145,14 @@ router.post("/add-user", validate(registerSchema), async (req, res, next) => {
         const existing = await prisma.user.findUnique({ where: { email } });
         if (existing) return res.status(409).json({ error: "Email already registered" });
 
-        const passwordHash = await bcrypt.hash(password, 12);
+        const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
         const user = await prisma.user.create({
             data: {
                 email,
                 passwordHash,
                 type: isClub ? "CLUB" : "STUDENT",
+                clubStatus:   isClub  ? clubStatus   : undefined,
                 firstName:    !isClub ? firstName    : undefined,
                 lastName:     !isClub ? lastName     : undefined,
                 clubName:     isClub  ? clubName     : undefined,
@@ -156,7 +165,10 @@ router.post("/add-user", validate(registerSchema), async (req, res, next) => {
         sendVerificationEmail(user.id, user.email).catch(() => {});
 
         const token = signToken(user.id, user.type, 0);
-        res.status(201).json({ token, user: { id: user.id, email: user.email, type: user.type, emailVerified: false } });
+        res.status(201).json({
+            token,
+            user: { id: user.id, email: user.email, type: user.type, emailVerified: false, clubStatus: user.clubStatus ?? null },
+        });
     } catch (err) {
         next(err);
     }
@@ -194,6 +206,7 @@ router.get("/me", requireAuth, async (req, res, next) => {
                 clubName: true, slug: true, category: true, description: true, logoUrl: true,
                 instagram: true, twitter: true, contactEmail: true,
                 pushNotifs: true, emailDigest: true, emailVerified: true,
+                clubStatus: true, clubRejectionReason: true,
                 _count: { select: { follows: true, rsvps: true } },
             },
         });
@@ -420,6 +433,48 @@ router.get("/me/waitlist", requireAuth, async (req, res, next) => {
     }
 });
 
+// GET /users/me/calendar — the user's personal ICS subscription URL (created lazily).
+router.get("/me/calendar", requireAuth, async (req, res, next) => {
+    try {
+        let user = await prisma.user.findUnique({
+            where: { id: req.user!.userId },
+            select: { calendarToken: true },
+        });
+        if (!user?.calendarToken) {
+            const token = crypto.randomBytes(24).toString("hex");
+            user = await prisma.user.update({
+                where: { id: req.user!.userId },
+                data: { calendarToken: token },
+                select: { calendarToken: true },
+            });
+        }
+        const base = process.env.PUBLIC_BASE_URL
+            ?? `${req.headers["x-forwarded-proto"] ?? req.protocol}://${req.get("host")}`;
+        const path = `/calendar/${user.calendarToken}.ics`;
+        res.json({
+            url: `${base}${path}`,
+            // webcal:// prompts a one-tap subscribe on iOS/macOS that keeps syncing.
+            webcalUrl: `webcal://${base.replace(/^https?:\/\//, "")}${path}`,
+        });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /users/me/calendar/rotate — invalidate the old URL and issue a new one.
+router.post("/me/calendar/rotate", requireAuth, async (req, res, next) => {
+    try {
+        const token = crypto.randomBytes(24).toString("hex");
+        await prisma.user.update({ where: { id: req.user!.userId }, data: { calendarToken: token } });
+        const base = process.env.PUBLIC_BASE_URL
+            ?? `${req.headers["x-forwarded-proto"] ?? req.protocol}://${req.get("host")}`;
+        const path = `/calendar/${token}.ics`;
+        res.json({ url: `${base}${path}`, webcalUrl: `webcal://${base.replace(/^https?:\/\//, "")}${path}` });
+    } catch (err) {
+        next(err);
+    }
+});
+
 // GET /users/me/bookmarks
 router.get("/me/bookmarks", requireAuth, async (req, res, next) => {
     try {
@@ -529,7 +584,7 @@ router.patch("/me/password", requireAuth, validate(changePasswordSchema), async 
         const valid = await bcrypt.compare(currentPassword, user.passwordHash);
         if (!valid) return res.status(401).json({ error: "Current password is incorrect" });
 
-        const passwordHash = await bcrypt.hash(newPassword, 12);
+        const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
         const updated = await prisma.user.update({
             where: { id: user.id },
             data: { passwordHash, tokenVersion: { increment: 1 } },
@@ -637,7 +692,7 @@ router.post("/reset-password", validate(resetPasswordSchema), async (req, res, n
             return res.status(400).json({ error: "This reset link is invalid or has expired." });
         }
 
-        const passwordHash = await bcrypt.hash(password, 12);
+        const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
         await prisma.$transaction([
             prisma.user.update({

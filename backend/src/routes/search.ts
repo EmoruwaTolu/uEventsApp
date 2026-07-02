@@ -27,7 +27,7 @@ router.get("/", async (req, res, next) => {
                 take: 8,
             }),
             prisma.post.findMany({
-                where: { isDraft: false },
+                where: { isDraft: false, hidden: false },
                 include: {
                     club: { select: { id: true, clubName: true } },
                 },

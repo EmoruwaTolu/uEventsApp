@@ -32,6 +32,11 @@ model User {
   emailDigest   Boolean        @default(false)
   tokenVersion  Int            @default(0)
   emailVerified DateTime?
+  // Club self-signup approval (null for students; clubs are PENDING until an admin approves)
+  clubStatus          ClubStatus?
+  clubRejectionReason String?
+  // Per-user ICS calendar subscription token
+  calendarToken String?        @unique
   bookmarks     Bookmark[]
   checkIns      CheckIn[]
   comments      Comment[]
@@ -53,6 +58,7 @@ model User {
   eventRatings  EventRating[]
   blockedUsers  BlockedUser[] @relation("BlockerRelation")
   blockedBy     BlockedUser[] @relation("BlockedRelation")
+  feedSignals   FeedSignal[]
 }
 
 model Post {
@@ -76,6 +82,7 @@ model Post {
   pollAllowMultiple Boolean      @default(false)
   seriesId          String?
   occurrenceDate    DateTime?
+  hidden            Boolean      @default(false)  // moderation: hidden by admin, excluded from public feeds
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
   series            EventSeries? @relation(fields: [seriesId], references: [id], onDelete: SetNull)
@@ -95,15 +102,23 @@ model Post {
 }
 
 model EventPhoto {
-  id        String   @id @default(cuid())
+  id        String            @id @default(cuid())
   postId    String
   userId    String
   url       String
-  createdAt DateTime @default(now())
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id])
+  status    EventPhotoStatus  @default(PENDING)  // moderation: only APPROVED show publicly
+  createdAt DateTime          @default(now())
+  post      Post              @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User              @relation(fields: [userId], references: [id])
 
   @@index([postId])
+  @@index([postId, status])
+}
+
+enum EventPhotoStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 model EventRating {
@@ -218,6 +233,7 @@ model Comment {
   content   String
   parentId  String?
   upvotes   Int       @default(0)
+  hidden    Boolean   @default(false)  // moderation: hidden by admin, excluded from public views
   createdAt DateTime  @default(now())
   post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
   user      User      @relation(fields: [userId], references: [id])
@@ -240,6 +256,13 @@ model Notification {
 enum UserType {
   STUDENT
   CLUB
+  ADMIN
+}
+
+enum ClubStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum PostType {
@@ -262,6 +285,7 @@ enum NotifType {
   LIKE
   FOLLOW
   WAITLIST_PROMOTED
+  DIGEST
 }
 
 model PasswordReset {
@@ -334,14 +358,37 @@ enum FeedbackType {
   FEATURE_REQUEST
 }
 
+// "Show less like this" signals from the For You feed. Doubles as structured
+// tester feedback (queryable by category/club) and tunes the ranker: matching
+// clubs/categories are down-ranked and the exact post is suppressed.
+model FeedSignal {
+  id         String   @id @default(cuid())
+  userId     String
+  postId     String?
+  clubId     String?
+  categories String[] @default([])
+  reason     String?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
 model Report {
-  id         String       @id @default(cuid())
-  reporterId String
-  targetType ReportTarget
-  targetId   String
-  reason     String
-  createdAt  DateTime     @default(now())
-  reporter   User         @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  id           String       @id @default(cuid())
+  reporterId   String
+  targetType   ReportTarget
+  targetId     String
+  reason       String
+  createdAt    DateTime     @default(now())
+  // Moderation review state (null = still open/unactioned)
+  resolvedAt   DateTime?
+  resolvedById String?
+  resolution   String?      // "hide" | "delete" | "dismiss"
+  reporter     User         @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([targetType, targetId])
+  @@index([resolvedAt])
 }
 
 model BlockedUser {

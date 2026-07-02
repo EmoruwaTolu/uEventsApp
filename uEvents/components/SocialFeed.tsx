@@ -62,6 +62,7 @@ export type FeedPost = {
     isRecurring?: boolean;
     freeFood?: boolean;
     rsvpCount?: number;
+    capacity?: number | null;
     likes?: number;
     comments?: number;
     isLiked?: boolean;
@@ -1203,6 +1204,29 @@ function EventFeedCard({
 
                     {/* Going count + RSVP (right) */}
                     <View style={s.evAvatarRow}>
+                        {(() => {
+                            const cap = post.capacity ?? null;
+                            const goingCount = post.rsvpCount ?? 0;
+                            if (cap == null || isPast) return null;
+                            const left = cap - goingCount;
+                            // Only nudge when the event is genuinely near capacity.
+                            if (left > 0 && left <= 10) {
+                                return (
+                                    <View style={s.evSpotsLeftBadge}>
+                                        <Ionicons name="flame" size={11} color="#B45309" />
+                                        <Text style={s.evSpotsLeftText}>{left} {left === 1 ? "spot" : "spots"} left</Text>
+                                    </View>
+                                );
+                            }
+                            if (left <= 0) {
+                                return (
+                                    <View style={[s.evSpotsLeftBadge, s.evSpotsFullBadge]}>
+                                        <Text style={s.evSpotsFullText}>Full</Text>
+                                    </View>
+                                );
+                            }
+                            return null;
+                        })()}
                         {(post.rsvpCount ?? 0) > 0 && (
                             <>
                                 <Ionicons name="people" size={13} color={C.textMuted} />
@@ -1707,6 +1731,17 @@ export default function SocialFeed({
         onDeletePress?.(postId);
     }, [authApi, onDeletePress]);
 
+    // "Show less like this" — optimistically drop the card and log the signal.
+    const handleShowLess = useCallback(async (post: FeedPost) => {
+        setPosts((cur) => cur.filter((p) => p.id !== post.id));
+        try {
+            await authApi(`/posts/${post.id}/show-less`, {
+                method: "POST",
+                body: JSON.stringify({ reason: post.reason ?? undefined }),
+            });
+        } catch {}
+    }, [authApi]);
+
     // Pull fresh poll counts for a single post. Uses api() directly (not authApi)
     // so a transient 401 never triggers signOut(). Preserves the user's own vote.
     const refreshPoll = useCallback(async (postId: string) => {
@@ -1813,8 +1848,32 @@ export default function SocialFeed({
             card = <TextArticleCard post={post} onPress={() => onPostPress?.(post)} onClubPress={onClubPress} onLikePress={onLikePress} onCommentPress={onCommentPress} onFollowToggle={handleFollowToggle} showFollow={showFollow} onEditPress={onEditPress} onDeletePress={onEditPress ? handleDeletePost : undefined} />;
         }
 
+        // Reason chip + "Show less" — only on ranked (For You) cards, which are
+        // the only ones the server tags with a `reason`.
+        if (post.reason && !onEditPress) {
+            return (
+                <View>
+                    <View style={s.reasonChipRow}>
+                        <View style={s.reasonChip}>
+                            <Ionicons name="sparkles-outline" size={12} color={C.textMuted} />
+                            <Text style={s.reasonChipText} numberOfLines={1}>{post.reason}</Text>
+                        </View>
+                        <Pressable
+                            onPress={() => handleShowLess(post)}
+                            hitSlop={8}
+                            accessibilityRole="button"
+                            accessibilityLabel="Show less like this"
+                        >
+                            <Text style={s.showLessText}>Show less</Text>
+                        </Pressable>
+                    </View>
+                    {card}
+                </View>
+            );
+        }
+
         return <>{card}</>;
-    }, [posts, heroIdx, unfollowedClubIds, onPostPress, onClubPress, onLikePress, onCommentPress, onEditPress, onAddRecapPhoto, handleDeletePost, handleFollowToggle, handlePollVote, C]);
+    }, [posts, heroIdx, unfollowedClubIds, onPostPress, onClubPress, onLikePress, onCommentPress, onEditPress, onAddRecapPhoto, handleDeletePost, handleShowLess, handleFollowToggle, handlePollVote, s, C]);
 
     return (
         <FlatList

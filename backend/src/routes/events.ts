@@ -8,7 +8,7 @@ const router = Router();
 router.get("/", async (req, res, next) => {
     try {
         const { date, from, to, clubId, limit = "100", offset = "0", upcoming, popular } = req.query;
-        const where: any = { type: "EVENT", isDraft: false };
+        const where: any = { type: "EVENT", isDraft: false, hidden: false };
 
         if (date) {
             const [y, m, d] = (date as string).slice(0, 10).split("-").map(Number);
@@ -63,6 +63,8 @@ router.get("/:id", requireAuth, async (req, res, next) => {
             },
         });
         if (!event || event.type !== "EVENT") return res.status(404).json({ error: "Event not found" });
+        // Hidden (moderated) events are only visible to their owning club.
+        if (event.hidden && event.clubId !== userId) return res.status(404).json({ error: "Event not found" });
 
         // Fetch first 5 attendees for the avatar stack
         const attendees = await prisma.rsvp.findMany({

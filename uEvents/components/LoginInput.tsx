@@ -32,6 +32,7 @@ export const LoginInput = forwardRef<TextInput, TextInputProps & { style?: Style
                     <TextInput
                         ref={ref}
                         {...rest}
+                        accessibilityLabel={rest.accessibilityLabel ?? label}
                         secureTextEntry={isSecure}
                         onFocus={(e) => { setFocused(true); rest.onFocus?.(e); }}
                         onBlur={(e) => { setFocused(false); rest.onBlur?.(e); }}
@@ -50,6 +51,8 @@ export const LoginInput = forwardRef<TextInput, TextInputProps & { style?: Style
                             onPress={() => setHidden((h) => !h)}
                             style={{ paddingHorizontal: 14 }}
                             hitSlop={8}
+                            accessibilityRole="button"
+                            accessibilityLabel={hidden ? "Show password" : "Hide password"}
                         >
                             <Ionicons
                                 name={hidden ? "eye-outline" : "eye-off-outline"}

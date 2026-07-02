@@ -8,6 +8,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useApi } from "../../lib/useApi";
+import { API_BASE } from "../../lib/api";
 import { useLang, useT } from "../../lib/LangContext";
 import { useTheme } from "../../lib/ThemeContext";
 import type { AppColors } from "../../styles/theme";
@@ -675,7 +676,7 @@ export default function PostAnalyticsDetail() {
                 <Text style={s.topBarTitle}>POST ANALYTICS</Text>
                 <Pressable
                     style={s.topBarSide}
-                    onPress={() => Share.share({ title: post.title, message: `${post.title}\n\nuevents://post/${id}` })}
+                    onPress={() => Share.share({ title: post.title, message: `${post.title}\n\n${API_BASE}/share/post/${id}` })}
                     hitSlop={8}
                     accessibilityRole="button"
                     accessibilityLabel="Share"

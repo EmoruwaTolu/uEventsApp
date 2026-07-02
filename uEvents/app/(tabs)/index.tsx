@@ -46,6 +46,7 @@ type ApiFeedPost = {
     freeFood?: boolean;
     likes: number;
     rsvpCount?: number;
+    capacity?: number | null;
     comments: number;
     isLiked: boolean;
     isBookmarked?: boolean;
@@ -112,6 +113,7 @@ function mapPost(p: ApiFeedPost, lang: "en" | "fr"): FeedPost {
         isRecurring: p.type.toLowerCase() === "event" ? !!p.isRecurring : undefined,
         freeFood: p.type.toLowerCase() === "event" ? !!p.freeFood : undefined,
         rsvpCount: p.type.toLowerCase() === "event" ? (p.rsvpCount ?? 0) : undefined,
+        capacity: p.type.toLowerCase() === "event" ? (p.capacity ?? null) : undefined,
         likes: p.likes,
         comments: p.comments,
         isLiked: p.isLiked,

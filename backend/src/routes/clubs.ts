@@ -1,8 +1,72 @@
 import { Router } from "express";
+import { z } from "zod";
 import { prisma } from "../lib/prisma";
-import { requireAuth, optionalAuth } from "../middleware/auth";
+import { requireAuth, requireAdmin, optionalAuth } from "../middleware/auth";
+import { validate } from "../middleware/validate";
 
 const router = Router();
+
+// ── Admin: club approval queue ──────────────────────────────────────────────
+
+// GET /clubs/pending — clubs awaiting approval (admin only)
+router.get("/pending", requireAuth, requireAdmin, async (_req, res, next) => {
+    try {
+        const clubs = await prisma.user.findMany({
+            where: { type: "CLUB", clubStatus: "PENDING" },
+            orderBy: { createdAt: "asc" },
+            select: {
+                id: true, email: true, clubName: true, slug: true, category: true,
+                description: true, contactEmail: true, createdAt: true,
+            },
+        });
+        res.json(clubs);
+    } catch (err) {
+        next(err);
+    }
+});
+
+const approvalSchema = z.object({
+    action: z.enum(["approve", "reject"]),
+    reason: z.string().max(500).optional(),
+});
+
+// PATCH /clubs/:id/approval — approve or reject a pending club (admin only)
+router.patch("/:id/approval", requireAuth, requireAdmin, validate(approvalSchema), async (req, res, next) => {
+    try {
+        const club = await prisma.user.findUnique({
+            where: { id: req.params.id },
+            select: { id: true, type: true, clubStatus: true },
+        });
+        if (!club || club.type !== "CLUB") return res.status(404).json({ error: "Club not found" });
+
+        const approve = req.body.action === "approve";
+        const updated = await prisma.user.update({
+            where: { id: club.id },
+            data: {
+                clubStatus: approve ? "APPROVED" : "REJECTED",
+                clubRejectionReason: approve ? null : (req.body.reason ?? null),
+            },
+            select: { id: true, clubStatus: true, clubRejectionReason: true },
+        });
+
+        // Let the club know the outcome.
+        await prisma.notification.create({
+            data: {
+                userId: club.id,
+                type: approve ? "FOLLOW" : "FOLLOW", // reuse a generic type; no dedicated enum needed
+                title: approve ? "Your club was approved" : "Club application update",
+                body: approve
+                    ? "You can now post events and announcements."
+                    : `Your club application wasn't approved.${req.body.reason ? ` Reason: ${req.body.reason}` : ""}`,
+                metadata: { kind: "CLUB_APPROVAL", clubStatus: updated.clubStatus },
+            },
+        }).catch(() => {});
+
+        res.json(updated);
+    } catch (err) {
+        next(err);
+    }
+});
 
 // GET /clubs
 router.get("/", optionalAuth, async (req, res, next) => {
@@ -61,7 +125,7 @@ router.get("/:id", async (req, res, next) => {
 router.get("/:id/pinned", optionalAuth, async (req, res, next) => {
     try {
         const post = await prisma.post.findFirst({
-            where: { clubId: req.params.id, isPinned: true, isDraft: false },
+            where: { clubId: req.params.id, isPinned: true, isDraft: false, hidden: false },
             include: {
                 pollOptions: { include: { _count: { select: { votes: true } } } },
                 _count: { select: { likes: true, comments: true, rsvps: true } },
@@ -83,6 +147,7 @@ router.get("/:id/posts", optionalAuth, async (req, res, next) => {
             where: {
                 clubId: req.params.id,
                 isDraft: false,
+                hidden: false,
                 ...(type ? { type: type as any } : {}),
             },
             include: {

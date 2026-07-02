@@ -24,6 +24,8 @@ export default function EventCard({ event }: { event: Event }) {
     return (
         <Pressable
         onPress={() => router.push({ pathname: "/event/[id]", params: { id: event.id } })}
+        accessibilityRole="button"
+        accessibilityLabel={`${event.name}${event.club ? `, ${event.club}` : ""}${event.time ? `, ${event.time}` : ""}`}
         style={{
             width: cardW,
             height: cardH,

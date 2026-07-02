@@ -37,6 +37,15 @@ export async function registerClub(label = "club") {
     return { email, token: res.body.token as string, clubId: res.body.user?.id as string, res };
 }
 
+// Register a normal user then elevate them to ADMIN directly in the DB.
+// (There is no self-signup path for admins.) The JWT still carries the
+// original type claim, which is fine: requireAdmin re-checks the DB.
+export async function registerAdmin(label = "admin") {
+    const { token, userId } = await registerStudent(label);
+    await prisma.user.update({ where: { id: userId }, data: { type: "ADMIN" } });
+    return { token, userId };
+}
+
 export async function createEvent(clubToken: string, clubId: string, overrides: Record<string, unknown> = {}) {
     const res = await request
         .post("/posts")
@@ -76,6 +85,7 @@ export async function cleanupRun() {
     await prisma.notification.deleteMany({ where: { userId: { in: ids } } });
     await prisma.report.deleteMany({ where: { reporterId: { in: ids } } });
     await prisma.feedback.deleteMany({ where: { userId: { in: ids } } });
+    await prisma.feedSignal.deleteMany({ where: { userId: { in: ids } } });
 
     await prisma.user.deleteMany({ where: { id: { in: ids } } });
 }
