@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { LinearGradient } from "expo-linear-gradient";
-import { View, Text, Pressable, StyleSheet, Animated, Share, Alert, FlatList, type RefreshControlProps, type ViewStyle, type ImageStyle, type StyleProp } from "react-native";
+import { View, Text, Pressable, StyleSheet, Animated, Share, Alert, FlatList, useWindowDimensions, type RefreshControlProps, type ViewStyle, type ImageStyle, type StyleProp } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { makeFeedStyles } from "../styles/feed.styles";
 import { Ionicons } from "@expo/vector-icons";
@@ -92,13 +92,11 @@ function AnimatedPollOption({
     option,
     poll,
     onPollVote,
-    dark,
 }: {
     postId: string;
     option: PollOption;
     poll: Poll;
     onPollVote: (postId: string, optionId: string) => void;
-    dark?: boolean;
 }) {
     const { colors: C } = useTheme();
     const t = useT();
@@ -117,76 +115,41 @@ function AnimatedPollOption({
         }
     }, [hasVoted, percentage]);
 
-    if (dark) {
-        return (
-            <Pressable
-                style={[s.pollCardOption, isUserVote && s.pollCardOptionSelected]}
-                onPress={() => !hasVoted && onPollVote(postId, option.id)}
-                disabled={hasVoted}
-            >
-                {hasVoted && (
-                    <Animated.View
-                        style={[
-                            s.pollCardProgressBar,
-                            { width: progressWidth.interpolate({ inputRange: [0, 100], outputRange: ["0%", "100%"] }) },
-                            isUserVote && s.pollCardProgressBarSelected,
-                        ]}
-                    />
-                )}
-                <View style={s.pollCardOptionContent}>
-                    <View style={s.pollCardOptionLeft}>
-                        {hasVoted && isUserVote && (
-                            <Animated.View style={{ opacity: fadeIn }}>
-                                <Ionicons name="checkmark-circle" size={15} color="#fff" />
-                            </Animated.View>
-                        )}
-                        <Text style={s.pollCardOptionText}>{option.text}</Text>
-                    </View>
-                    {hasVoted && (
-                        <Animated.Text style={[s.pollCardPercentage, { opacity: fadeIn }]}>
-                            {percentage}%
-                        </Animated.Text>
-                    )}
-                </View>
-            </Pressable>
-        );
-    }
-
     return (
-        <Animated.View>
-            <Pressable
-                style={[s.pollOption, hasVoted && s.pollOptionVoted, isUserVote && s.pollOptionSelected]}
-                onPress={() => !hasVoted && onPollVote(postId, option.id)}
-                disabled={hasVoted}
-            >
-                {hasVoted && (
-                    <Animated.View
-                        style={[
-                            s.pollProgressBar,
-                            { width: progressWidth.interpolate({ inputRange: [0, 100], outputRange: ["0%", "100%"] }) },
-                            isUserVote && s.pollProgressBarSelected,
-                        ]}
-                    />
-                )}
-                <View style={s.pollOptionContent}>
-                    <View style={s.pollOptionLeft}>
-                        {hasVoted && isUserVote && (
-                            <Animated.View style={{ opacity: fadeIn }}>
-                                <Ionicons name="checkmark-circle" size={16} color="#fff" />
-                            </Animated.View>
-                        )}
-                        <Text style={[s.pollOptionText, isUserVote && s.pollOptionTextSelected]}>
-                            {option.text}
-                        </Text>
-                    </View>
-                    {hasVoted && !isUserVote && (
-                        <Animated.Text style={[s.pollPercentage, { opacity: fadeIn }]}>
-                            {percentage}%
-                        </Animated.Text>
+        <Pressable
+            style={[s.fcPollOption, hasVoted && s.fcPollOptionVoted, isUserVote && s.fcPollOptionSelected]}
+            onPress={() => !hasVoted && onPollVote(postId, option.id)}
+            disabled={hasVoted}
+            accessibilityRole="button"
+            accessibilityLabel={`Vote for ${option.text}`}
+        >
+            {hasVoted && (
+                <Animated.View
+                    style={[
+                        s.fcPollFill,
+                        { width: progressWidth.interpolate({ inputRange: [0, 100], outputRange: ["0%", "100%"] }) },
+                        isUserVote && s.fcPollFillSelected,
+                    ]}
+                />
+            )}
+            <View style={s.fcPollOptionContent}>
+                <View style={s.fcPollOptionLeft}>
+                    {hasVoted && isUserVote && (
+                        <Animated.View style={{ opacity: fadeIn }}>
+                            <Ionicons name="checkmark" size={16} color={C.primary} />
+                        </Animated.View>
                     )}
+                    <Text style={[s.fcPollOptionText, isUserVote && s.fcPollOptionTextSelected]} numberOfLines={1}>
+                        {option.text}
+                    </Text>
                 </View>
-            </Pressable>
-        </Animated.View>
+                {hasVoted && (
+                    <Animated.Text style={[s.fcPollPct, isUserVote && s.fcPollPctSelected, { opacity: fadeIn }]}>
+                        {percentage}%
+                    </Animated.Text>
+                )}
+            </View>
+        </Pressable>
     );
 }
 
@@ -218,13 +181,117 @@ function FollowButton({ isFollowing, onPress }: { isFollowing?: boolean; onPress
                 <Ionicons
                     name={isFollowing ? "checkmark" : "add"}
                     size={14}
-                    color={isFollowing ? "#8C0327" : "#fff"}
+                    color={isFollowing ? C.primary : "#fff"}
                 />
                 <Text style={[s.followButtonText, isFollowing && s.followButtonTextActive]}>
                     {isFollowing ? "Following" : "Follow"}
                 </Text>
             </Pressable>
         </Animated.View>
+    );
+}
+
+// ─── Shared card chrome (avatar / header / action bar) ─────────────────────
+
+function clubInitialsOf(name: string): string {
+    return name.split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
+}
+
+function ClubAvatar({ name, uri }: { name: string; uri?: string }) {
+    const { colors: C } = useTheme();
+    const s = useMemo(() => makeFeedStyles(C), [C]);
+    if (uri) return <ExpoImage source={{ uri }} style={s.fcAvatarImg} contentFit="cover" transition={200} />;
+    return (
+        <View style={s.fcAvatar}>
+            <Text style={s.fcAvatarInitials}>{clubInitialsOf(name)}</Text>
+        </View>
+    );
+}
+
+function CardHeader({
+    post,
+    subtitle,
+    right,
+    onClubPress,
+}: {
+    post: FeedPost;
+    subtitle: string;
+    right?: React.ReactNode;
+    onClubPress?: (id: string) => void;
+}) {
+    const { colors: C } = useTheme();
+    const s = useMemo(() => makeFeedStyles(C), [C]);
+    return (
+        <View style={s.fcHeader}>
+            <Pressable style={s.fcHeaderLeft} onPress={() => onClubPress?.(post.clubId)} accessibilityRole="button" accessibilityLabel={`View ${post.clubName}`}>
+                <ClubAvatar name={post.clubName} uri={post.clubAvatar} />
+                <View style={s.fcHeaderText}>
+                    <Text style={s.fcClubName} numberOfLines={1}>{post.clubName}</Text>
+                    <Text style={s.fcSubtitle} numberOfLines={1}>{subtitle}</Text>
+                </View>
+            </Pressable>
+            {right}
+        </View>
+    );
+}
+
+function CardActions({
+    post,
+    isBookmarked,
+    onLike,
+    onComment,
+    onShare,
+    onBookmark,
+    onEdit,
+    onDelete,
+}: {
+    post: FeedPost;
+    isBookmarked?: boolean;
+    onLike?: () => void;
+    onComment?: () => void;
+    onShare?: () => void;
+    onBookmark?: () => void;
+    onEdit?: () => void;
+    onDelete?: () => void;
+}) {
+    const { colors: C } = useTheme();
+    const s = useMemo(() => makeFeedStyles(C), [C]);
+    return (
+        <View style={s.fcActions}>
+            {!onEdit && onLike && (
+                <Pressable style={s.fcAction} onPress={onLike} hitSlop={8} accessibilityRole="button" accessibilityLabel={post.isLiked ? "Unlike" : "Like"}>
+                    <Ionicons name={post.isLiked ? "heart" : "heart-outline"} size={20} color={post.isLiked ? C.primary : C.textMuted} />
+                    {(post.likes || 0) > 0 && <Text style={[s.fcActionText, post.isLiked && s.fcActionTextActive]}>{post.likes}</Text>}
+                </Pressable>
+            )}
+            {!onEdit && onComment && (
+                <Pressable style={s.fcAction} onPress={onComment} hitSlop={8} accessibilityRole="button" accessibilityLabel="Comments">
+                    <Ionicons name="chatbubble-outline" size={18} color={C.textMuted} />
+                    {(post.comments || 0) > 0 && <Text style={s.fcActionText}>{post.comments}</Text>}
+                </Pressable>
+            )}
+            {onEdit && (
+                <Pressable style={s.fcAction} onPress={onEdit} hitSlop={8} accessibilityRole="button" accessibilityLabel="Edit">
+                    <Ionicons name="create-outline" size={20} color={C.textMuted} />
+                </Pressable>
+            )}
+            {onDelete && (
+                <Pressable style={s.fcAction} onPress={onDelete} hitSlop={8} accessibilityRole="button" accessibilityLabel="Delete">
+                    <Ionicons name="trash-outline" size={20} color={C.textMuted} />
+                </Pressable>
+            )}
+            <View style={s.fcActionsSpacer} />
+            {!onEdit && onBookmark && (
+                <Pressable style={s.fcAction} onPress={onBookmark} hitSlop={8} accessibilityRole="button" accessibilityLabel={isBookmarked ? "Remove bookmark" : "Bookmark"}>
+                    <Ionicons name={isBookmarked ? "bookmark" : "bookmark-outline"} size={19} color={isBookmarked ? C.primary : C.textMuted} />
+                </Pressable>
+            )}
+            {!onEdit && onShare && (
+                <Pressable style={s.fcAction} onPress={onShare} hitSlop={8} accessibilityRole="button" accessibilityLabel="Share">
+                    <Ionicons name="arrow-redo-outline" size={20} color={C.textMuted} />
+                </Pressable>
+            )}
+        </View>
     );
 }
 
@@ -350,7 +417,7 @@ function HeroCard({
                     <ExpoImage source={{ uri: post.clubAvatar }} style={s.heroClubAvatar} contentFit="cover" transition={200} />
                 ) : (
                     <View style={[s.heroClubAvatar, s.heroClubAvatarPlaceholder]}>
-                        <Ionicons name="people" size={12} color="#8C0327" />
+                        <Ionicons name="people" size={12} color={C.primary} />
                     </View>
                 )}
                 <Text style={s.heroClubName}>{post.clubName}</Text>
@@ -417,8 +484,8 @@ function AnnouncementCard({
     }, [post.id, onDeletePress, deleteOpacity, deleteScale]);
 
     const title = post.eventTitle || post.content || "";
-    const excerpt = post.eventTitle ? post.content : "";
-    const pillLabel = "ANNOUNCEMENT";
+    const typeLabel = post.type === "update" ? "Update" : "Announcement";
+    const pillLabel = typeLabel.toUpperCase();
 
     const lastTap = useRef<number>(0);
     const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -438,86 +505,47 @@ function AnnouncementCard({
 
     return (
         <Animated.View style={{ opacity: deleteOpacity, transform: [{ scale: deleteScale }] }}>
-            <Pressable onPress={handleDoubleTap} style={s.announcementCard}>
-                <View style={s.announcementInner}>
-                    <View style={s.announcementBorder} />
-                    <View style={s.announcementContent}>
-                        {/* Club header */}
-                        <View style={s.announcementHeader}>
-                            <Pressable onPress={() => onClubPress?.(post.clubId)} style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
-                                {post.clubAvatar ? (
-                                    <ExpoImage source={{ uri: post.clubAvatar }} style={s.eventFeedAvatar} contentFit="cover" transition={200} />
-                                ) : (
-                                    <View style={[s.eventFeedAvatar, s.eventFeedAvatarPlaceholder]}>
-                                        <Ionicons name="people" size={14} color={C.primary} />
-                                    </View>
-                                )}
-                                <View style={{ flex: 1, minWidth: 0 }}>
-                                    <Text style={s.announcementClubName} numberOfLines={1}>{post.clubName}</Text>
-                                    <View style={s.announcementTypePill}>
-                                        <Text style={s.announcementTypePillText}>{pillLabel}</Text>
-                                    </View>
-                                </View>
-                            </Pressable>
-                            {showFollow && (
-                                <FollowButton isFollowing={post.isFollowing} onPress={() => onFollowToggle?.(post.clubId)} />
-                            )}
+            <Pressable onPress={handleDoubleTap} style={s.fcCard}>
+                {/* Header — avatar, name, "Announcement · time", type pill */}
+                <CardHeader
+                    post={post}
+                    subtitle={`${typeLabel} · ${post.timestamp}`}
+                    right={showFollow ? (
+                        <FollowButton isFollowing={post.isFollowing} onPress={() => onFollowToggle?.(post.clubId)} />
+                    ) : (
+                        <View style={s.fcTypePill}>
+                            <Text style={s.fcTypePillText}>{pillLabel}</Text>
                         </View>
+                    )}
+                    onClubPress={onClubPress}
+                />
 
-                        {/* Title */}
-                        <Text style={s.announcementTitle} numberOfLines={3}>{title}</Text>
-
-                        {/* Excerpt */}
-                        {!!excerpt && (
-                            <Text style={s.announcementExcerpt} numberOfLines={3}>{excerpt}</Text>
-                        )}
-                    </View>
-                </View>
-
-                {/* Image — full width, outside the left-border zone */}
+                {/* Image — full width */}
                 {!!post.imageUrl && (
-                    <SafeImage uri={post.imageUrl} style={s.announcementImage} resizeMode="cover" label={`${post.clubName} ${pillLabel.toLowerCase()} image`} />
+                    <View style={s.fcImageWrap}>
+                        <SafeImage uri={post.imageUrl} style={[s.fcImage, s.fcImageBanner]} resizeMode="cover" label={`${post.clubName} ${pillLabel.toLowerCase()} image`} />
+                    </View>
+                )}
+
+                {/* Body — title (if any) + content */}
+                {(!!post.eventTitle || !!post.content) && (
+                    <View style={s.fcBody}>
+                        {!!post.eventTitle && <Text style={s.fcTitle} numberOfLines={3}>{post.eventTitle}</Text>}
+                        {!!post.content && <Text style={s.fcContent} numberOfLines={5}>{post.content}</Text>}
+                    </View>
                 )}
 
                 {/* Action bar */}
-                <View style={s.announcementActions}>
-                    {!onEditPress && (
-                        <Pressable style={s.announcementActionBtn} onPress={handleLike} hitSlop={8} accessibilityRole="button" accessibilityLabel={post.isLiked ? "Unlike" : "Like"}>
-                            <Ionicons name={post.isLiked ? "heart" : "heart-outline"} size={18} color={post.isLiked ? C.primary : C.textLight} />
-                            {(post.likes || 0) > 0 && (
-                                <Text style={[s.announcementActionText, post.isLiked && s.announcementActionTextActive]}>{post.likes}</Text>
-                            )}
-                        </Pressable>
-                    )}
-                    {!onEditPress && (
-                        <Pressable style={s.announcementActionBtn} onPress={() => onCommentPress?.(post.id, post.type)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Comment">
-                            <Ionicons name="chatbubble-outline" size={17} color={C.textLight} />
-                            {(post.comments || 0) > 0 && <Text style={s.announcementActionText}>{post.comments}</Text>}
-                        </Pressable>
-                    )}
-                    {!onEditPress && (
-                        <Pressable style={s.announcementActionBtn} onPress={() => Share.share({ message: title })} hitSlop={8} accessibilityRole="button" accessibilityLabel="Share">
-                            <Ionicons name="share-outline" size={18} color={C.textLight} />
-                        </Pressable>
-                    )}
-                    {!onEditPress && (
-                        <Pressable style={s.announcementActionBtn} onPress={handleBookmark} hitSlop={8} accessibilityRole="button" accessibilityLabel={isBookmarked ? "Remove bookmark" : "Bookmark"}>
-                            <Ionicons name={isBookmarked ? "bookmark" : "bookmark-outline"} size={18} color={isBookmarked ? C.text : C.textLight} />
-                        </Pressable>
-                    )}
-                    {onEditPress && (
-                        <Pressable style={s.announcementActionBtn} onPress={() => onEditPress(post.id)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Edit">
-                            <Ionicons name="create-outline" size={18} color={C.textLight} />
-                        </Pressable>
-                    )}
-                    {onDeletePress && (
-                        <Pressable style={s.announcementActionBtn} onPress={handleDelete} hitSlop={8} accessibilityRole="button" accessibilityLabel="Delete">
-                            <Ionicons name="trash-outline" size={18} color={C.textLight} />
-                        </Pressable>
-                    )}
-                    <View style={s.announcementActionSpacer} />
-                    <Text style={s.announcementTimestamp}>{post.timestamp}</Text>
-                </View>
+                <CardActions
+                    post={post}
+                    isBookmarked={isBookmarked}
+                    onLike={handleLike}
+                    onComment={() => onCommentPress?.(post.id, post.type)}
+                    onShare={() => Share.share({ message: title })}
+                    onBookmark={handleBookmark}
+                    onEdit={onEditPress ? () => onEditPress(post.id) : undefined}
+                    onDelete={onDeletePress ? handleDelete : undefined}
+                />
                 <Animated.View pointerEvents="none" style={[s.doubleTapHeart, { opacity: heartAnim }]}>
                     <Ionicons name="heart" size={72} color={C.primary} />
                 </Animated.View>
@@ -605,91 +633,47 @@ function TextArticleCard({
 
     return (
         <Animated.View style={{ opacity: deleteOpacity, transform: [{ scale: deleteScale }] }}>
-        <Pressable onPress={handleDoubleTap} style={s.articleCard}>
-            {/* Club header */}
-            <View style={s.eventFeedHeader}>
-                <Pressable onPress={() => onClubPress?.(post.clubId)} style={s.eventFeedClubRow}>
-                    {post.clubAvatar ? (
-                        <ExpoImage source={{ uri: post.clubAvatar }} style={s.eventFeedAvatar} contentFit="cover" transition={200} />
-                    ) : (
-                        <View style={[s.eventFeedAvatar, s.eventFeedAvatarPlaceholder]}>
-                            <Ionicons name="people" size={14} color="#8C0327" />
+        <Pressable onPress={handleDoubleTap} style={s.fcCard}>
+            {/* Header */}
+            <CardHeader
+                post={post}
+                subtitle={`Post · ${post.timestamp}`}
+                right={showFollow ? (
+                    <FollowButton isFollowing={post.isFollowing} onPress={() => onFollowToggle?.(post.clubId)} />
+                ) : undefined}
+                onClubPress={onClubPress}
+            />
+            {!!post.imageUrl && (
+                <View style={s.fcImageWrap}>
+                    <SafeImage uri={post.imageUrl} style={[s.fcImage, s.fcImageBanner]} resizeMode="cover" label={`${post.clubName} post image`} />
+                    {post.images && post.images.length > 1 && (
+                        <View style={s.multiImgPill}>
+                            <Ionicons name="copy-outline" size={10} color="#fff" />
+                            <Text style={s.multiImgPillText}>{post.images.length}</Text>
                         </View>
                     )}
-                    <Text style={s.eventFeedClubName} numberOfLines={1}>{post.clubName}</Text>
-                </Pressable>
-                {showFollow && (
-                    <FollowButton isFollowing={post.isFollowing} onPress={() => onFollowToggle?.(post.clubId)} />
-                )}
-            </View>
-            <View style={{ position: "relative" }}>
-                {post.imageUrl && (
-                    <SafeImage uri={post.imageUrl} style={s.imgArticleImage} resizeMode="cover" label={`${post.clubName} announcement image`} />
-                )}
-                {post.images && post.images.length > 1 && (
-                    <View style={s.multiImgPill}>
-                        <Ionicons name="copy-outline" size={10} color="#fff" />
-                        <Text style={s.multiImgPillText}>{post.images.length}</Text>
-                    </View>
-                )}
-                {/* Double-tap heart flash */}
-                <Animated.View pointerEvents="none" style={[s.doubleTapHeart, { opacity: heartAnim }]}>
-                    <Ionicons name="heart" size={72} color="#8C0327" />
-                </Animated.View>
-            </View>
-            <View style={s.cardBody}>
-            <Text style={s.articleHeadline} numberOfLines={3}>
-                {headline.toUpperCase()}
-            </Text>
-            {!!excerpt && (
-                <Text style={s.articleExcerpt} numberOfLines={3}>{excerpt}</Text>
-            )}
-            <View style={s.articleByline}>
-                <Text style={s.articleByTime}>{post.timestamp}</Text>
-                <View style={s.articleByRight}>
-                    {!onEditPress && (
-                        <Pressable style={s.articleAction} onPress={handleLike} hitSlop={8} accessibilityRole="button" accessibilityLabel={post.isLiked ? "Unlike post" : "Like post"}>
-                            <Ionicons
-                                name={post.isLiked ? "heart" : "heart-outline"}
-                                size={18}
-                                color={post.isLiked ? "#8C0327" : "#9CA3AF"}
-                            />
-                            {(post.likes || 0) > 0 && (
-                                <Text style={[s.articleActionText, post.isLiked && s.articleActionTextActive]}>
-                                    {post.likes}
-                                </Text>
-                            )}
-                        </Pressable>
-                    )}
-                    {!onEditPress && (
-                        <Pressable style={s.articleAction} onPress={() => onCommentPress?.(post.id, post.type)} hitSlop={8} accessibilityRole="button" accessibilityLabel="View comments">
-                            <Ionicons name="chatbubble-outline" size={17} color="#9CA3AF" />
-                            {(post.comments || 0) > 0 && <Text style={s.articleActionText}>{post.comments}</Text>}
-                        </Pressable>
-                    )}
-                    {!onEditPress && (
-                        <Pressable style={s.articleAction} onPress={() => Share.share({ message: post.eventTitle || post.content || "" })} hitSlop={8} accessibilityRole="button" accessibilityLabel="Share post">
-                            <Ionicons name="share-outline" size={18} color="#9CA3AF" />
-                        </Pressable>
-                    )}
-                    {!onEditPress && (
-                        <Pressable style={s.articleAction} onPress={handleBookmark} hitSlop={8} accessibilityRole="button" accessibilityLabel={isBookmarked ? "Remove bookmark" : "Bookmark post"}>
-                            <Ionicons name={isBookmarked ? "bookmark" : "bookmark-outline"} size={18} color={isBookmarked ? "#111827" : "#9CA3AF"} />
-                        </Pressable>
-                    )}
-                    {onEditPress && (
-                        <Pressable style={s.articleAction} onPress={() => onEditPress(post.id)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Edit post">
-                            <Ionicons name="create-outline" size={18} color="#9CA3AF" />
-                        </Pressable>
-                    )}
-                    {onDeletePress && (
-                        <Pressable style={s.articleAction} onPress={handleDelete} hitSlop={8} accessibilityRole="button" accessibilityLabel="Delete post">
-                            <Ionicons name="trash-outline" size={18} color="#9CA3AF" />
-                        </Pressable>
-                    )}
                 </View>
-            </View>
-            </View>
+            )}
+            {(!!post.eventTitle || !!post.content) && (
+                <View style={s.fcBody}>
+                    {!!post.eventTitle && <Text style={s.fcTitle} numberOfLines={3}>{post.eventTitle}</Text>}
+                    {!!post.content && <Text style={s.fcContent} numberOfLines={5}>{post.content}</Text>}
+                </View>
+            )}
+            <CardActions
+                post={post}
+                isBookmarked={isBookmarked}
+                onLike={handleLike}
+                onComment={() => onCommentPress?.(post.id, post.type)}
+                onShare={() => Share.share({ message: post.eventTitle || post.content || "" })}
+                onBookmark={handleBookmark}
+                onEdit={onEditPress ? () => onEditPress(post.id) : undefined}
+                onDelete={onDeletePress ? handleDelete : undefined}
+            />
+            {/* Double-tap heart flash */}
+            <Animated.View pointerEvents="none" style={[s.doubleTapHeart, { opacity: heartAnim }]}>
+                <Ionicons name="heart" size={72} color={C.primary} />
+            </Animated.View>
         </Pressable>
         </Animated.View>
     );
@@ -754,6 +738,82 @@ function RecapStars({ postId, rating, canRate, bare }: { postId: string; rating?
                             </Pressable>
                         ))}
                     </View>
+                </View>
+            )}
+        </View>
+    );
+}
+
+// Swipeable recap gallery: paged main image with a counter, plus a tappable
+// thumbnail strip. When there are more photos than thumbnail slots, the last
+// tile shows a "+N" overflow that opens the full post.
+function RecapCarousel({ photos, onOverflow }: { photos: string[]; onOverflow?: () => void }) {
+    const { colors: C } = useTheme();
+    const { width } = useWindowDimensions();
+    const CW = width - 30; // card inner width: 14px side margins + 1px borders
+    const MAX_THUMBS = 5;
+    const GAP = 4;
+    const PAD = 10;
+    const [active, setActive] = useState(0);
+    const listRef = useRef<FlatList<string>>(null);
+
+    const total = photos.length;
+    const overflow = total - MAX_THUMBS;
+    const thumbs = photos.slice(0, MAX_THUMBS);
+    const tileCount = overflow > 0 ? MAX_THUMBS + 1 : Math.min(total, MAX_THUMBS);
+    const thumbSize = tileCount > 0 ? (CW - PAD * 2 - GAP * (tileCount - 1)) / tileCount : 0;
+
+    const goTo = (i: number) => {
+        listRef.current?.scrollToOffset({ offset: i * CW, animated: true });
+        setActive(i);
+    };
+
+    return (
+        <View>
+            <View style={{ width: CW, aspectRatio: 4 / 3, backgroundColor: "#111" }}>
+                <FlatList
+                    ref={listRef}
+                    data={photos}
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    keyExtractor={(u, i) => `${u}-${i}`}
+                    getItemLayout={(_, i) => ({ length: CW, offset: CW * i, index: i })}
+                    onMomentumScrollEnd={(e) => setActive(Math.round(e.nativeEvent.contentOffset.x / CW))}
+                    renderItem={({ item }) => (
+                        <ExpoImage source={{ uri: item }} style={{ width: CW, height: "100%" }} contentFit="cover" transition={150} />
+                    )}
+                />
+                {total > 1 && (
+                    <View style={{ position: "absolute", right: 10, bottom: 10, backgroundColor: "rgba(0,0,0,0.6)", paddingHorizontal: 8, paddingVertical: 3 }}>
+                        <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>{active + 1} / {total}</Text>
+                    </View>
+                )}
+            </View>
+
+            {total > 1 && (
+                <View style={{ flexDirection: "row", gap: GAP, paddingHorizontal: PAD, paddingVertical: 8 }}>
+                    {thumbs.map((u, i) => (
+                        <Pressable
+                            key={i}
+                            onPress={() => goTo(i)}
+                            style={{ width: thumbSize, height: thumbSize, overflow: "hidden", borderWidth: active === i ? 2 : 0, borderColor: C.primary }}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Photo ${i + 1}`}
+                        >
+                            <ExpoImage source={{ uri: u }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={150} />
+                        </Pressable>
+                    ))}
+                    {overflow > 0 && (
+                        <Pressable
+                            onPress={onOverflow}
+                            style={{ width: thumbSize, height: thumbSize, backgroundColor: "#1a1a2e", alignItems: "center", justifyContent: "center" }}
+                            accessibilityRole="button"
+                            accessibilityLabel={`View ${overflow} more photos`}
+                        >
+                            <Text style={{ color: "#fff", fontSize: 14, fontWeight: "800" }}>+{overflow}</Text>
+                        </Pressable>
+                    )}
                 </View>
             )}
         </View>
@@ -864,7 +924,7 @@ function EventFeedCard({
 
     return (
         <Animated.View style={{ opacity: deleteOpacity, transform: [{ scale: deleteScale }] }}>
-        <Pressable onPress={handleDoubleTap} style={s.evCard}>
+        <Pressable onPress={handleDoubleTap} style={s.fcCard}>
 
             {/* Recap cards are sectioned: header → title+photos → add photo → ratings → footer. */}
             {post.hasRecap ? (
@@ -902,36 +962,9 @@ function EventFeedCard({
                         {!!post.eventTitle && (
                             <Text style={{ fontSize: 22, fontWeight: "900", color: C.text, letterSpacing: -0.5, lineHeight: 26, paddingHorizontal: 16 }} numberOfLines={2}>{post.eventTitle.toUpperCase()}</Text>
                         )}
-                        {(post.recapPhotos?.length ?? 0) > 0 && (() => {
-                            const photos = post.recapPhotos ?? [];
-                            const total = post.recapPhotoCount ?? photos.length;
-                            const extra = total - 3;
-                            return (
-                                <View style={{ flexDirection: "row", gap: 2 }}>
-                                    {/* Big lead photo */}
-                                    <View style={{ flex: 1.7, aspectRatio: 1 }}>
-                                        <ExpoImage source={{ uri: photos[0] }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={150} />
-                                    </View>
-                                    {photos.length > 1 && (
-                                        <View style={{ flex: 1, gap: 2 }}>
-                                            <View style={{ flex: 1 }}>
-                                                <ExpoImage source={{ uri: photos[1] }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={150} />
-                                            </View>
-                                            {photos.length > 2 && (
-                                                <View style={{ flex: 1 }}>
-                                                    <ExpoImage source={{ uri: photos[2] }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={150} />
-                                                    {extra > 0 && (
-                                                        <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center" }]}>
-                                                            <Text style={{ fontSize: 22, fontWeight: "900", color: "#fff" }}>+{extra}</Text>
-                                                        </View>
-                                                    )}
-                                                </View>
-                                            )}
-                                        </View>
-                                    )}
-                                </View>
-                            );
-                        })()}
+                        {(post.recapPhotos?.length ?? 0) > 0 && (
+                            <RecapCarousel photos={post.recapPhotos ?? []} onOverflow={() => onPress?.()} />
+                        )}
                     </View>
 
                     {/* 3. Add photo row — contributor stack + names + outlined button */}
@@ -982,272 +1015,157 @@ function EventFeedCard({
                     {/* 5. Footer — likes / comments / share / bookmark */}
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 18, paddingHorizontal: 16, paddingVertical: 10 }}>
                         <Pressable style={s.articleAction} onPress={handleLike} hitSlop={8} accessibilityRole="button" accessibilityLabel={post.isLiked ? "Unlike" : "Like"}>
-                            <Ionicons name={post.isLiked ? "heart" : "heart-outline"} size={18} color={post.isLiked ? "#8C0327" : "#9CA3AF"} />
+                            <Ionicons name={post.isLiked ? "heart" : "heart-outline"} size={18} color={post.isLiked ? C.primary : C.textLight} />
                             {(post.likes || 0) > 0 && <Text style={[s.articleActionText, post.isLiked && s.articleActionTextActive]}>{post.likes}</Text>}
                         </Pressable>
                         <Pressable style={s.articleAction} onPress={() => onCommentPress?.(post.eventId ?? post.id, post.type)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Comment">
-                            <Ionicons name="chatbubble-outline" size={17} color="#9CA3AF" />
+                            <Ionicons name="chatbubble-outline" size={17} color={C.textLight} />
                             {(post.comments || 0) > 0 && <Text style={s.articleActionText}>{post.comments}</Text>}
                         </Pressable>
                         {(post.recapPhotoCount ?? 0) > 0 && (
                             <View style={s.articleAction}>
-                                <Ionicons name="images-outline" size={16} color="#9CA3AF" />
+                                <Ionicons name="images-outline" size={16} color={C.textLight} />
                                 <Text style={s.articleActionText}>{post.recapPhotoCount} photos</Text>
                             </View>
                         )}
                         <Pressable style={s.articleAction} onPress={() => Share.share({ message: post.eventTitle || post.content || "" })} hitSlop={8} accessibilityRole="button" accessibilityLabel="Share">
-                            <Ionicons name="share-outline" size={18} color="#9CA3AF" />
+                            <Ionicons name="share-outline" size={18} color={C.textLight} />
                         </Pressable>
                         <View style={{ flex: 1 }} />
                         <Pressable style={s.articleAction} onPress={handleBookmark} hitSlop={8} accessibilityRole="button" accessibilityLabel={isBookmarked ? "Remove bookmark" : "Bookmark"}>
-                            <Ionicons name={isBookmarked ? "bookmark" : "bookmark-outline"} size={18} color={isBookmarked ? "#111827" : "#9CA3AF"} />
+                            <Ionicons name={isBookmarked ? "bookmark" : "bookmark-outline"} size={18} color={isBookmarked ? C.text : C.textLight} />
                         </Pressable>
                     </View>
                 </>
             ) : (
-            <View style={s.evBanner}>
-                {bannerUri ? (
-                    <SafeImage uri={bannerUri} style={s.evBannerImage} resizeMode="cover" label={post.eventTitle ? `${post.eventTitle} event banner` : `${post.clubName} event banner`} />
-                ) : (
-                    <View style={[s.evBannerImage, { backgroundColor: "#111" }]} />
-                )}
-
-                {/* Gradient overlay for text legibility */}
-                <LinearGradient
-                    colors={["rgba(0,0,0,0.15)", "rgba(0,0,0,0.72)"]}
-                    style={StyleSheet.absoluteFillObject}
+            <>
+                {/* Header — avatar, name, "Event · time", follow state */}
+                <CardHeader
+                    post={post}
+                    subtitle={`Event · ${post.timestamp}`}
+                    right={showFollow ? (
+                        <FollowButton isFollowing={post.isFollowing} onPress={() => onFollowToggle?.(post.clubId)} />
+                    ) : post.isFollowing ? (
+                        <Text style={s.fcFollowingLabel}>Following</Text>
+                    ) : undefined}
+                    onClubPress={onClubPress}
                 />
 
-                {/* Double-tap heart */}
-                <Animated.View pointerEvents="none" style={[s.doubleTapHeart, { opacity: heartAnim }]}>
-                    <Ionicons name="heart" size={80} color={C.primary} />
-                </Animated.View>
-
-                {/* Top row: type label + date badge or follow button */}
-                <View style={s.evBannerTop}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                        <Text style={s.evTypeLabel}>{"Event".toUpperCase()}</Text>
-                        {post.isRecurring && (
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "rgba(255,255,255,0.22)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                                <Ionicons name="repeat" size={10} color="#fff" />
-                                <Text style={{ fontSize: 8, fontWeight: "800", letterSpacing: 1, color: "#fff" }}>REPEATS</Text>
-                            </View>
-                        )}
+                {/* Banner image with badges */}
+                <View style={s.fcImageWrap}>
+                    {bannerUri ? (
+                        <SafeImage uri={bannerUri} style={[s.fcImage, s.fcImageEvent]} resizeMode="cover" label={post.eventTitle ? `${post.eventTitle} event banner` : `${post.clubName} event banner`} />
+                    ) : (
+                        <View style={[s.fcImage, s.fcImageEvent]} />
+                    )}
+                    <View style={s.fcImageBadgeRow}>
                         {post.freeFood && (
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: C.gold, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                                <Text style={{ fontSize: 9 }}>🍕</Text>
-                                <Text style={{ fontSize: 8, fontWeight: "800", letterSpacing: 1, color: "#fff" }}>FREE FOOD</Text>
+                            <View style={s.fcImageBadge}>
+                                <Text style={s.fcImageBadgeText}>FREE FOOD</Text>
                             </View>
                         )}
-                        {post.hasRecap && (
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: C.gold, paddingHorizontal: 7, paddingVertical: 2 }}>
-                                <Ionicons name="camera" size={9} color="#fff" />
-                                <Text style={{ fontSize: 8, fontWeight: "800", letterSpacing: 1.2, color: "#fff" }}>RECAP</Text>
+                        {post.isRecurring && (
+                            <View style={[s.fcImageBadge, { backgroundColor: "rgba(0,0,0,0.55)" }]}>
+                                <Ionicons name="repeat" size={10} color="#fff" />
+                                <Text style={s.fcImageBadgeText}>REPEATS</Text>
                             </View>
                         )}
                     </View>
-                    {dateBadgeDay ? (
-                        <View style={s.evDateBadge}>
-                            <Text style={s.evDateDay}>{dateBadgeDay}</Text>
-                            <Text style={s.evDateMon}>{dateBadgeMon.toUpperCase()}</Text>
+                    {!!dateBadgeDay && (
+                        <View style={s.fcDateBadge}>
+                            <Text style={s.fcDateMon}>{dateBadgeMon.toUpperCase()}</Text>
+                            <Text style={s.fcDateDay}>{dateBadgeDay}</Text>
                         </View>
-                    ) : null}
-                </View>
-
-                {/* Bottom: title (club identity moved to the body header) */}
-                <View style={s.evBannerBottom}>
-                    {!!post.eventTitle && (
-                        <Text style={s.evBannerTitle} numberOfLines={2}>
-                            {post.eventTitle.toUpperCase()}
-                        </Text>
                     )}
+                    <Animated.View pointerEvents="none" style={[s.doubleTapHeart, { opacity: heartAnim }]}>
+                        <Ionicons name="heart" size={80} color="rgba(255,255,255,0.9)" />
+                    </Animated.View>
                 </View>
-            </View>
+            </>
             )}
 
             {/* ── Body (non-recap cards; recaps render their own sections above) ── */}
             {!post.hasRecap && (
-            <View style={s.evBody}>
-
-                {/* Club header — logo + name above the event details */}
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 9 }}>
-                    <Pressable onPress={() => onClubPress?.(post.clubId)} style={{ flexDirection: "row", alignItems: "center", gap: 9, flex: 1, minWidth: 0 }}>
-                        {post.clubAvatar ? (
-                            <ExpoImage source={{ uri: post.clubAvatar }} style={{ width: 28, height: 28, borderRadius: 14 }} contentFit="cover" transition={200} />
-                        ) : (
-                            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: C.primaryBg, alignItems: "center", justifyContent: "center" }}>
-                                <Text style={{ fontSize: 10, fontWeight: "900", color: C.primary }}>{clubInitials.toUpperCase()}</Text>
-                            </View>
-                        )}
-                        <Text style={{ flex: 1, fontSize: 13, fontWeight: "800", color: C.text }} numberOfLines={1}>{post.clubName}</Text>
-                    </Pressable>
-                    {showFollow && (
-                        <FollowButton isFollowing={post.isFollowing} onPress={() => onFollowToggle?.(post.clubId)} />
-                    )}
-                </View>
-
-                {/* Date + Location on one row (hidden on recaps) */}
-                {!post.hasRecap && (post.eventDate || post.eventLocation) && (
-                    <View style={s.evMetaRow}>
-                        {!!post.eventDate && (
-                            <View style={s.evMetaItem}>
-                                <Ionicons name="time-outline" size={13} color="#6B7280" />
-                                <Text style={s.evMetaText} numberOfLines={1}>{post.eventDate}</Text>
-                            </View>
-                        )}
-                        {!!post.eventDate && !!post.eventLocation && <View style={s.evMetaSep} />}
-                        {!!post.eventLocation && (
-                            <View style={s.evMetaItem}>
-                                <Ionicons name="location-outline" size={13} color="#6B7280" />
-                                <Text style={s.evMetaText} numberOfLines={1}>{post.eventLocation}</Text>
-                            </View>
-                        )}
-                    </View>
+            <View style={s.fcBody}>
+                {/* Title */}
+                {!!post.eventTitle && (
+                    <Text style={s.fcTitle} numberOfLines={2}>{post.eventTitle}</Text>
                 )}
 
-                {/* Description (hidden on recaps — promo copy reads wrong post-event) */}
-                {!post.hasRecap && !!post.content && (
-                    <Text style={s.evDesc} numberOfLines={2}>{post.content}</Text>
+                {/* Meta line — date · time · location · going count */}
+                {(() => {
+                    const parts = [post.eventDate, post.eventTime, post.eventLocation].filter(Boolean) as string[];
+                    if ((post.rsvpCount ?? 0) > 0) parts.push(`${post.rsvpCount} going`);
+                    return parts.length > 0 ? <Text style={s.fcMeta} numberOfLines={1}>{parts.join(" · ")}</Text> : null;
+                })()}
+
+                {/* Description */}
+                {!!post.content && (
+                    <Text style={s.fcDesc} numberOfLines={3}>{post.content}</Text>
                 )}
 
-                {/* Recap photo grid + "Add yours" (For You) */}
-                {post.hasRecap && (post.recapPhotos?.length ?? 0) > 0 && (() => {
-                    const photos = post.recapPhotos ?? [];
-                    const total = post.recapPhotoCount ?? photos.length;
-                    const extra = total - 3;
+                {/* Tags + capacity nudge */}
+                {(() => {
+                    const tags = post.eventTags ?? [];
+                    const cap = post.capacity ?? null;
+                    const left = cap != null ? cap - (post.rsvpCount ?? 0) : null;
+                    const showSpots = cap != null && !isPast && left != null && left <= 10;
+                    if (tags.length === 0 && !showSpots) return null;
                     return (
-                        <View>
-                            <View style={{ flexDirection: "row", gap: 2, height: 150 }}>
-                                <ExpoImage source={{ uri: photos[0] }} style={{ flex: 1.7, height: "100%" }} contentFit="cover" transition={150} />
-                                {photos.length > 1 && (
-                                    <View style={{ flex: 1, gap: 2 }}>
-                                        <ExpoImage source={{ uri: photos[1] }} style={{ flex: 1, width: "100%" }} contentFit="cover" transition={150} />
-                                        {photos.length > 2 && (
-                                            <View style={{ flex: 1 }}>
-                                                <ExpoImage source={{ uri: photos[2] }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={150} />
-                                                {extra > 0 && (
-                                                    <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.55)", alignItems: "center", justifyContent: "center" }]}>
-                                                        <Text style={{ fontSize: 18, fontWeight: "900", color: "#fff" }}>+{extra}</Text>
-                                                    </View>
-                                                )}
-                                            </View>
-                                        )}
-                                    </View>
-                                )}
-                            </View>
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingTop: 10, paddingBottom: 2 }}>
-                                <Ionicons name="camera-outline" size={16} color={C.primary} />
-                                <Text style={{ flex: 1, fontSize: 12, color: C.textBody }} numberOfLines={1}>
-                                    <Text style={{ fontWeight: "800" }}>{total}</Text> photo{total === 1 ? "" : "s"} from attendees
-                                </Text>
-                                <Pressable onPress={() => onAddRecapPhoto ? onAddRecapPhoto(post.eventId ?? post.id) : onPress?.()} style={{ backgroundColor: C.primary, paddingHorizontal: 14, paddingVertical: 7 }} accessibilityRole="button" accessibilityLabel="Add your photos">
-                                    <Text style={{ fontSize: 11, fontWeight: "800", letterSpacing: 0.6, color: "#fff" }}>ADD YOURS</Text>
-                                </Pressable>
-                            </View>
+                        <View style={s.fcTagsRow}>
+                            {tags.map((tag, i) => (
+                                <View key={i} style={s.fcTag}>
+                                    <Text style={s.fcTagText}>{tag.toUpperCase()}</Text>
+                                </View>
+                            ))}
+                            {showSpots && (left ?? 0) > 0 && (
+                                <View style={s.evSpotsLeftBadge}>
+                                    <Ionicons name="flame" size={11} color="#B45309" />
+                                    <Text style={s.evSpotsLeftText}>{left} {left === 1 ? "spot" : "spots"} left</Text>
+                                </View>
+                            )}
+                            {showSpots && (left ?? 0) <= 0 && (
+                                <View style={[s.evSpotsLeftBadge, s.evSpotsFullBadge]}>
+                                    <Text style={s.evSpotsFullText}>Full</Text>
+                                </View>
+                            )}
                         </View>
                     );
                 })()}
 
-                {/* Tags (hidden on recaps) */}
-                {!post.hasRecap && (post.eventTags ?? []).length > 0 && (
-                    <View style={s.evTagsRow}>
-                        {(post.eventTags ?? []).map((tag, i) => (
-                            <View key={i} style={s.evTag}>
-                                <Text style={s.evTagText}>{tag.toUpperCase()}</Text>
-                            </View>
-                        ))}
-                    </View>
+                {/* Full-width RSVP button */}
+                {!onEditPress && !isPast && !isOwner && (
+                    <Pressable
+                        style={[s.fcRsvpBtn, going && s.fcRsvpBtnGoing]}
+                        onPress={handleRsvp}
+                        disabled={rsvpLoading}
+                        accessibilityRole="button"
+                        accessibilityLabel={going ? "Cancel RSVP" : "RSVP to event"}
+                    >
+                        {going && <Ionicons name="checkmark-circle" size={15} color={C.primary} />}
+                        <Text style={[s.fcRsvpText, going && s.fcRsvpTextGoing]}>{going ? "YOU'RE GOING" : "RSVP · GOING?"}</Text>
+                    </Pressable>
                 )}
 
-                {/* In-feed recap rating (For You) */}
-                {(post.hasRecap || (post.rating?.count ?? 0) > 0) && (
+                {/* In-feed rating for rated past events */}
+                {(post.rating?.count ?? 0) > 0 && (
                     <RecapStars postId={post.id} rating={post.rating} canRate={!!post.canRate} />
                 )}
-
-                {/* Footer — actions (left) · going + RSVP (right), divided from the body */}
-                <View style={[s.evFooter, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.borderWarm, paddingTop: 12 }]}>
-                    {/* Actions (left) */}
-                    {!onEditPress && (
-                        <>
-                            <Pressable style={s.articleAction} onPress={handleLike} hitSlop={8} accessibilityRole="button" accessibilityLabel={post.isLiked ? "Unlike" : "Like"}>
-                                <Ionicons name={post.isLiked ? "heart" : "heart-outline"} size={18} color={post.isLiked ? "#8C0327" : "#9CA3AF"} />
-                                {(post.likes || 0) > 0 && (
-                                    <Text style={[s.articleActionText, post.isLiked && s.articleActionTextActive]}>{post.likes}</Text>
-                                )}
-                            </Pressable>
-                            <Pressable style={s.articleAction} onPress={() => onCommentPress?.(post.eventId ?? post.id, post.type)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Comment">
-                                <Ionicons name="chatbubble-outline" size={17} color="#9CA3AF" />
-                                {(post.comments || 0) > 0 && (
-                                    <Text style={s.articleActionText}>{post.comments}</Text>
-                                )}
-                            </Pressable>
-                            <Pressable style={s.articleAction} onPress={() => Share.share({ message: post.eventTitle || post.content || "" })} hitSlop={8} accessibilityRole="button" accessibilityLabel="Share">
-                                <Ionicons name="share-outline" size={18} color="#9CA3AF" />
-                            </Pressable>
-                            <Pressable style={s.articleAction} onPress={handleBookmark} hitSlop={8} accessibilityRole="button" accessibilityLabel={isBookmarked ? "Remove bookmark" : "Bookmark"}>
-                                <Ionicons name={isBookmarked ? "bookmark" : "bookmark-outline"} size={18} color={isBookmarked ? "#111827" : "#9CA3AF"} />
-                            </Pressable>
-                        </>
-                    )}
-                    {onEditPress && (
-                        <Pressable style={s.articleAction} onPress={() => onEditPress(post.id)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Edit">
-                            <Ionicons name="create-outline" size={18} color="#9CA3AF" />
-                        </Pressable>
-                    )}
-                    {onDeletePress && (
-                        <Pressable style={s.articleAction} onPress={handleDelete} hitSlop={8} accessibilityRole="button" accessibilityLabel="Delete">
-                            <Ionicons name="trash-outline" size={18} color="#9CA3AF" />
-                        </Pressable>
-                    )}
-
-                    <View style={{ flex: 1 }} />
-
-                    {/* Going count + RSVP (right) */}
-                    <View style={s.evAvatarRow}>
-                        {(() => {
-                            const cap = post.capacity ?? null;
-                            const goingCount = post.rsvpCount ?? 0;
-                            if (cap == null || isPast) return null;
-                            const left = cap - goingCount;
-                            // Only nudge when the event is genuinely near capacity.
-                            if (left > 0 && left <= 10) {
-                                return (
-                                    <View style={s.evSpotsLeftBadge}>
-                                        <Ionicons name="flame" size={11} color="#B45309" />
-                                        <Text style={s.evSpotsLeftText}>{left} {left === 1 ? "spot" : "spots"} left</Text>
-                                    </View>
-                                );
-                            }
-                            if (left <= 0) {
-                                return (
-                                    <View style={[s.evSpotsLeftBadge, s.evSpotsFullBadge]}>
-                                        <Text style={s.evSpotsFullText}>Full</Text>
-                                    </View>
-                                );
-                            }
-                            return null;
-                        })()}
-                        {(post.rsvpCount ?? 0) > 0 && (
-                            <>
-                                <Ionicons name="people" size={13} color={C.textMuted} />
-                                <Text style={s.evGoingText}>{post.rsvpCount} going</Text>
-                            </>
-                        )}
-                        {!onEditPress && !isPast && !isOwner && (
-                            <Pressable
-                                style={[s.evRsvpBtn, (post.rsvpCount ?? 0) > 0 && { marginLeft: 8 }, going && s.evRsvpBtnGoing]}
-                                onPress={handleRsvp}
-                                disabled={rsvpLoading}
-                                accessibilityRole="button"
-                                accessibilityLabel={going ? "Cancel RSVP" : "RSVP to event"}
-                            >
-                                <Ionicons name={going ? "checkmark-circle" : "ticket-outline"} size={12} color={going ? "#8C0327" : "#fff"} />
-                                <Text style={[s.evRsvpText, going && s.evRsvpTextGoing]}>{going ? "GOING" : "RSVP"}</Text>
-                            </Pressable>
-                        )}
-                    </View>
-                </View>
             </View>
+            )}
+
+            {/* Action bar */}
+            {!post.hasRecap && (
+                <CardActions
+                    post={post}
+                    isBookmarked={isBookmarked}
+                    onLike={handleLike}
+                    onComment={() => onCommentPress?.(post.eventId ?? post.id, post.type)}
+                    onShare={() => Share.share({ message: post.eventTitle || post.content || "" })}
+                    onBookmark={handleBookmark}
+                    onEdit={onEditPress ? () => onEditPress(post.id) : undefined}
+                    onDelete={onDeletePress ? handleDelete : undefined}
+                />
             )}
             {post.topComment && (
                 <View style={{ backgroundColor: C.surfaceWarm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.borderWarm, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 14 }}>
@@ -1378,92 +1296,40 @@ function ImageArticleCard({
 
     return (
         <Animated.View style={{ opacity: deleteOpacity, transform: [{ scale: deleteScale }] }}>
-        <Pressable onPress={handleDoubleTap} style={s.imgArticleCard}>
-            {/* Club header */}
-            <View style={s.eventFeedHeader}>
-                <Pressable onPress={() => onClubPress?.(post.clubId)} style={s.eventFeedClubRow}>
-                    {post.clubAvatar ? (
-                        <ExpoImage source={{ uri: post.clubAvatar }} style={s.eventFeedAvatar} contentFit="cover" transition={200} />
-                    ) : (
-                        <View style={[s.eventFeedAvatar, s.eventFeedAvatarPlaceholder]}>
-                            <Ionicons name="people" size={14} color="#8C0327" />
-                        </View>
-                    )}
-                    <Text style={s.eventFeedClubName} numberOfLines={1}>{post.clubName}</Text>
-                </Pressable>
-                {showFollow && (
+        <Pressable onPress={handleDoubleTap} style={s.fcCard}>
+            {/* Header */}
+            <CardHeader
+                post={post}
+                subtitle={`Post · ${post.timestamp}`}
+                right={showFollow ? (
                     <FollowButton isFollowing={post.isFollowing} onPress={() => onFollowToggle?.(post.clubId)} />
-                )}
+                ) : undefined}
+                onClubPress={onClubPress}
+            />
+            <View style={s.fcImageWrap}>
+                <SafeImage uri={post.imageUrl ?? ""} style={[s.fcImage, s.fcImageEvent]} resizeMode="cover" label={`${post.clubName} post image`} />
+                <Animated.View pointerEvents="none" style={[s.doubleTapHeart, { opacity: heartAnim }]}>
+                    <Ionicons name="heart" size={72} color="rgba(255,255,255,0.9)" />
+                </Animated.View>
             </View>
-            <SafeImage uri={post.imageUrl ?? ""} style={s.imgArticleImage} resizeMode="cover" label={`${post.clubName} post image`} />
-            <View style={s.imgArticleBody}>
-                <View style={s.articleTopRow} />
-                <Text style={s.imgArticleHeadline} numberOfLines={3}>
-                    {(post.eventTitle || post.content || "").toUpperCase()}
-                </Text>
-                {post.eventTitle && !!post.content && (
-                    <Text style={s.imgArticleExcerpt} numberOfLines={2}>{post.content}</Text>
-                )}
-                <View style={s.imgArticleActions}>
-                    {!onEditPress && post.type === "event" && !isEventPast(post) && (
-                        <Pressable
-                            style={[s.imgArticleRsvpBtn, going && s.imgArticleRsvpBtnGoing]}
-                            onPress={handleRsvp}
-                            disabled={rsvpLoading}
-                            accessibilityRole="button"
-                            accessibilityLabel={going ? "Cancel RSVP" : "RSVP to event"}
-                        >
-                            <Ionicons
-                                name={going ? "checkmark-circle" : "ticket-outline"}
-                                size={13}
-                                color={going ? "#8C0327" : "#fff"}
-                            />
-                            <Text style={[s.imgArticleRsvpText, going && s.imgArticleRsvpTextGoing]}>
-                                {going ? "GOING" : "RSVP"}
-                            </Text>
-                        </Pressable>
-                    )}
-                    {!onEditPress && (
-                        <Pressable style={s.imgArticleSaveBtn} onPress={() => onCommentPress?.(post.id, post.type)} accessibilityRole="button" accessibilityLabel="View comments">
-                            <Ionicons name="chatbubble-outline" size={14} color="#9CA3AF" />
-                            <Text style={s.imgArticleActionText}>{(post.comments || 0) > 0 ? String(post.comments) : "COMMENT"}</Text>
-                        </Pressable>
-                    )}
-                    {!onEditPress && (
-                        <Pressable style={s.imgArticleSaveBtn} onPress={handleBookmark} accessibilityRole="button" accessibilityLabel={isBookmarked ? "Remove bookmark" : "Bookmark post"}>
-                            <Ionicons name={isBookmarked ? "bookmark" : "bookmark-outline"} size={14} color={isBookmarked ? "#111827" : "#9CA3AF"} />
-                            <Text style={[s.imgArticleActionText, isBookmarked && { color: "#111827" }]}>{isBookmarked ? "SAVED" : "SAVE FOR LATER"}</Text>
-                        </Pressable>
-                    )}
-                    {!onEditPress && (
-                        <Pressable style={s.imgArticleSaveBtn} onPress={handleLike} accessibilityRole="button" accessibilityLabel={post.isLiked ? "Unlike post" : "Like post"}>
-                            <Ionicons
-                                name={post.isLiked ? "heart" : "heart-outline"}
-                                size={14}
-                                color={post.isLiked ? "#8C0327" : "#9CA3AF"}
-                            />
-                            <Text style={[s.imgArticleActionText, post.isLiked && s.articleActionTextActive]}>
-                                {(post.likes || 0) > 0 ? String(post.likes) : "LIKE"}
-                            </Text>
-                        </Pressable>
-                    )}
-                    {onEditPress && (
-                        <Pressable style={s.imgArticleSaveBtn} onPress={() => onEditPress(post.id)} accessibilityRole="button" accessibilityLabel="Edit post">
-                            <Ionicons name="create-outline" size={14} color="#9CA3AF" />
-                            <Text style={s.imgArticleActionText}>EDIT</Text>
-                        </Pressable>
-                    )}
-                    {onDeletePress && (
-                        <Pressable style={s.imgArticleSaveBtn} onPress={handleDelete} accessibilityRole="button" accessibilityLabel="Delete post">
-                            <Ionicons name="trash-outline" size={14} color="#9CA3AF" />
-                            <Text style={s.imgArticleActionText}>DELETE</Text>
-                        </Pressable>
+            {(!!post.eventTitle || !!post.content) && (
+                <View style={s.fcBody}>
+                    {!!post.eventTitle && <Text style={s.fcTitle} numberOfLines={3}>{post.eventTitle}</Text>}
+                    {!!post.content && (
+                        <Text style={post.eventTitle ? s.fcDesc : s.fcContent} numberOfLines={post.eventTitle ? 2 : 5}>{post.content}</Text>
                     )}
                 </View>
-            </View>
-            <Animated.View pointerEvents="none" style={[s.doubleTapHeart, { opacity: heartAnim }]}>
-                <Ionicons name="heart" size={72} color="rgba(255,255,255,0.9)" />
-            </Animated.View>
+            )}
+            <CardActions
+                post={post}
+                isBookmarked={isBookmarked}
+                onLike={handleLike}
+                onComment={() => onCommentPress?.(post.id, post.type)}
+                onShare={() => Share.share({ message: post.eventTitle || post.content || "" })}
+                onBookmark={handleBookmark}
+                onEdit={onEditPress ? () => onEditPress(post.id) : undefined}
+                onDelete={onDeletePress ? handleDelete : undefined}
+            />
         </Pressable>
         </Animated.View>
     );
@@ -1510,9 +1376,10 @@ function PollCard({
         return () => clearInterval(t);
     }, [onPollRefresh, post.id]);
 
-    const footerParts: string[] = [];
-    if (poll.totalVotes > 0) footerParts.push(`${poll.totalVotes.toLocaleString()} ${poll.totalVotes === 1 ? "vote" : "votes"}`);
-    if (poll.endsAt) footerParts.push(poll.endsAt);
+    const subtitle = ["Poll", post.timestamp, poll.endsAt].filter(Boolean).join(" · ");
+    const votesMeta = poll.totalVotes > 0
+        ? `${poll.totalVotes.toLocaleString()} ${poll.totalVotes === 1 ? "vote" : "votes"}${poll.userVote ? " · you voted" : ""}`
+        : "";
 
     const lastTap = useRef<number>(0);
     const heartAnim = useRef(new Animated.Value(0)).current;
@@ -1556,95 +1423,56 @@ function PollCard({
 
     return (
         <Animated.View style={{ opacity: deleteOpacity, transform: [{ scale: deleteScale }] }}>
-        <View style={[s.postCard, s.pollCard]}>
-            <Pressable style={s.pollCardHeader} onPress={() => onClubPress?.(post.clubId)}>
-                <View style={s.pollCardAvatar}>
-                    {post.clubAvatar ? (
-                        <ExpoImage source={{ uri: post.clubAvatar }} style={s.pollCardAvatarImage} contentFit="cover" transition={200} />
-                    ) : (
-                        <Ionicons name="people" size={18} color="#fff" />
-                    )}
-                </View>
-                <View style={s.pollCardHeaderText}>
-                    <Text style={s.pollCardClubName} numberOfLines={1}>{post.clubName}</Text>
-                    <Text style={s.pollCardSubtitle}>Active Poll</Text>
-                </View>
-                {showFollow && (
+        <View style={s.fcCard}>
+            {/* Header — avatar, name, "Poll · time · ends in…" */}
+            <CardHeader
+                post={post}
+                subtitle={subtitle}
+                right={showFollow ? (
                     <FollowButton isFollowing={post.isFollowing} onPress={() => onFollowToggle?.(post.clubId)} />
-                )}
-            </Pressable>
-            <Pressable onPress={handleDoubleTap} style={{ position: "relative" }}>
-                {!!poll.question && <Text style={s.pollCardQuestion}>{poll.question}</Text>}
-                {post.imageUrl && (
-                    <View style={s.pollCardImageWrap}>
-                        <SafeImage uri={post.imageUrl} style={s.pollCardImage} resizeMode="cover" label={`${post.clubName} poll image`} />
-                    </View>
-                )}
-                {!!post.content && <Text style={s.pollCardDescription}>{post.content}</Text>}
-                <Animated.View pointerEvents="none" style={[s.doubleTapHeart, { opacity: heartAnim }]}>
-                    <Ionicons name="heart" size={72} color={C.primary} />
-                </Animated.View>
-            </Pressable>
-            <View style={s.pollCardOptions}>
-                {poll.options.map((option) => (
-                    <AnimatedPollOption
-                        key={option.id}
-                        postId={post.id}
-                        option={option}
-                        poll={poll}
-                        onPollVote={onPollVote}
-                        dark
-                    />
-                ))}
-            </View>
-            <View style={s.pollCardFooter}>
-                <Pressable onPress={() => onCommentPress?.(post.id, post.type)} hitSlop={6} style={{ flexDirection: "row", alignItems: "center", gap: 6 }} accessibilityRole="button" accessibilityLabel="Join the conversation">
-                    <Ionicons name="chatbubble-outline" size={13} color="rgba(255,255,255,0.85)" />
-                    <Text style={[s.pollCardFooterText, { color: "rgba(255,255,255,0.85)", textTransform: "none", fontWeight: "800" }]}>{post.comments ?? 0} comments · join in</Text>
+                ) : undefined}
+                onClubPress={onClubPress}
+            />
+
+            {/* Image */}
+            {!!post.imageUrl && (
+                <Pressable onPress={handleDoubleTap} style={s.fcImageWrap}>
+                    <SafeImage uri={post.imageUrl} style={[s.fcImage, s.fcImageBanner]} resizeMode="cover" label={`${post.clubName} poll image`} />
+                    <Animated.View pointerEvents="none" style={[s.doubleTapHeart, { opacity: heartAnim }]}>
+                        <Ionicons name="heart" size={72} color="rgba(255,255,255,0.9)" />
+                    </Animated.View>
                 </Pressable>
-                <View style={{ flex: 1 }} />
-                <Text style={s.pollCardFooterText}>{footerParts.join(" · ")}</Text>
-            </View>
-            {/* Footer */}
-            <View style={s.pollCardByline}>
-                <Text style={s.pollCardByTime}>{post.timestamp}</Text>
-                <View style={s.articleByRight}>
-                    {!onEditPress && (
-                        <Pressable style={s.articleAction} onPress={handleLike} hitSlop={8} accessibilityRole="button" accessibilityLabel={post.isLiked ? "Unlike poll" : "Like poll"}>
-                            <Ionicons name={post.isLiked ? "heart" : "heart-outline"} size={18} color={post.isLiked ? "#FF6B8A" : "rgba(255,255,255,0.5)"} />
-                            {(post.likes || 0) > 0 && (
-                                <Text style={[s.articleActionText, { color: post.isLiked ? "#FF6B8A" : "rgba(255,255,255,0.5)" }]}>{post.likes}</Text>
-                            )}
-                        </Pressable>
-                    )}
-                    {!onEditPress && (
-                        <>
-                            <Pressable style={s.articleAction} onPress={() => onCommentPress?.(post.id, post.type)} hitSlop={8} accessibilityRole="button" accessibilityLabel="View comments">
-                                <Ionicons name="chatbubble-outline" size={17} color="rgba(255,255,255,0.5)" />
-                                {(post.comments || 0) > 0 && (
-                                    <Text style={[s.articleActionText, { color: "rgba(255,255,255,0.5)" }]}>{post.comments}</Text>
-                                )}
-                            </Pressable>
-                            <Pressable style={s.articleAction} onPress={() => Share.share({ message: poll.question || post.content || "" })} hitSlop={8} accessibilityRole="button" accessibilityLabel="Share poll">
-                                <Ionicons name="share-outline" size={18} color="rgba(255,255,255,0.5)" />
-                            </Pressable>
-                            <Pressable style={s.articleAction} onPress={handleBookmark} hitSlop={8} accessibilityRole="button" accessibilityLabel={isBookmarked ? "Remove bookmark" : "Bookmark poll"}>
-                                <Ionicons name={isBookmarked ? "bookmark" : "bookmark-outline"} size={18} color={isBookmarked ? "#fff" : "rgba(255,255,255,0.5)"} />
-                            </Pressable>
-                        </>
-                    )}
-                    {onEditPress && (
-                        <Pressable style={s.articleAction} onPress={() => onEditPress(post.id)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Edit poll">
-                            <Ionicons name="create-outline" size={18} color="rgba(255,255,255,0.5)" />
-                        </Pressable>
-                    )}
-                    {onDeletePress && (
-                        <Pressable style={s.articleAction} onPress={handleDelete} hitSlop={8} accessibilityRole="button" accessibilityLabel="Delete poll">
-                            <Ionicons name="trash-outline" size={18} color="rgba(255,255,255,0.5)" />
-                        </Pressable>
-                    )}
+            )}
+
+            {/* Question + options */}
+            <View style={s.fcBody}>
+                {!!poll.question && <Text style={s.fcTitle}>{poll.question}</Text>}
+                {!!post.content && <Text style={s.fcDesc}>{post.content}</Text>}
+                <View style={s.fcPollOptions}>
+                    {poll.options.map((option) => (
+                        <AnimatedPollOption
+                            key={option.id}
+                            postId={post.id}
+                            option={option}
+                            poll={poll}
+                            onPollVote={onPollVote}
+                        />
+                    ))}
                 </View>
+                {!!votesMeta && <Text style={s.fcPollMeta}>{votesMeta}</Text>}
             </View>
+
+            {/* Action bar */}
+            <CardActions
+                post={post}
+                isBookmarked={isBookmarked}
+                onLike={handleLike}
+                onComment={() => onCommentPress?.(post.id, post.type)}
+                onShare={() => Share.share({ message: poll.question || post.content || "" })}
+                onBookmark={handleBookmark}
+                onEdit={onEditPress ? () => onEditPress(post.id) : undefined}
+                onDelete={onDeletePress ? handleDelete : undefined}
+            />
         </View>
         </Animated.View>
     );
