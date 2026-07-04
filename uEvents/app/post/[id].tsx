@@ -460,7 +460,7 @@ const makePostStyles = (C: AppColors) => StyleSheet.create({
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function PostDetailScreen() {
-    const { id } = useLocalSearchParams<{ id: string }>();
+    const { id, focusComment, highlightComment } = useLocalSearchParams<{ id: string; focusComment?: string; highlightComment?: string }>();
     const router = useRouter();
     const { width: winWidth } = useWindowDimensions();
     const carouselSize = winWidth - 24;
@@ -471,6 +471,8 @@ export default function PostDetailScreen() {
     const t = useT();
     const { session } = useAuth();
     const scrollRef = useRef<ScrollView>(null);
+    const commentsSectionY = useRef(0);
+    const didFocusComments = useRef(false);
     const { colors: C } = useTheme();
     const s = useMemo(() => makePostStyles(C), [C]);
 
@@ -521,6 +523,21 @@ export default function PostDetailScreen() {
     }, [id]);
 
     useFocusEffect(useCallback(() => { loadPost(); }, [id]));
+
+    // Arriving via a card's "comment" action: smoothly scroll down to the
+    // comments once the post AND comments have mounted, so the section offset is
+    // real and the scroll actually animates (rather than jumping to a stale 0).
+    useEffect(() => {
+        if (didFocusComments.current) return;
+        if (!focusComment && !highlightComment) return;
+        if (loading || commentsLoading) return; // wait until content + comments are laid out
+        didFocusComments.current = true;
+        // Let the ScrollView finish measuring section offsets before animating.
+        const to = setTimeout(() => {
+            scrollRef.current?.scrollTo({ y: Math.max(0, commentsSectionY.current - 80), animated: true });
+        }, 500);
+        return () => clearTimeout(to);
+    }, [loading, commentsLoading, comments.length, focusComment, highlightComment]);
 
     // Live poll refresh: re-fetch vote counts every 10 s while screen is focused
     const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -1104,7 +1121,7 @@ export default function PostDetailScreen() {
                     )}
 
                     {/* Comments */}
-                    <View style={[s.card, s.commentsSection]}>
+                    <View style={[s.card, s.commentsSection]} onLayout={(e) => { commentsSectionY.current = e.nativeEvent.layout.y; }}>
                         {/* Header row: label + status badges */}
                         <View style={s.commentsHeaderRow}>
                             <Text style={s.commentsLabel}>COMMENTS</Text>

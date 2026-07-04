@@ -189,7 +189,7 @@ export default function EventPage() {
     const authApi = useApi();
     const { showToast, showActionToast } = useToast();
     const { width: screenWidth } = useWindowDimensions();
-    const { id, focusComment, highlightComment, addPhoto } = useLocalSearchParams<{ id: string; focusComment?: string; highlightComment?: string; addPhoto?: string }>();
+    const { id, focusComment, highlightComment, addPhoto, focusPhotos } = useLocalSearchParams<{ id: string; focusComment?: string; highlightComment?: string; addPhoto?: string; focusPhotos?: string }>();
     const scrollRef = useRef<ScrollView>(null);
     const commentInputRef = useRef<TextInput>(null);
     const commentsSectionY = useRef(0);
@@ -351,10 +351,10 @@ export default function EventPage() {
     // recap photo picker ("Add yours").
     useEffect(() => {
         if (deepLinkHandled.current) return;
-        if (!focusComment && !highlightComment && !addPhoto) return;
+        if (!focusComment && !highlightComment && !addPhoto && !focusPhotos) return;
         if (loading) return;                                   // page content (ScrollView/input) not mounted yet
         if (highlightComment && comments.length === 0) return; // wait for comments to load
-        if (addPhoto && !recap) return;                        // wait for the recap section to exist
+        if ((addPhoto || focusPhotos) && !recap) return;       // wait for the recap section to exist
         deepLinkHandled.current = true;
         // Let the ScrollView lay out + measure section offsets before acting.
         const timer = setTimeout(() => {
@@ -372,10 +372,12 @@ export default function EventPage() {
             } else if (addPhoto) {
                 scrollRef.current?.scrollTo({ y: Math.max(0, recapSectionY.current - 60), animated: true });
                 if (recap?.canContribute) setTimeout(() => addRecapPhoto(), 450);
+            } else if (focusPhotos) {
+                scrollRef.current?.scrollTo({ y: Math.max(0, recapSectionY.current - 60), animated: true });
             }
         }, 500);
         return () => clearTimeout(timer);
-    }, [loading, comments, recap, focusComment, highlightComment, addPhoto]);
+    }, [loading, comments, recap, focusComment, highlightComment, addPhoto, focusPhotos]);
 
     const pendingDeletes = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
@@ -990,23 +992,42 @@ export default function EventPage() {
                                     </View>
                                 )}
 
-                                <View style={styles.recapPhotosHeader}>
-                                    <Text style={styles.recapPhotosLabel}>PHOTOS</Text>
-                                    {recap.canContribute && (
-                                        <Pressable onPress={addRecapPhoto} disabled={recapUploading} style={styles.recapAddBtn} accessibilityRole="button" accessibilityLabel="Add a photo">
-                                            <Ionicons name="camera-outline" size={14} color="#8C0327" />
-                                            <Text style={styles.recapAddText}>{recapUploading ? "ADDING…" : "ADD PHOTO"}</Text>
-                                        </Pressable>
-                                    )}
-                                </View>
-                                {recap.isClubOwner && (recap.pendingPhotoCount ?? 0) > 0 && (
-                                    <Text style={styles.recapPendingNote}>
-                                        {recap.pendingPhotoCount} {recap.pendingPhotoCount === 1 ? "photo" : "photos"} awaiting your review
-                                    </Text>
-                                )}
                                 {(recap.photos ?? []).length === 0 ? (
-                                    <Text style={styles.recapEmpty}>{recap.canContribute ? "Be the first to share a photo." : "No photos yet."}</Text>
+                                    <Pressable
+                                        onPress={recap.canContribute ? addRecapPhoto : undefined}
+                                        disabled={!recap.canContribute || recapUploading}
+                                        style={styles.recapEmptyBox}
+                                        accessibilityRole={recap.canContribute ? "button" : undefined}
+                                        accessibilityLabel={recap.canContribute ? "Add the first photos" : undefined}
+                                    >
+                                        <Ionicons name="camera-outline" size={30} color={C.textMuted} />
+                                        <Text style={styles.recapEmptyTitle}>{recap.canContribute ? "No photos yet — were you there?" : "No photos yet"}</Text>
+                                        {recap.canContribute && (
+                                            <Text style={styles.recapEmptySub}>Be the first to add photos from {title}.</Text>
+                                        )}
+                                        {recap.canContribute && (
+                                            <View style={styles.recapEmptyBtn}>
+                                                <Ionicons name={recapUploading ? "hourglass-outline" : "add"} size={15} color="#fff" />
+                                                <Text style={styles.recapEmptyBtnText}>{recapUploading ? "ADDING…" : "ADD PHOTOS"}</Text>
+                                            </View>
+                                        )}
+                                    </Pressable>
                                 ) : (
+                                    <>
+                                    <View style={styles.recapPhotosHeader}>
+                                        <Text style={styles.recapPhotosLabel}>PHOTOS</Text>
+                                        {recap.canContribute && (
+                                            <Pressable onPress={addRecapPhoto} disabled={recapUploading} style={styles.recapAddBtn} accessibilityRole="button" accessibilityLabel="Add a photo">
+                                                <Ionicons name="camera-outline" size={14} color="#8C0327" />
+                                                <Text style={styles.recapAddText}>{recapUploading ? "ADDING…" : "ADD PHOTO"}</Text>
+                                            </Pressable>
+                                        )}
+                                    </View>
+                                    {recap.isClubOwner && (recap.pendingPhotoCount ?? 0) > 0 && (
+                                        <Text style={styles.recapPendingNote}>
+                                            {recap.pendingPhotoCount} {recap.pendingPhotoCount === 1 ? "photo" : "photos"} awaiting your review
+                                        </Text>
+                                    )}
                                     <View style={styles.recapGrid}>
                                         {recap.photos!.map((p) => (
                                             <View key={p.id} style={styles.recapThumbWrap}>
@@ -1034,6 +1055,7 @@ export default function EventPage() {
                                             </View>
                                         ))}
                                     </View>
+                                    </>
                                 )}
                             </>
                         )}
@@ -1620,6 +1642,11 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
     recapAddBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 5, paddingHorizontal: 10, borderWidth: 1, borderColor: C.borderWarm },
     recapAddText: { fontSize: 10, fontWeight: "800", letterSpacing: 1, color: C.primary },
     recapEmpty: { fontSize: 13, color: C.textMuted, lineHeight: 19 },
+    recapEmptyBox: { marginTop: 18, borderWidth: 1.5, borderColor: C.borderWarm, borderStyle: "dashed", borderRadius: 10, paddingVertical: 22, paddingHorizontal: 16, alignItems: "center", gap: 8 },
+    recapEmptyTitle: { fontSize: 15, fontWeight: "800", color: C.text, textAlign: "center" },
+    recapEmptySub: { fontSize: 13, color: C.textMuted, textAlign: "center", marginBottom: 4 },
+    recapEmptyBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: C.primary, paddingHorizontal: 20, paddingVertical: 12 },
+    recapEmptyBtnText: { fontSize: 12, fontWeight: "800", letterSpacing: 0.6, color: "#fff" },
     recapGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
     recapThumbWrap: { width: "31.7%", aspectRatio: 1, position: "relative" },
     recapThumb: { width: "100%", height: "100%", backgroundColor: C.skeleton },

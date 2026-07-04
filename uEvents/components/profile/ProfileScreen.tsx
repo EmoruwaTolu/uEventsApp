@@ -1533,37 +1533,3 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         letterSpacing: 1.5,
     },
 });
-
-// ─── demo data (unchanged) ───────────────────────────────────────────────────
-export const demoUser: User = {
-    id: "user1",
-    name: "Alex Johnson",
-    email: "alex.johnson@uottawa.ca",
-    program: "BSc Computer Science",
-    year: "3rd Year",
-    clubsFollowing: 5,
-    eventsAttended: 24,
-};
-
-export const demoFollowedClubs: FollowedClub[] = [
-    { id: "cssa",      name: "CSSA / AEI",        desc: "Promoting Chinese culture & academic excellence", members: 1247, category: "Cultural",    logoUrl: undefined },
-    { id: "tech-club", name: "Tech Innovators",    desc: "Building tomorrow's technology today",           members: 856,  category: "Technology",  logoUrl: undefined },
-    { id: "debate",    name: "Debate Society",     desc: "Master the art of persuasion",                  members: 423,  category: "Academic",    logoUrl: undefined },
-    { id: "cs-club",   name: "CS Club",            desc: "Hackathons, workshops, and networking",         members: 739,  category: "Technology",  logoUrl: undefined },
-    { id: "uosu",      name: "UOSU",               desc: "Your student union — events for everyone",       members: 3200, category: "Social",      logoUrl: undefined },
-];
-
-export const demoRSVPEvents: RSVPEvent[] = [
-    { id: "1", name: "Winter Wonderland Ball",       countdown: "Today · 7:00 PM",    location: "Student Centre",  clubName: "CSSA / AEI",       desc: "An unforgettable evening of dancing, music, and winter magic. Formal attire required." },
-    { id: "2", name: "Tech Talks: Mobile Dev Night", countdown: "Today · 6:00 PM",    location: "Engineering 210", clubName: "Tech Innovators",  desc: "Industry professionals walk through real-world React Native projects." },
-];
-
-export const demoSavedPosts: SavedPost[] = [
-    { id: "s1", clubId: "cssa",      clubName: "CSSA / AEI",     type: "event",        content: "Join us for our annual Winter Ball! Formal attire required. Tickets are limited.", timestamp: "2h ago",  likes: 45,  comments: 12 },
-    { id: "s2", clubId: "tech-club", clubName: "Tech Innovators", type: "announcement", content: "Exciting news! We've partnered with the Chinese Embassy for exclusive workshops.",   timestamp: "1d ago",  likes: 89,  comments: 23 },
-];
-
-export const demoActivityPosts: ActivityPost[] = [
-    { id: "a1", action: "like",    clubId: "cssa",      clubName: "CSSA / AEI",         type: "event",        content: "Join us for our annual Winter Ball! Formal attire required.", timestamp: "2h ago", actionTime: "1h ago", likes: 45,  comments: 12 },
-    { id: "a2", action: "comment", clubId: "fitness",   clubName: "Campus Fitness Club", type: "update",       content: "New gym equipment has arrived! Open gym hours: Mon–Fri 6AM–10PM.",  timestamp: "1d ago", actionTime: "1d ago", likes: 67,  comments: 8  },
-];

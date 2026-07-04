@@ -594,9 +594,10 @@ export default function HomeScreen() {
                         onLikePress={handleLike}
                         onCommentPress={(postId, type, opts) => type === "event"
                             ? router.push({ pathname: "/event/[id]", params: { id: postId, ...(opts?.commentId ? { highlightComment: opts.commentId } : {}), ...(opts?.focus ? { focusComment: "1" } : {}) } })
-                            : router.push({ pathname: "/post/[id]", params: { id: postId } })
+                            : router.push({ pathname: "/post/[id]", params: { id: postId, ...(opts?.commentId ? { highlightComment: opts.commentId } : {}), ...(opts?.focus ? { focusComment: "1" } : {}) } })
                         }
                         onAddRecapPhoto={(postId) => router.push({ pathname: "/event/[id]", params: { id: postId, addPhoto: "1" } })}
+                        onViewRecapPhotos={(postId) => router.push({ pathname: "/event/[id]", params: { id: postId, focusPhotos: "1" } })}
                         onPollVote={handlePollVote}
                         onFollowPress={handleFollow}
                         ListHeaderComponent={
@@ -714,9 +715,10 @@ export default function HomeScreen() {
                         onLikePress={handleLike}
                         onCommentPress={(postId, type, opts) => type === "event"
                             ? router.push({ pathname: "/event/[id]", params: { id: postId, ...(opts?.commentId ? { highlightComment: opts.commentId } : {}), ...(opts?.focus ? { focusComment: "1" } : {}) } })
-                            : router.push({ pathname: "/post/[id]", params: { id: postId } })
+                            : router.push({ pathname: "/post/[id]", params: { id: postId, ...(opts?.commentId ? { highlightComment: opts.commentId } : {}), ...(opts?.focus ? { focusComment: "1" } : {}) } })
                         }
                         onAddRecapPhoto={(postId) => router.push({ pathname: "/event/[id]", params: { id: postId, addPhoto: "1" } })}
+                        onViewRecapPhotos={(postId) => router.push({ pathname: "/event/[id]", params: { id: postId, focusPhotos: "1" } })}
                         onPollVote={handlePollVote}
                         onFollowPress={handleFollow}
                         ListHeaderComponent={

@@ -22,6 +22,10 @@ import type { AppColors } from "../../styles/theme";
 
 const GREEN = "#16A34A";
 
+// Max "going" events shown inline on the Events page before collapsing behind
+// a "See all registered" button that opens the full Registered Events page.
+const SCHEDULE_LIMIT = 3;
+
 // LayoutAnimation needs an explicit opt-in on (old-architecture) Android.
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
     UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -74,6 +78,7 @@ type ApiEvent = {
     endAt?: string;
     locationName?: string;
     createdAt: string;
+    freeFood?: boolean;
     club: { id: string; clubName?: string; logoUrl?: string; category?: string };
     _count: { rsvps: number };
 };
@@ -339,6 +344,19 @@ const makeEventsStyles = (C: AppColors) => StyleSheet.create({
     },
     goingBadgeText: { fontSize: 9, fontWeight: "800", color: "#fff", letterSpacing: 0.8 },
 
+    seeAllRegistered: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+        marginHorizontal: 16,
+        marginTop: 4,
+        paddingVertical: 12,
+        borderWidth: 1.5,
+        borderColor: C.primary,
+    },
+    seeAllRegisteredText: { fontSize: 11, fontWeight: "800", color: C.primary, letterSpacing: 1.5 },
+
     // ── Free food banner ──
     foodBanner: {
         flexDirection: "row",
@@ -558,10 +576,11 @@ export default function EventsScreen() {
     // "Today on campus": prefer events happening today, else fall back to the feed.
     const campusList = recommendedToday.length > 0 ? recommendedToday : recommended;
 
-    // Free-food banner: highlight a Food & Drink event today (placeholder association).
+    // Free-food banner: highlight a real event flagged as offering free food.
+    // Only shows when such an event actually exists (no arbitrary fallback).
     const freeFoodEvent = useMemo(() => {
         const pool = recommendedToday.length > 0 ? recommendedToday : recommended;
-        return pool.find((e) => e.club?.category === "Food & Drink") ?? pool[0] ?? null;
+        return pool.find((e) => e.freeFood) ?? null;
     }, [recommendedToday, recommended]);
 
     // The NEXT UP hero: the first today RSVP that hasn't ended yet (live or
@@ -852,34 +871,47 @@ export default function EventsScreen() {
                 {upcomingRsvps.length === 0 ? (
                     <View style={s.emptyToday}><Text style={s.emptyTodayText}>{t.noRsvps.toUpperCase()}</Text></View>
                 ) : (
-                    upcomingRsvps.map((event) => {
-                        const loc = event.locales?.en ?? event.locales?.fr ?? {};
-                        const img = loc.posterUrl ?? loc.imageUrl;
-                        const d = new Date(event.startAt!);
-                        const sub = [event.club?.clubName, event.startAt ? formatTime(event.startAt) : null, event.locationName]
-                            .filter(Boolean).join(" · ");
-                        return (
-                            <Pressable key={event.id} style={s.schedRow} onPress={() => router.push(`/event/${event.id}` as any)}>
-                                <View style={s.schedThumbWrap}>
-                                    {img
-                                        ? <Image source={{ uri: img }} style={s.schedThumb} resizeMode="cover" />
-                                        : <View style={[s.schedThumb, { backgroundColor: C.skeleton }]} />}
-                                    <View style={s.schedDateTag}>
-                                        <Text style={s.schedDateDay}>{days[d.getDay()]}</Text>
-                                        <Text style={s.schedDateNum}>{d.getDate()}</Text>
+                    <>
+                        {upcomingRsvps.slice(0, SCHEDULE_LIMIT).map((event) => {
+                            const loc = event.locales?.en ?? event.locales?.fr ?? {};
+                            const img = loc.posterUrl ?? loc.imageUrl;
+                            const d = new Date(event.startAt!);
+                            const sub = [event.club?.clubName, event.startAt ? formatTime(event.startAt) : null, event.locationName]
+                                .filter(Boolean).join(" · ");
+                            return (
+                                <Pressable key={event.id} style={s.schedRow} onPress={() => router.push(`/event/${event.id}` as any)}>
+                                    <View style={s.schedThumbWrap}>
+                                        {img
+                                            ? <Image source={{ uri: img }} style={s.schedThumb} resizeMode="cover" />
+                                            : <View style={[s.schedThumb, { backgroundColor: C.skeleton }]} />}
+                                        <View style={s.schedDateTag}>
+                                            <Text style={s.schedDateDay}>{days[d.getDay()]}</Text>
+                                            <Text style={s.schedDateNum}>{d.getDate()}</Text>
+                                        </View>
                                     </View>
-                                </View>
-                                <View style={s.schedBody}>
-                                    <Text style={s.schedTitle} numberOfLines={1}>{loc.title ?? ""}</Text>
-                                    <Text style={s.schedSub} numberOfLines={1}>{sub}</Text>
-                                    <View style={s.goingBadge}>
-                                        <Text style={s.goingBadgeText}>{t.goingBtn}</Text>
-                                        <Ionicons name="checkmark" size={10} color="#fff" />
+                                    <View style={s.schedBody}>
+                                        <Text style={s.schedTitle} numberOfLines={1}>{loc.title ?? ""}</Text>
+                                        <Text style={s.schedSub} numberOfLines={1}>{sub}</Text>
+                                        <View style={s.goingBadge}>
+                                            <Text style={s.goingBadgeText}>{t.goingBtn}</Text>
+                                            <Ionicons name="checkmark" size={10} color="#fff" />
+                                        </View>
                                     </View>
-                                </View>
+                                </Pressable>
+                            );
+                        })}
+                        {upcomingRsvps.length > SCHEDULE_LIMIT && (
+                            <Pressable
+                                style={s.seeAllRegistered}
+                                onPress={() => router.push("/my-events" as any)}
+                                accessibilityRole="button"
+                                accessibilityLabel={t.seeAllRegistered(upcomingRsvps.length)}
+                            >
+                                <Text style={s.seeAllRegisteredText}>{t.seeAllRegistered(upcomingRsvps.length)}</Text>
+                                <Ionicons name="arrow-forward" size={14} color={C.primary} />
                             </Pressable>
-                        );
-                    })
+                        )}
+                    </>
                 )}
 
                 {/* ── Free food banner ── */}

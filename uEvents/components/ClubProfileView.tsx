@@ -574,7 +574,13 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
         <SocialFeed
             posts={visible}
             onPostPress={(post) => router.push((post.type === "event" ? `/event/${post.eventId ?? post.id}` : `/post/${post.id}`) as any)}
+            onCommentPress={(postId, type, opts) => router.push(
+                type === "event"
+                    ? { pathname: "/event/[id]", params: { id: postId, ...(opts?.commentId ? { highlightComment: opts.commentId } : {}), ...(opts?.focus ? { focusComment: "1" } : {}) } } as any
+                    : { pathname: "/post/[id]", params: { id: postId, ...(opts?.commentId ? { highlightComment: opts.commentId } : {}), ...(opts?.focus ? { focusComment: "1" } : {}) } } as any
+            )}
             onLikePress={handleLike}
+            onViewRecapPhotos={(postId) => router.push({ pathname: "/event/[id]", params: { id: postId, focusPhotos: "1" } } as any)}
             onPollVote={handlePollVote}
             onEditPress={isOwner ? (postId) => router.push({ pathname: "/edit/[id]", params: { id: postId } } as any) : undefined}
             onDeletePress={isOwner ? (postId) => setPosts((cur) => cur.filter((p) => p.id !== postId)) : undefined}

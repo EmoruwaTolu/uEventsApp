@@ -1030,6 +1030,16 @@ export default function DiscoverScreen() {
                         const CAROUSEL_LIMIT = 4;
                         const carouselEvents = filteredEvents.slice(0, CAROUSEL_LIMIT);
                         const extraCount = filteredEvents.length - CAROUSEL_LIMIT;
+                        // Exact snap geometry so every card — including the narrower
+                        // "+N more" card — lines up flush at the start on each snap.
+                        const cardStep = CARD_WIDTH + 8;
+                        const moreCardWidth = CARD_WIDTH;
+                        const lastWidth = extraCount > 0 ? moreCardWidth : CARD_WIDTH;
+                        const snapOffsets = [
+                            ...carouselEvents.map((_, i) => i * cardStep),
+                            ...(extraCount > 0 ? [carouselEvents.length * cardStep] : []),
+                        ];
+                        const lastIndex = carouselEvents.length - 1 + (extraCount > 0 ? 1 : 0);
                         return (
                             <Animated.View style={{ opacity: carouselOpacity }}>
                                 {apiEvents.length > 0 && categories.length > 1 && (
@@ -1067,14 +1077,14 @@ export default function DiscoverScreen() {
                                             ref={carouselRef}
                                             horizontal
                                             pagingEnabled={false}
-                                            snapToInterval={CARD_WIDTH + 8}
+                                            snapToOffsets={snapOffsets}
                                             snapToAlignment="start"
                                             decelerationRate="fast"
                                             showsHorizontalScrollIndicator={false}
-                                            contentContainerStyle={[styles.carouselContent, { paddingRight: screenWidth - CARD_WIDTH - 12 }]}
+                                            contentContainerStyle={[styles.carouselContent, { paddingRight: screenWidth - lastWidth - 12 }]}
                                             onScroll={(e) => {
-                                                const idx = Math.round(e.nativeEvent.contentOffset.x / (CARD_WIDTH + 8));
-                                                setActiveIndex(Math.max(0, Math.min(idx, carouselEvents.length - 1)));
+                                                const idx = Math.round(e.nativeEvent.contentOffset.x / cardStep);
+                                                setActiveIndex(Math.max(0, Math.min(idx, lastIndex)));
                                             }}
                                             scrollEventThrottle={16}
                                         >
@@ -1082,19 +1092,19 @@ export default function DiscoverScreen() {
                                                 <EventCard key={event.id} event={event} width={CARD_WIDTH} onPress={() => router.push({ pathname: "/event/[id]", params: { id: event.id } })} />
                                             ))}
                                             {extraCount > 0 && (
-                                                <Pressable style={[styles.moreCard, { width: CARD_WIDTH * 0.55 }]} onPress={() => router.push({ pathname: "/all-events-modal", params: { date: selectedDay, events: JSON.stringify(filteredEvents) } } as any)}>
+                                                <Pressable style={[styles.moreCard, { width: moreCardWidth }]} onPress={() => router.push({ pathname: "/all-events-modal", params: { date: selectedDay, events: JSON.stringify(filteredEvents) } } as any)}>
                                                     <Text style={styles.moreCardCount}>+{extraCount}</Text>
                                                     <Text style={styles.moreCardLabel}>more{"\n"}events</Text>
                                                     <View style={styles.moreCardBtn}><Text style={styles.moreCardBtnText}>VIEW ALL</Text></View>
                                                 </Pressable>
                                             )}
                                         </ScrollView>
-                                        {carouselEvents.length > 1 && (
+                                        {(carouselEvents.length > 1 || extraCount > 0) && (
                                             <View style={styles.dots}>
                                                 {carouselEvents.map((_, i) => (
                                                     <View key={i} style={[styles.dot, i === activeIndex && styles.dotActive]} />
                                                 ))}
-                                                {extraCount > 0 && <View style={styles.dot} />}
+                                                {extraCount > 0 && <View style={[styles.dot, activeIndex === carouselEvents.length && styles.dotActive]} />}
                                             </View>
                                         )}
                                     </View>

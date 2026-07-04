@@ -295,6 +295,55 @@ function CardActions({
     );
 }
 
+// ─── Top comment preview (most-upvoted comment, shown on any non-recap card) ─
+function TopCommentPreview({ post, onCommentPress }: {
+    post: FeedPost;
+    onCommentPress?: (id: string, type: PostType, opts?: { commentId?: string; focus?: boolean }) => void;
+}) {
+    const { colors: C } = useTheme();
+    if (!post.topComment) return null;
+    const target = post.eventId ?? post.id;
+    const tc = post.topComment;
+    const totalComments = post.comments ?? 0;
+    return (
+        <View style={{ backgroundColor: C.surfaceWarm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.borderWarm, paddingHorizontal: 16, paddingVertical: 12 }}>
+            <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
+                {tc.avatarUrl ? (
+                    <ExpoImage source={{ uri: tc.avatarUrl }} style={{ width: 34, height: 34, borderRadius: 17 }} contentFit="cover" transition={150} />
+                ) : (
+                    <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: C.gold, alignItems: "center", justifyContent: "center" }}>
+                        <Text style={{ fontSize: 12, fontWeight: "900", color: "#fff" }}>{tc.author.slice(0, 1).toUpperCase()}</Text>
+                    </View>
+                )}
+                <View style={{ flex: 1, minWidth: 0 }}>
+                    <Pressable onPress={() => onCommentPress?.(target, post.type, { commentId: tc.id })}>
+                        <Text style={{ fontSize: 14, color: C.textBody, lineHeight: 20 }} numberOfLines={3}>
+                            <Text style={{ fontWeight: "800", color: C.text }}>{tc.author} </Text>
+                            {tc.content}
+                        </Text>
+                    </Pressable>
+                    <View style={{ flexDirection: "row", alignItems: "center", marginTop: 8 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                            <Ionicons name="heart-outline" size={15} color={C.textMuted} />
+                            <Text style={{ fontSize: 13, fontWeight: "600", color: C.textMuted }}>{tc.upvotes ?? 0}</Text>
+                        </View>
+                        <Pressable onPress={() => onCommentPress?.(target, post.type, { commentId: tc.id, focus: true })} hitSlop={6} style={{ marginLeft: 18 }}>
+                            <Text style={{ fontSize: 13, fontWeight: "700", color: C.textMuted }}>Reply</Text>
+                        </Pressable>
+                        <View style={{ flex: 1 }} />
+                        {totalComments > 1 && (
+                            <Pressable onPress={() => onCommentPress?.(target, post.type, { focus: true })} hitSlop={6} style={{ flexDirection: "row", alignItems: "center", gap: 3 }} accessibilityRole="button" accessibilityLabel={`View all ${totalComments} comments`}>
+                                <Text style={{ fontSize: 13, fontWeight: "700", color: C.primary }}>View all {totalComments}</Text>
+                                <Ionicons name="arrow-forward" size={13} color={C.primary} />
+                            </Pressable>
+                        )}
+                    </View>
+                </View>
+            </View>
+        </View>
+    );
+}
+
 // ─── Hero card (first image post) ──────────────────────────────────────────
 
 function HeroCard({
@@ -540,12 +589,13 @@ function AnnouncementCard({
                     post={post}
                     isBookmarked={isBookmarked}
                     onLike={handleLike}
-                    onComment={() => onCommentPress?.(post.id, post.type)}
+                    onComment={() => onCommentPress?.(post.id, post.type, { focus: true })}
                     onShare={() => Share.share({ message: title })}
                     onBookmark={handleBookmark}
                     onEdit={onEditPress ? () => onEditPress(post.id) : undefined}
                     onDelete={onDeletePress ? handleDelete : undefined}
                 />
+                <TopCommentPreview post={post} onCommentPress={onCommentPress} />
                 <Animated.View pointerEvents="none" style={[s.doubleTapHeart, { opacity: heartAnim }]}>
                     <Ionicons name="heart" size={72} color={C.primary} />
                 </Animated.View>
@@ -664,12 +714,13 @@ function TextArticleCard({
                 post={post}
                 isBookmarked={isBookmarked}
                 onLike={handleLike}
-                onComment={() => onCommentPress?.(post.id, post.type)}
+                onComment={() => onCommentPress?.(post.id, post.type, { focus: true })}
                 onShare={() => Share.share({ message: post.eventTitle || post.content || "" })}
                 onBookmark={handleBookmark}
                 onEdit={onEditPress ? () => onEditPress(post.id) : undefined}
                 onDelete={onDeletePress ? handleDelete : undefined}
             />
+            <TopCommentPreview post={post} onCommentPress={onCommentPress} />
             {/* Double-tap heart flash */}
             <Animated.View pointerEvents="none" style={[s.doubleTapHeart, { opacity: heartAnim }]}>
                 <Ionicons name="heart" size={72} color={C.primary} />
@@ -831,6 +882,7 @@ function EventFeedCard({
     onEditPress,
     onDeletePress,
     onAddRecapPhoto,
+    onViewRecapPhotos,
     isOwner,
 }: {
     post: FeedPost;
@@ -843,6 +895,7 @@ function EventFeedCard({
     onEditPress?: (id: string) => void;
     onDeletePress?: (id: string) => void;
     onAddRecapPhoto?: (postId: string) => void;
+    onViewRecapPhotos?: (postId: string) => void;
     isOwner?: boolean;
 }) {
     const { colors: C } = useTheme();
@@ -854,6 +907,9 @@ function EventFeedCard({
     const { resolve: resolveBookmark, toggleBookmark } = useBookmarks();
     const isBookmarked = resolveBookmark(post.id, post.isBookmarked ?? false);
     const [recapAdded, setRecapAdded] = useState(false);
+    const hasRecapPhotos = (post.recapPhotos?.length ?? 0) > 0;
+    const showRecapRating = hasRecapPhotos || !!post.canRate || (post.rating?.count ?? 0) > 0;
+    const triggerAddRecap = () => { setRecapAdded(true); onAddRecapPhoto ? onAddRecapPhoto(post.eventId ?? post.id) : onPress?.(); };
 
     const handleRsvp = useCallback(async () => {
         if (rsvpLoading) return;
@@ -941,76 +997,108 @@ function EventFeedCard({
                             )}
                         </Pressable>
                         <View style={{ flex: 1, minWidth: 0 }}>
-                            <Text style={{ fontSize: 13, fontWeight: "800", color: C.text }} numberOfLines={1}>{post.clubName}</Text>
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: C.gold, alignSelf: "flex-start", paddingHorizontal: 6, paddingVertical: 2, marginTop: 3 }}>
-                                <Ionicons name="camera" size={9} color="#fff" />
-                                <Text style={{ fontSize: 8, fontWeight: "800", letterSpacing: 1.2, color: "#fff" }}>RECAP</Text>
-                            </View>
+                            <Text style={{ fontSize: 14, fontWeight: "800", color: C.text }} numberOfLines={1}>{post.clubName}</Text>
+                            <Text style={{ fontSize: 12, color: C.textLight, marginTop: 1 }} numberOfLines={1}>
+                                {post.timestamp ? `Recap · ${post.timestamp}` : "Recap"}
+                            </Text>
                         </View>
                         {showFollow ? (
                             <Pressable onPress={() => onFollowToggle?.(post.clubId)} hitSlop={8} style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: C.primary, paddingHorizontal: 12, paddingVertical: 7 }} accessibilityRole="button" accessibilityLabel="Follow club">
                                 <Ionicons name="add" size={13} color="#fff" />
                                 <Text style={{ fontSize: 11, fontWeight: "800", letterSpacing: 1.5, color: "#fff" }}>FOLLOW</Text>
                             </Pressable>
-                        ) : !!post.timestamp ? (
-                            <Text style={{ fontSize: 12, color: C.textLight }}>{post.timestamp}</Text>
-                        ) : null}
-                    </View>
-
-                    {/* 2. Title + photos (photos run edge-to-edge) */}
-                    <View style={{ paddingTop: 12, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderWarm }}>
-                        {!!post.eventTitle && (
-                            <Text style={{ fontSize: 22, fontWeight: "900", color: C.text, letterSpacing: -0.5, lineHeight: 26, paddingHorizontal: 16 }} numberOfLines={2}>{post.eventTitle.toUpperCase()}</Text>
-                        )}
-                        {(post.recapPhotos?.length ?? 0) > 0 && (
-                            <RecapCarousel photos={post.recapPhotos ?? []} onOverflow={() => onPress?.()} />
-                        )}
-                    </View>
-
-                    {/* 3. Add photo row — contributor stack + names + outlined button */}
-                    {(() => {
-                        const contribs = post.recapContributors ?? [];
-                        const count = post.recapContributorCount ?? contribs.length;
-                        const photoTotal = post.recapPhotoCount ?? (post.recapPhotos?.length ?? 0);
-                        const extra = count - 2;
-                        let who = "";
-                        if (count > 2) who = `${contribs.slice(0, 2).map((c) => c.name).join(", ")} & ${extra} other${extra === 1 ? "" : "s"}`;
-                        else if (contribs.length > 0) who = contribs.map((c) => c.name).join(" & ");
-                        return (
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 8, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderWarm }}>
-                                {contribs.length > 0 && (
-                                    <View style={{ flexDirection: "row" }}>
-                                        {contribs.slice(0, 3).map((c, i) => (
-                                            <View key={i} style={{ width: 24, height: 24, borderRadius: 12, marginLeft: i === 0 ? 0 : -8, borderWidth: 1.5, borderColor: C.surface, overflow: "hidden", backgroundColor: C.primary, alignItems: "center", justifyContent: "center" }}>
-                                                {c.avatarUrl ? (
-                                                    <ExpoImage source={{ uri: c.avatarUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={150} />
-                                                ) : (
-                                                    <Text style={{ fontSize: 9, fontWeight: "900", color: "#fff" }}>{c.name.slice(0, 1).toUpperCase()}</Text>
-                                                )}
-                                            </View>
-                                        ))}
-                                    </View>
-                                )}
-                                <Text style={{ flex: 1, fontSize: 12, color: C.textMuted }} numberOfLines={1}>
-                                    {who ? <Text style={{ fontWeight: "800", color: C.text }}>{who} </Text> : null}
-                                    {who ? "added " : ""}{photoTotal} photo{photoTotal === 1 ? "" : "s"}
-                                </Text>
-                                <Pressable
-                                    onPress={() => { setRecapAdded(true); onAddRecapPhoto ? onAddRecapPhoto(post.eventId ?? post.id) : onPress?.(); }}
-                                    style={{ flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1.5, borderColor: C.primary, backgroundColor: recapAdded ? C.primary : "transparent", paddingHorizontal: 14, paddingVertical: 7 }}
-                                    accessibilityRole="button" accessibilityLabel="Add your photos"
-                                >
-                                    {recapAdded && <Ionicons name="checkmark" size={12} color="#fff" />}
-                                    <Text style={{ fontSize: 11, fontWeight: "800", letterSpacing: 0.6, color: recapAdded ? "#fff" : C.primary }}>{recapAdded ? "ADDED" : "ADD YOURS"}</Text>
-                                </Pressable>
+                        ) : (
+                            <View style={{ borderWidth: 1.5, borderColor: C.primary, paddingHorizontal: 8, paddingVertical: 3 }}>
+                                <Text style={{ fontSize: 9, fontWeight: "800", letterSpacing: 1.2, color: C.primary }}>RECAP</Text>
                             </View>
-                        );
-                    })()}
-
-                    {/* 4. Ratings */}
-                    <View style={{ backgroundColor: C.surfaceWarm, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderWarm }}>
-                        <RecapStars postId={post.id} rating={post.rating} canRate={!!post.canRate} bare />
+                        )}
                     </View>
+
+                    {hasRecapPhotos ? (
+                        <>
+                            {/* 2. Title + photos (photos run edge-to-edge) */}
+                            <View style={{ paddingTop: 12, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderWarm }}>
+                                {!!post.eventTitle && (
+                                    <Text style={{ fontSize: 22, fontWeight: "900", color: C.text, letterSpacing: -0.5, lineHeight: 26, paddingHorizontal: 16 }} numberOfLines={2}>{post.eventTitle.toUpperCase()}</Text>
+                                )}
+                                <RecapCarousel photos={post.recapPhotos ?? []} onOverflow={() => onPress?.()} />
+                            </View>
+
+                            {/* 3. Add photo row — contributor stack + names + outlined button */}
+                            {(() => {
+                                const contribs = post.recapContributors ?? [];
+                                const count = post.recapContributorCount ?? contribs.length;
+                                const photoTotal = post.recapPhotoCount ?? (post.recapPhotos?.length ?? 0);
+                                const extra = count - 2;
+                                let who = "";
+                                if (count > 2) who = `${contribs.slice(0, 2).map((c) => c.name).join(", ")} & ${extra} other${extra === 1 ? "" : "s"}`;
+                                else if (contribs.length > 0) who = contribs.map((c) => c.name).join(" & ");
+                                return (
+                                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 8, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderWarm }}>
+                                        {contribs.length > 0 && (
+                                            <View style={{ flexDirection: "row" }}>
+                                                {contribs.slice(0, 3).map((c, i) => (
+                                                    <View key={i} style={{ width: 24, height: 24, borderRadius: 12, marginLeft: i === 0 ? 0 : -8, borderWidth: 1.5, borderColor: C.surface, overflow: "hidden", backgroundColor: C.primary, alignItems: "center", justifyContent: "center" }}>
+                                                        {c.avatarUrl ? (
+                                                            <ExpoImage source={{ uri: c.avatarUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={150} />
+                                                        ) : (
+                                                            <Text style={{ fontSize: 9, fontWeight: "900", color: "#fff" }}>{c.name.slice(0, 1).toUpperCase()}</Text>
+                                                        )}
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        )}
+                                        <Text style={{ flex: 1, fontSize: 12, color: C.textMuted }} numberOfLines={1}>
+                                            {who ? <Text style={{ fontWeight: "800", color: C.text }}>{who} </Text> : null}
+                                            {who ? "added " : ""}{photoTotal} photo{photoTotal === 1 ? "" : "s"}
+                                        </Text>
+                                        <Pressable
+                                            onPress={triggerAddRecap}
+                                            style={{ flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1.5, borderColor: C.primary, backgroundColor: recapAdded ? C.primary : "transparent", paddingHorizontal: 14, paddingVertical: 7 }}
+                                            accessibilityRole="button" accessibilityLabel="Add your photos"
+                                        >
+                                            {recapAdded && <Ionicons name="checkmark" size={12} color="#fff" />}
+                                            <Text style={{ fontSize: 11, fontWeight: "800", letterSpacing: 0.6, color: recapAdded ? "#fff" : C.primary }}>{recapAdded ? "ADDED" : "ADD YOURS"}</Text>
+                                        </Pressable>
+                                    </View>
+                                );
+                            })()}
+                        </>
+                    ) : (
+                        /* 2b. No photos yet — invite the first upload, then title + body */
+                        <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16, gap: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderWarm }}>
+                            <Pressable
+                                onPress={triggerAddRecap}
+                                style={{ borderWidth: 1.5, borderColor: C.borderWarm, borderStyle: "dashed", borderRadius: 10, paddingVertical: 22, paddingHorizontal: 16, alignItems: "center", gap: 8 }}
+                                accessibilityRole="button" accessibilityLabel="Add the first photos"
+                            >
+                                <Ionicons name="camera-outline" size={30} color={C.textMuted} />
+                                <Text style={{ fontSize: 15, fontWeight: "800", color: C.text, textAlign: "center" }}>
+                                    {recapAdded ? "Thanks for adding!" : "No photos yet — were you there?"}
+                                </Text>
+                                <Text style={{ fontSize: 13, color: C.textMuted, textAlign: "center", marginBottom: 4 }}>
+                                    {post.eventTitle ? `Be the first to add photos from ${post.eventTitle}.` : "Be the first to add photos from this event."}
+                                </Text>
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: recapAdded ? C.text : C.primary, paddingHorizontal: 20, paddingVertical: 12 }}>
+                                    <Ionicons name={recapAdded ? "checkmark" : "add"} size={15} color="#fff" />
+                                    <Text style={{ fontSize: 12, fontWeight: "800", letterSpacing: 0.6, color: "#fff" }}>{recapAdded ? "ADDED" : "ADD PHOTOS"}</Text>
+                                </View>
+                            </Pressable>
+                            {!!post.eventTitle && (
+                                <Text style={{ fontSize: 20, fontWeight: "900", color: C.text, letterSpacing: -0.4, lineHeight: 25 }} numberOfLines={2}>{post.eventTitle}</Text>
+                            )}
+                            {!!post.content && (
+                                <Text style={{ fontSize: 15, color: C.textMuted, lineHeight: 21 }} numberOfLines={4}>{post.content}</Text>
+                            )}
+                        </View>
+                    )}
+
+                    {/* 4. Ratings — shown when there's something to rate or an average to display */}
+                    {showRecapRating && (
+                        <View style={{ backgroundColor: C.surfaceWarm, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderWarm }}>
+                            <RecapStars postId={post.id} rating={post.rating} canRate={!!post.canRate} bare />
+                        </View>
+                    )}
 
                     {/* 5. Footer — likes / comments / share / bookmark */}
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 18, paddingHorizontal: 16, paddingVertical: 10 }}>
@@ -1018,15 +1106,21 @@ function EventFeedCard({
                             <Ionicons name={post.isLiked ? "heart" : "heart-outline"} size={18} color={post.isLiked ? C.primary : C.textLight} />
                             {(post.likes || 0) > 0 && <Text style={[s.articleActionText, post.isLiked && s.articleActionTextActive]}>{post.likes}</Text>}
                         </Pressable>
-                        <Pressable style={s.articleAction} onPress={() => onCommentPress?.(post.eventId ?? post.id, post.type)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Comment">
+                        <Pressable style={s.articleAction} onPress={() => onCommentPress?.(post.eventId ?? post.id, post.type, { focus: true })} hitSlop={8} accessibilityRole="button" accessibilityLabel="Comment">
                             <Ionicons name="chatbubble-outline" size={17} color={C.textLight} />
                             {(post.comments || 0) > 0 && <Text style={s.articleActionText}>{post.comments}</Text>}
                         </Pressable>
                         {(post.recapPhotoCount ?? 0) > 0 && (
-                            <View style={s.articleAction}>
+                            <Pressable
+                                style={s.articleAction}
+                                onPress={() => onViewRecapPhotos ? onViewRecapPhotos(post.eventId ?? post.id) : onPress?.()}
+                                hitSlop={8}
+                                accessibilityRole="button"
+                                accessibilityLabel={`View ${post.recapPhotoCount} photos`}
+                            >
                                 <Ionicons name="images-outline" size={16} color={C.textLight} />
                                 <Text style={s.articleActionText}>{post.recapPhotoCount} photos</Text>
-                            </View>
+                            </Pressable>
                         )}
                         <Pressable style={s.articleAction} onPress={() => Share.share({ message: post.eventTitle || post.content || "" })} hitSlop={8} accessibilityRole="button" accessibilityLabel="Share">
                             <Ionicons name="share-outline" size={18} color={C.textLight} />
@@ -1160,50 +1254,14 @@ function EventFeedCard({
                     post={post}
                     isBookmarked={isBookmarked}
                     onLike={handleLike}
-                    onComment={() => onCommentPress?.(post.eventId ?? post.id, post.type)}
+                    onComment={() => onCommentPress?.(post.eventId ?? post.id, post.type, { focus: true })}
                     onShare={() => Share.share({ message: post.eventTitle || post.content || "" })}
                     onBookmark={handleBookmark}
                     onEdit={onEditPress ? () => onEditPress(post.id) : undefined}
                     onDelete={onDeletePress ? handleDelete : undefined}
                 />
             )}
-            {post.topComment && (
-                <View style={{ backgroundColor: C.surfaceWarm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.borderWarm, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 14 }}>
-                    <Text style={{ fontSize: 9, fontWeight: "800", letterSpacing: 1.6, color: C.gold, marginBottom: 10 }}>TOP COMMENT</Text>
-                    <Pressable style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }} onPress={() => onCommentPress?.(post.eventId ?? post.id, post.type, { commentId: post.topComment!.id })}>
-                        {post.topComment.avatarUrl ? (
-                            <ExpoImage source={{ uri: post.topComment.avatarUrl }} style={{ width: 30, height: 30, borderRadius: 15 }} contentFit="cover" transition={150} />
-                        ) : (
-                            <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: C.primary, alignItems: "center", justifyContent: "center" }}>
-                                <Text style={{ fontSize: 11, fontWeight: "900", color: "#fff" }}>{post.topComment.author.slice(0, 1).toUpperCase()}</Text>
-                            </View>
-                        )}
-                        <View style={{ flex: 1, minWidth: 0 }}>
-                            <Text style={{ fontSize: 13, color: C.textBody, lineHeight: 19 }} numberOfLines={3}>
-                                <Text style={{ fontWeight: "800", color: C.text }}>{post.topComment.author} </Text>
-                                {post.topComment.content}
-                            </Text>
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 16, marginTop: 7 }}>
-                                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                                    <Ionicons name="caret-up" size={13} color={C.textMuted} />
-                                    <Text style={{ fontSize: 12, fontWeight: "700", color: C.textMuted }}>{post.topComment.upvotes ?? 0}</Text>
-                                </View>
-                                {(post.topComment.replyCount ?? 0) > 0 && (
-                                    <Text style={{ fontSize: 12, fontWeight: "700", color: C.textMuted }}>{post.topComment.replyCount} {post.topComment.replyCount === 1 ? "reply" : "replies"}</Text>
-                                )}
-                            </View>
-                        </View>
-                    </Pressable>
-                    <Pressable
-                        onPress={() => onCommentPress?.(post.eventId ?? post.id, post.type, { focus: true })}
-                        style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12, backgroundColor: C.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: C.borderWarm, paddingHorizontal: 12, paddingVertical: 10 }}
-                        accessibilityRole="button" accessibilityLabel="Join the conversation"
-                    >
-                        <Ionicons name="chatbubble-outline" size={14} color={C.textMuted} />
-                        <Text style={{ flex: 1, fontSize: 13, color: C.textMuted }}>Join the conversation…</Text>
-                    </Pressable>
-                </View>
-            )}
+            <TopCommentPreview post={post} onCommentPress={onCommentPress} />
         </Pressable>
         </Animated.View>
     );
@@ -1324,12 +1382,13 @@ function ImageArticleCard({
                 post={post}
                 isBookmarked={isBookmarked}
                 onLike={handleLike}
-                onComment={() => onCommentPress?.(post.id, post.type)}
+                onComment={() => onCommentPress?.(post.id, post.type, { focus: true })}
                 onShare={() => Share.share({ message: post.eventTitle || post.content || "" })}
                 onBookmark={handleBookmark}
                 onEdit={onEditPress ? () => onEditPress(post.id) : undefined}
                 onDelete={onDeletePress ? handleDelete : undefined}
             />
+            <TopCommentPreview post={post} onCommentPress={onCommentPress} />
         </Pressable>
         </Animated.View>
     );
@@ -1423,7 +1482,8 @@ function PollCard({
 
     return (
         <Animated.View style={{ opacity: deleteOpacity, transform: [{ scale: deleteScale }] }}>
-        <View style={s.fcCard}>
+        {/* Whole card is double-tappable to like (single taps do nothing on polls). */}
+        <Pressable onPress={handleDoubleTap} style={s.fcCard}>
             {/* Header — avatar, name, "Poll · time · ends in…" */}
             <CardHeader
                 post={post}
@@ -1436,12 +1496,9 @@ function PollCard({
 
             {/* Image */}
             {!!post.imageUrl && (
-                <Pressable onPress={handleDoubleTap} style={s.fcImageWrap}>
+                <View style={s.fcImageWrap}>
                     <SafeImage uri={post.imageUrl} style={[s.fcImage, s.fcImageBanner]} resizeMode="cover" label={`${post.clubName} poll image`} />
-                    <Animated.View pointerEvents="none" style={[s.doubleTapHeart, { opacity: heartAnim }]}>
-                        <Ionicons name="heart" size={72} color="rgba(255,255,255,0.9)" />
-                    </Animated.View>
-                </Pressable>
+                </View>
             )}
 
             {/* Question + options */}
@@ -1467,13 +1524,20 @@ function PollCard({
                 post={post}
                 isBookmarked={isBookmarked}
                 onLike={handleLike}
-                onComment={() => onCommentPress?.(post.id, post.type)}
+                onComment={() => onCommentPress?.(post.id, post.type, { focus: true })}
                 onShare={() => Share.share({ message: poll.question || post.content || "" })}
                 onBookmark={handleBookmark}
                 onEdit={onEditPress ? () => onEditPress(post.id) : undefined}
                 onDelete={onDeletePress ? handleDelete : undefined}
             />
-        </View>
+
+            <TopCommentPreview post={post} onCommentPress={onCommentPress} />
+
+            {/* Double-tap heart flash (centered over the card) */}
+            <Animated.View pointerEvents="none" style={[s.doubleTapHeart, { opacity: heartAnim }]}>
+                <Ionicons name="heart" size={72} color={C.primary} />
+            </Animated.View>
+        </Pressable>
         </Animated.View>
     );
 }
@@ -1493,6 +1557,7 @@ type SocialFeedProps = {
     onEditPress?: (postId: string) => void;
     onDeletePress?: (postId: string) => void;
     onAddRecapPhoto?: (postId: string) => void;
+    onViewRecapPhotos?: (postId: string) => void;
     // FlatList passthrough props
     ListHeaderComponent?: React.ReactElement | null;
     ListFooterComponent?: React.ReactElement | null;
@@ -1534,6 +1599,7 @@ export default function SocialFeed({
     onEditPress,
     onDeletePress,
     onAddRecapPhoto,
+    onViewRecapPhotos,
     ListHeaderComponent,
     ListFooterComponent,
     ListEmptyComponent,
@@ -1667,7 +1733,7 @@ export default function SocialFeed({
         } else if (post.type === "event") {
             card = index === heroIdx
                 ? <HeroCard post={post} onPress={() => onPostPress?.(post)} onClubPress={onClubPress} onLikePress={onLikePress} isOwner={isOwner} />
-                : <EventFeedCard post={post} onPress={() => onPostPress?.(post)} onClubPress={onClubPress} onLikePress={onLikePress} onCommentPress={onCommentPress} onFollowToggle={handleFollowToggle} showFollow={showFollow} onEditPress={onEditPress} onDeletePress={onEditPress ? handleDeletePost : undefined} onAddRecapPhoto={onAddRecapPhoto} isOwner={isOwner} />;
+                : <EventFeedCard post={post} onPress={() => onPostPress?.(post)} onClubPress={onClubPress} onLikePress={onLikePress} onCommentPress={onCommentPress} onFollowToggle={handleFollowToggle} showFollow={showFollow} onEditPress={onEditPress} onDeletePress={onEditPress ? handleDeletePost : undefined} onAddRecapPhoto={onAddRecapPhoto} onViewRecapPhotos={onViewRecapPhotos} isOwner={isOwner} />;
         } else if (post.type === "announcement" || post.type === "update") {
             card = <AnnouncementCard post={post} onPress={() => onPostPress?.(post)} onClubPress={onClubPress} onLikePress={onLikePress} onCommentPress={onCommentPress} onFollowToggle={handleFollowToggle} showFollow={showFollow} onEditPress={onEditPress} onDeletePress={onEditPress ? handleDeletePost : undefined} />;
         } else if (post.imageUrl) {
@@ -1701,7 +1767,7 @@ export default function SocialFeed({
         }
 
         return <>{card}</>;
-    }, [posts, heroIdx, unfollowedClubIds, onPostPress, onClubPress, onLikePress, onCommentPress, onEditPress, onAddRecapPhoto, handleDeletePost, handleShowLess, handleFollowToggle, handlePollVote, s, C]);
+    }, [posts, heroIdx, unfollowedClubIds, onPostPress, onClubPress, onLikePress, onCommentPress, onEditPress, onAddRecapPhoto, onViewRecapPhotos, handleDeletePost, handleShowLess, handleFollowToggle, handlePollVote, s, C]);
 
     return (
         <FlatList

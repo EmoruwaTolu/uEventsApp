@@ -118,6 +118,7 @@ function Gate() {
             <Stack.Screen name="club/edit-profile" />
             <Stack.Screen name="post-analytics/[id]" />
             <Stack.Screen name="my-posts" />
+            <Stack.Screen name="my-events" />
             <Stack.Screen name="drafts" />
             <Stack.Screen name="analytics" />
             <Stack.Screen name="notifications" options={{ animation: "slide_from_bottom", gestureDirection: "vertical" }} />
