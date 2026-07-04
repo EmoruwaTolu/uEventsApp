@@ -61,7 +61,7 @@ type ApiFeedPost = {
     crowdCount?: number;
     canRate?: boolean;
     rating?: { avg: number | null; count: number; mine: number };
-    topComment?: { id: string; author: string; avatarUrl?: string | null; content: string; upvotes?: number; replyCount?: number } | null;
+    topComment?: { id: string; author: string; avatarUrl?: string | null; content: string; upvotes?: number; isUpvoted?: boolean; replyCount?: number } | null;
     poll?: {
         expiresAt?: string;
         totalVotes: number;

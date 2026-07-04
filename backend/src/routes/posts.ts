@@ -960,6 +960,7 @@ router.get("/for-you", requireAuth, async (req, res, next) => {
                     include: {
                         user: { select: { type: true, firstName: true, lastName: true, avatarUrl: true, clubName: true, logoUrl: true } },
                         _count: { select: { replies: true } },
+                        upvotedBy: { where: { userId }, select: { userId: true } },
                     },
                 },
             },
@@ -1054,7 +1055,8 @@ router.get("/for-you", requireAuth, async (req, res, next) => {
                     : [tc.user.firstName, tc.user.lastName].filter(Boolean).join(" ").trim() || "Student",
                 avatarUrl: tc.user.avatarUrl ?? tc.user.logoUrl ?? null,
                 content: tc.content,
-                upvotes: tc.upvotes,
+                upvotes: Math.max(0, tc.upvotes),
+                isUpvoted: (tc.upvotedBy?.length ?? 0) > 0,
                 replyCount: tc._count.replies,
             } : null;
 
@@ -1217,6 +1219,7 @@ router.get("/feed", requireAuth, async (req, res, next) => {
                     include: {
                         user: { select: { type: true, firstName: true, lastName: true, avatarUrl: true, clubName: true, logoUrl: true } },
                         _count: { select: { replies: true } },
+                        upvotedBy: { where: { userId }, select: { userId: true } },
                     },
                 },
             },
@@ -1249,7 +1252,8 @@ router.get("/feed", requireAuth, async (req, res, next) => {
                     : [tc.user.firstName, tc.user.lastName].filter(Boolean).join(" ").trim() || "Student",
                 avatarUrl: tc.user.avatarUrl ?? tc.user.logoUrl ?? null,
                 content: tc.content,
-                upvotes: tc.upvotes,
+                upvotes: Math.max(0, tc.upvotes),
+                isUpvoted: (tc.upvotedBy?.length ?? 0) > 0,
                 replyCount: tc._count.replies,
             } : null;
             return {
@@ -1606,6 +1610,40 @@ router.delete("/:id/comments/:commentId", requireAuth, async (req, res, next) =>
 
         await prisma.comment.delete({ where: { id: commentId } });
         res.json({ deleted: true });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /posts/:id/comments/:commentId/upvote — toggle the current user's like
+// on a comment. Returns the new count and whether the user now likes it.
+router.post("/:id/comments/:commentId/upvote", requireAuth, async (req, res, next) => {
+    try {
+        const { id: postId, commentId } = req.params;
+        const userId = req.user!.userId;
+
+        const comment = await prisma.comment.findUnique({
+            where: { id: commentId },
+            select: { id: true, postId: true },
+        });
+        if (!comment || comment.postId !== postId) {
+            return res.status(404).json({ error: "Comment not found" });
+        }
+
+        const existing = await prisma.commentUpvote.findUnique({
+            where: { userId_commentId: { userId, commentId } },
+        });
+
+        const updated = await prisma.$transaction(async (tx) => {
+            if (existing) {
+                await tx.commentUpvote.delete({ where: { userId_commentId: { userId, commentId } } });
+                return tx.comment.update({ where: { id: commentId }, data: { upvotes: { decrement: 1 } }, select: { upvotes: true } });
+            }
+            await tx.commentUpvote.create({ data: { userId, commentId } });
+            return tx.comment.update({ where: { id: commentId }, data: { upvotes: { increment: 1 } }, select: { upvotes: true } });
+        });
+
+        res.json({ upvotes: Math.max(0, updated.upvotes), isUpvoted: !existing });
     } catch (err) {
         next(err);
     }

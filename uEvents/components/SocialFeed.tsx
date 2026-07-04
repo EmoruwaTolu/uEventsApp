@@ -76,7 +76,7 @@ export type FeedPost = {
     crowdCount?: number;
     canRate?: boolean;
     rating?: { avg: number | null; count: number; mine: number };
-    topComment?: { id: string; author: string; avatarUrl?: string | null; content: string; upvotes?: number; replyCount?: number };
+    topComment?: { id: string; author: string; avatarUrl?: string | null; content: string; upvotes?: number; isUpvoted?: boolean; replyCount?: number };
     poll?: Poll;
 };
 
@@ -301,9 +301,39 @@ function TopCommentPreview({ post, onCommentPress }: {
     onCommentPress?: (id: string, type: PostType, opts?: { commentId?: string; focus?: boolean }) => void;
 }) {
     const { colors: C } = useTheme();
-    if (!post.topComment) return null;
-    const target = post.eventId ?? post.id;
+    const authApi = useApi();
     const tc = post.topComment;
+    const [upvoted, setUpvoted] = useState(!!tc?.isUpvoted);
+    const [count, setCount] = useState(tc?.upvotes ?? 0);
+    const [busy, setBusy] = useState(false);
+
+    const target = post.eventId ?? post.id;
+
+    const toggleUpvote = useCallback(async () => {
+        if (busy || !tc) return;
+        setBusy(true);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        const next = !upvoted;
+        // Optimistic update.
+        setUpvoted(next);
+        setCount((c) => Math.max(0, c + (next ? 1 : -1)));
+        try {
+            const res = await authApi<{ upvotes: number; isUpvoted: boolean }>(
+                `/posts/${target}/comments/${tc.id}/upvote`,
+                { method: "POST" }
+            );
+            setUpvoted(res.isUpvoted);
+            setCount(Math.max(0, res.upvotes));
+        } catch {
+            // Revert on failure.
+            setUpvoted(!next);
+            setCount((c) => Math.max(0, c + (next ? -1 : 1)));
+        } finally {
+            setBusy(false);
+        }
+    }, [busy, tc, upvoted, authApi, target]);
+
+    if (!tc) return null;
     const totalComments = post.comments ?? 0;
     return (
         <View style={{ backgroundColor: C.surfaceWarm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.borderWarm, paddingHorizontal: 16, paddingVertical: 12 }}>
@@ -323,10 +353,10 @@ function TopCommentPreview({ post, onCommentPress }: {
                         </Text>
                     </Pressable>
                     <View style={{ flexDirection: "row", alignItems: "center", marginTop: 8 }}>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                            <Ionicons name="heart-outline" size={15} color={C.textMuted} />
-                            <Text style={{ fontSize: 13, fontWeight: "600", color: C.textMuted }}>{tc.upvotes ?? 0}</Text>
-                        </View>
+                        <Pressable onPress={toggleUpvote} hitSlop={8} style={{ flexDirection: "row", alignItems: "center", gap: 5 }} accessibilityRole="button" accessibilityLabel={upvoted ? "Unlike comment" : "Like comment"}>
+                            <Ionicons name={upvoted ? "heart" : "heart-outline"} size={16} color={upvoted ? C.primary : C.textMuted} />
+                            {count > 0 && <Text style={{ fontSize: 13, fontWeight: "600", color: upvoted ? C.primary : C.textMuted }}>{count}</Text>}
+                        </Pressable>
                         <Pressable onPress={() => onCommentPress?.(target, post.type, { commentId: tc.id, focus: true })} hitSlop={6} style={{ marginLeft: 18 }}>
                             <Text style={{ fontSize: 13, fontWeight: "700", color: C.textMuted }}>Reply</Text>
                         </Pressable>
