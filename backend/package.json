@@ -13,6 +13,7 @@
     "db:seed": "ts-node --transpile-only prisma/seed.ts",
     "db:seed-interactions": "ts-node --transpile-only prisma/seed-interactions.ts",
     "db:seed-phase4": "ts-node --transpile-only prisma/seed-phase4.ts",
+    "db:seed-live": "ts-node --transpile-only prisma/seed-live.ts",
     "test": "NODE_ENV=test jest --runInBand --forceExit"
   },
   "dependencies": {

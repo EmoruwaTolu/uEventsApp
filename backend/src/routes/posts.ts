@@ -894,8 +894,6 @@ router.get("/popular", optionalAuth, async (req, res, next) => {
 // Scores upcoming events + recent posts by followed clubs, followed topics,
 // popularity (log-scaled), and time-proximity, and attaches a human reason
 // ("Because you follow X", "Matches your interest: Y", "Popular this week").
-// Minimum post likes before a top comment is surfaced in the For You feed.
-const TOP_COMMENT_MIN_LIKES = 10;
 
 router.get("/for-you", requireAuth, async (req, res, next) => {
     try {
@@ -933,9 +931,11 @@ router.get("/for-you", requireAuth, async (req, res, next) => {
                     { startAt: null },
                     { startAt: { gte: now } },
                     { endAt: { gte: now } },
-                    // Past events still surface if they have a recap to show off.
-                    { recapPhotos: { some: {} } },
-                    { recapRatings: { some: {} } },
+                    // Past events surface as recaps only once they have a visible
+                    // photo. Ratings-only recaps are too thin for discovery — the
+                    // attendees who left them can still rate/add photos from their
+                    // attendance history.
+                    { recapPhotos: { some: { status: "APPROVED" } } },
                 ],
             },
             orderBy: { createdAt: "desc" },
@@ -954,8 +954,8 @@ router.get("/for-you", requireAuth, async (req, res, next) => {
                 },
                 recapRatings: { select: { rating: true, userId: true } },
                 comments: {
-                    where: { parentId: null },
-                    orderBy: { createdAt: "desc" },
+                    where: { parentId: null, hidden: false },
+                    orderBy: [{ upvotes: "desc" }, { createdAt: "desc" }],
                     take: 1,
                     include: {
                         user: { select: { type: true, firstName: true, lastName: true, avatarUrl: true, clubName: true, logoUrl: true } },
@@ -1044,9 +1044,9 @@ router.get("/for-you", requireAuth, async (req, res, next) => {
                 });
             }
 
-            // Top comment preview — only on non-recap posts that have cleared a
-            // like threshold (a conversation worth surfacing), never on recaps.
-            const tc = (!hasRecap && p._count.likes >= TOP_COMMENT_MIN_LIKES) ? p.comments?.[0] : undefined;
+            // Top comment preview — the most-upvoted top-level comment on any
+            // non-recap post that has a conversation started. Never on recaps.
+            const tc = !hasRecap ? p.comments?.[0] : undefined;
             const topComment = tc ? {
                 id: tc.id,
                 author: tc.user.type === "CLUB"
@@ -1210,6 +1210,15 @@ router.get("/feed", requireAuth, async (req, res, next) => {
                 _count: { select: { likes: true, comments: true, rsvps: true } },
                 likes: { where: { userId }, select: { userId: true } },
                 bookmarks: { where: { userId }, select: { userId: true } },
+                comments: {
+                    where: { parentId: null, hidden: false },
+                    orderBy: [{ upvotes: "desc" }, { createdAt: "desc" }],
+                    take: 1,
+                    include: {
+                        user: { select: { type: true, firstName: true, lastName: true, avatarUrl: true, clubName: true, logoUrl: true } },
+                        _count: { select: { replies: true } },
+                    },
+                },
             },
         });
 
@@ -1232,6 +1241,17 @@ router.get("/feed", requireAuth, async (req, res, next) => {
 
         const feed = posts.map((p) => {
             const totalVotes = p.pollOptions.reduce((sum, o) => sum + o._count.votes, 0);
+            const tc = p.comments?.[0];
+            const topComment = tc ? {
+                id: tc.id,
+                author: tc.user.type === "CLUB"
+                    ? (tc.user.clubName ?? "Club")
+                    : [tc.user.firstName, tc.user.lastName].filter(Boolean).join(" ").trim() || "Student",
+                avatarUrl: tc.user.avatarUrl ?? tc.user.logoUrl ?? null,
+                content: tc.content,
+                upvotes: tc.upvotes,
+                replyCount: tc._count.replies,
+            } : null;
             return {
                 id: p.id,
                 clubId: p.club.id,
@@ -1254,6 +1274,7 @@ router.get("/feed", requireAuth, async (req, res, next) => {
                 isLiked: p.likes.length > 0,
                 isBookmarked: p.bookmarks.length > 0,
                 isFollowing: followedIds.has(p.club.id),
+                topComment,
                 poll: p.type === "POLL" ? {
                     expiresAt: p.pollExpiresAt,
                     allowMultiple: p.pollAllowMultiple,
