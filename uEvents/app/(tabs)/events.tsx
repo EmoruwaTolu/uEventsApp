@@ -18,6 +18,7 @@ import { useT } from "../../lib/LangContext";
 import { useToast } from "../../lib/ToastContext";
 import { EventCardSkeleton } from "../../components/SkeletonLoader";
 import { useTheme } from "../../lib/ThemeContext";
+import { useReduceMotion } from "../../lib/useReduceMotion";
 import type { AppColors } from "../../styles/theme";
 
 const GREEN = "#16A34A";
@@ -34,7 +35,8 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 // Smoothly animate the next layout commit — used when an RSVP moves an event
 // between the "Today on Campus" list and "Your Schedule" so rows slide/fade
 // into place instead of the page snapping down.
-function animateRsvpReflow() {
+function animateRsvpReflow(reduceMotion = false) {
+    if (reduceMotion) return; // honor OS "Reduce Motion": snap instead of animating
     LayoutAnimation.configureNext(
         LayoutAnimation.create(280, LayoutAnimation.Types.easeInEaseOut, LayoutAnimation.Properties.opacity)
     );
@@ -485,6 +487,7 @@ export default function EventsScreen() {
     const [now, setNow] = useState(() => new Date());
 
     const { colors: C } = useTheme();
+    const reduceMotion = useReduceMotion();
     const s = useMemo(() => makeEventsStyles(C), [C]);
 
     const today = useMemo(() => new Date(now), [now]);
@@ -592,7 +595,7 @@ export default function EventsScreen() {
 
     async function handleRsvp(event: ApiEvent) {
         const next = await toggleRsvp(event.id);
-        animateRsvpReflow();
+        animateRsvpReflow(reduceMotion);
         if (next) {
             setRsvps((prev) => [...prev, {
                 id: event.id, type: event.type, locales: event.locales,
@@ -608,7 +611,7 @@ export default function EventsScreen() {
     async function cancelRsvpPost(id: string) {
         const next = await toggleRsvp(id);
         if (!next) {
-            animateRsvpReflow();
+            animateRsvpReflow(reduceMotion);
             setRsvps((prev) => prev.filter((r) => r.id !== id));
         }
     }
@@ -653,7 +656,7 @@ export default function EventsScreen() {
                         style={{ marginTop: 24, backgroundColor: C.primary, paddingHorizontal: 28, paddingVertical: 13 }}
                         onPress={signOut}
                     >
-                        <Text style={{ fontSize: 11, fontWeight: "900", color: "#fff", letterSpacing: 2 }}>CREATE ACCOUNT</Text>
+                        <Text style={{ fontSize: 11, fontWeight: "900", color: "#fff", letterSpacing: 2 }}>{t.createAccountBtn}</Text>
                     </Pressable>
                 </View>
             </SafeAreaView>
@@ -675,7 +678,7 @@ export default function EventsScreen() {
             <SafeAreaView style={s.safe} edges={["top"]}>
                 <View style={s.center}>
                     <Ionicons name="cloud-offline-outline" size={36} color={C.textFaint} />
-                    <Text style={s.errorText}>COULDN'T LOAD EVENTS</Text>
+                    <Text style={s.errorText}>{t.couldntLoadEvents}</Text>
                     <Pressable style={s.errorRetry} onPress={() => loadData()}>
                         <Text style={s.errorRetryText}>{t.retry}</Text>
                     </Pressable>
@@ -1127,9 +1130,9 @@ export default function EventsScreen() {
                         return (loc.title ?? "").toLowerCase().includes(searchQuery.toLowerCase());
                     }).length === 0 && (
                         <View style={s.searchEmpty}>
-                            <Text style={s.searchEmptyText}>NO MATCHING EVENTS</Text>
+                            <Text style={s.searchEmptyText}>{t.noMatchingEventsUpper}</Text>
                             <Pressable onPress={() => setSearchQuery("")} style={{ marginTop: 12, backgroundColor: C.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 6 }} accessibilityRole="button" accessibilityLabel="Clear search">
-                                <Text style={{ fontSize: 11, fontWeight: "800", color: "#fff", letterSpacing: 1.5 }}>CLEAR SEARCH</Text>
+                                <Text style={{ fontSize: 11, fontWeight: "800", color: "#fff", letterSpacing: 1.5 }}>{t.clearSearchBtn}</Text>
                             </Pressable>
                         </View>
                     )}

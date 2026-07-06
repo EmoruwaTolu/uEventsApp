@@ -10,6 +10,7 @@ import { LoginButton } from "../../components/LoginButton";
 import { LoginInput } from "../../components/LoginInput";
 import { useAuth } from "../../auth/AuthContext";
 import { useTheme } from "../../lib/ThemeContext";
+import { useReduceMotion } from "../../lib/useReduceMotion";
 import { useT } from "../../lib/LangContext";
 import type { AppColors } from "../../styles/theme";
 
@@ -187,6 +188,7 @@ export default function LoginScreen() {
     const { width } = useWindowDimensions();
     const { colors: C } = useTheme();
     const t = useT();
+    const reduceMotion = useReduceMotion();
     const s = useMemo(() => makeStyles(C), [C]);
     const [page, setPage] = useState<Page>("landing");
     const slideX = useRef(new Animated.Value(0)).current;
@@ -213,6 +215,13 @@ export default function LoginScreen() {
     }
 
     const navigateTo = useCallback((next: Page) => {
+        // Honor "Reduce Motion": swap pages instantly without the slide transition.
+        if (reduceMotion) {
+            setPage(next);
+            setErrors({});
+            slideX.setValue(0);
+            return;
+        }
         const currentIdx = PAGES.indexOf(page);
         const nextIdx = PAGES.indexOf(next);
         const dir = nextIdx > currentIdx ? 1 : -1;
@@ -234,7 +243,7 @@ export default function LoginScreen() {
                 stiffness: 200,
             }).start();
         });
-    }, [page, slideX, width]);
+    }, [page, slideX, width, reduceMotion]);
 
     // Accept any properly-formatted email. Domain restrictions (e.g. requiring a
     // school email) are enforced server-side via the SCHOOL_EMAIL_DOMAINS env so

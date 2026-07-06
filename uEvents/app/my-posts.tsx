@@ -6,7 +6,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useApi } from "../lib/useApi";
-import { useT } from "../lib/LangContext";
+import { useT, useLang } from "../lib/LangContext";
+import { timeAgo } from "../lib/datetime";
 import { useTheme } from "../lib/ThemeContext";
 import type { AppColors } from "../styles/theme";
 
@@ -33,14 +34,7 @@ function getPreview(post: ApiPost): string {
     return locale.body ?? "";
 }
 
-function relativeTime(iso: string): string {
-    const diff = Date.now() - new Date(iso).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
-}
+
 
 const makeMyPostsStyles = (C: AppColors) => StyleSheet.create({
     safe: { flex: 1, backgroundColor: C.bg },
@@ -138,6 +132,7 @@ export default function MyPostsScreen() {
     const router = useRouter();
     const authApi = useApi();
     const t = useT();
+    const { lang } = useLang();
     const { colors: C } = useTheme();
     const styles = useMemo(() => makeMyPostsStyles(C), [C]);
 
@@ -317,7 +312,7 @@ export default function MyPostsScreen() {
                             <Ionicons name="document-outline" size={32} color={C.textFaint} />
                             <Text style={styles.emptyText}>{t.noPostsHere}</Text>
                             <Pressable onPress={() => router.push("/(tabs)/create" as any)} style={{ marginTop: 4, backgroundColor: C.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 6 }} accessibilityRole="button" accessibilityLabel="Create a post">
-                                <Text style={{ fontSize: 11, fontWeight: "800", color: "#fff", letterSpacing: 1.5 }}>CREATE A POST</Text>
+                                <Text style={{ fontSize: 11, fontWeight: "800", color: "#fff", letterSpacing: 1.5 }}>{t.createAPost}</Text>
                             </Pressable>
                         </View>
                     ) : (
@@ -345,7 +340,7 @@ export default function MyPostsScreen() {
                                                         <Text style={styles.livePillText}>{t.liveBadge}</Text>
                                                     </View>
                                                 )}
-                                                <Text style={styles.editedAt}>{relativeTime(post.updatedAt)}</Text>
+                                                <Text style={styles.editedAt}>{timeAgo(post.updatedAt, lang)}</Text>
                                             </View>
                                         </View>
 

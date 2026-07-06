@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../lib/ThemeContext";
+import { useReduceMotion } from "../lib/useReduceMotion";
 
 type Props = {
     visible: boolean;
@@ -38,23 +39,26 @@ export default function BottomSheet({ visible, onClose, children, title, count }
     const [mounted, setMounted] = useState(false);
     const slideAnim = useRef(new Animated.Value(600)).current;
     const backdropAnim = useRef(new Animated.Value(0)).current;
+    const reduceMotion = useReduceMotion();
 
     useEffect(() => {
         if (visible) {
             setMounted(true);
-            slideAnim.setValue(600);
-            backdropAnim.setValue(0);
+            slideAnim.setValue(reduceMotion ? 0 : 600);
+            backdropAnim.setValue(reduceMotion ? 1 : 0);
             Animated.parallel([
-                Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 62, friction: 11 }),
-                Animated.timing(backdropAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
+                reduceMotion
+                    ? Animated.timing(slideAnim, { toValue: 0, duration: 0, useNativeDriver: true })
+                    : Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 62, friction: 11 }),
+                Animated.timing(backdropAnim, { toValue: 1, duration: reduceMotion ? 0 : 220, useNativeDriver: true }),
             ]).start();
         } else if (mounted) {
             Animated.parallel([
-                Animated.timing(slideAnim, { toValue: 600, duration: 240, useNativeDriver: true }),
-                Animated.timing(backdropAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+                Animated.timing(slideAnim, { toValue: 600, duration: reduceMotion ? 0 : 240, useNativeDriver: true }),
+                Animated.timing(backdropAnim, { toValue: 0, duration: reduceMotion ? 0 : 200, useNativeDriver: true }),
             ]).start(() => setMounted(false));
         }
-    }, [visible]);
+    }, [visible, reduceMotion]);
 
     const content = title !== undefined ? (
         <View style={[s.surface, { backgroundColor: C.surface, maxHeight: height * 0.85 }]}>

@@ -236,8 +236,8 @@ export default function ClubOnboarding() {
                 <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
                     {/* Header */}
                     <View style={s.header}>
-                        <Text style={s.heading}>Set Up Your Club</Text>
-                        <Text style={s.subheading}>Help students discover who you are.</Text>
+                        <Text style={s.heading}>{t.obSetUpClub}</Text>
+                        <Text style={s.subheading}>{t.obHelpDiscover}</Text>
 
                         {/* Step indicators */}
                         <View style={s.stepRow}>
@@ -264,27 +264,27 @@ export default function ClubOnboarding() {
                         {/* ── Step 1: Identity ── */}
                         {step === 1 && (
                             <View style={s.card}>
-                                <Text style={s.cardTitle}>CLUB IDENTITY</Text>
+                                <Text style={s.cardTitle}>{t.obClubIdentity}</Text>
 
-                                <Text style={s.label}>Club Name</Text>
+                                <Text style={s.label}>{t.obClubName}</Text>
                                 <TextInput
                                     style={s.input}
                                     value={clubName}
                                     onChangeText={setClubName}
-                                    placeholder="e.g. Computer Science Society"
+                                    placeholder={t.phClubName}
                                     placeholderTextColor={C.textLight}
                                 />
 
-                                <Text style={s.label}>Category</Text>
+                                <Text style={s.label}>{t.obCategory}</Text>
                                 <TextInput
                                     style={s.input}
                                     value={category}
                                     onChangeText={setCategory}
-                                    placeholder="e.g. Academic, Sports, Arts"
+                                    placeholder={t.phCategory}
                                     placeholderTextColor={C.textLight}
                                 />
 
-                                <Text style={s.label}>Description</Text>
+                                <Text style={s.label}>{t.obDescription}</Text>
                                 <TextInput
                                     style={[s.input, s.multiline]}
                                     value={description}
@@ -297,7 +297,7 @@ export default function ClubOnboarding() {
 
                                 <View style={s.actions}>
                                     <Pressable style={s.skipBtn} onPress={() => setStep(2)}>
-                                        <Text style={s.skipBtnText}>Skip for now</Text>
+                                        <Text style={s.skipBtnText}>{t.obSkipForNow}</Text>
                                     </Pressable>
                                     <Pressable
                                         style={[s.nextBtn, !clubName.trim() && s.nextBtnDisabled]}
@@ -306,7 +306,7 @@ export default function ClubOnboarding() {
                                             setStep(2);
                                         }}
                                     >
-                                        <Text style={s.nextBtnText}>Next</Text>
+                                        <Text style={s.nextBtnText}>{t.obNext}</Text>
                                         <Ionicons name="arrow-forward" size={14} color="#fff" />
                                     </Pressable>
                                 </View>
@@ -318,7 +318,7 @@ export default function ClubOnboarding() {
                             <View style={s.card}>
                                 <Text style={s.cardTitle}>CONTACT & VISUALS</Text>
 
-                                <Text style={s.label}>Logo URL</Text>
+                                <Text style={s.label}>{t.obLogoUrl}</Text>
                                 <TextInput
                                     style={s.input}
                                     value={logoUrl}
@@ -328,14 +328,14 @@ export default function ClubOnboarding() {
                                     autoCapitalize="none"
                                     keyboardType="url"
                                 />
-                                <Text style={s.hint}>A direct link to your club logo image</Text>
+                                <Text style={s.hint}>{t.obLogoUrlHint}</Text>
 
-                                <Text style={s.label}>Contact Email</Text>
+                                <Text style={s.label}>{t.obContactEmail}</Text>
                                 <TextInput
                                     style={s.input}
                                     value={contactEmail}
                                     onChangeText={setContactEmail}
-                                    placeholder="contact@yourclub.com"
+                                    placeholder={t.phContactEmail}
                                     placeholderTextColor={C.textLight}
                                     autoCapitalize="none"
                                     keyboardType="email-address"
@@ -344,10 +344,10 @@ export default function ClubOnboarding() {
                                 <View style={s.actions}>
                                     <Pressable style={s.backBtn} onPress={() => setStep(1)}>
                                         <Ionicons name="arrow-back" size={14} color={C.textMuted} />
-                                        <Text style={s.backBtnText}>Back</Text>
+                                        <Text style={s.backBtnText}>{t.obBack}</Text>
                                     </Pressable>
                                     <Pressable style={s.nextBtn} onPress={() => setStep(3)}>
-                                        <Text style={s.nextBtnText}>Next</Text>
+                                        <Text style={s.nextBtnText}>{t.obNext}</Text>
                                         <Ionicons name="arrow-forward" size={14} color="#fff" />
                                     </Pressable>
                                 </View>
@@ -357,30 +357,30 @@ export default function ClubOnboarding() {
                         {/* ── Step 3: Socials ── */}
                         {step === 3 && (
                             <View style={s.card}>
-                                <Text style={s.cardTitle}>SOCIAL LINKS</Text>
-                                <Text style={s.cardSubtitle}>Optional — helps students find you off-platform.</Text>
+                                <Text style={s.cardTitle}>{t.obSocialLinks}</Text>
+                                <Text style={s.cardSubtitle}>{t.obSocialLinksHint}</Text>
 
-                                <Text style={s.label}>Instagram</Text>
+                                <Text style={s.label}>{t.obInstagram}</Text>
                                 <View style={s.prefixInput}>
                                     <Text style={s.prefix}>@</Text>
                                     <TextInput
                                         style={s.prefixField}
                                         value={instagram}
                                         onChangeText={setInstagram}
-                                        placeholder="yourclub"
+                                        placeholder={t.phSocialHandle}
                                         placeholderTextColor={C.textLight}
                                         autoCapitalize="none"
                                     />
                                 </View>
 
-                                <Text style={s.label}>Twitter / X</Text>
+                                <Text style={s.label}>{t.obTwitter}</Text>
                                 <View style={s.prefixInput}>
                                     <Text style={s.prefix}>@</Text>
                                     <TextInput
                                         style={s.prefixField}
                                         value={twitter}
                                         onChangeText={setTwitter}
-                                        placeholder="yourclub"
+                                        placeholder={t.phSocialHandle}
                                         placeholderTextColor={C.textLight}
                                         autoCapitalize="none"
                                     />
@@ -389,13 +389,13 @@ export default function ClubOnboarding() {
                                 <View style={s.actions}>
                                     <Pressable style={s.backBtn} onPress={() => setStep(2)}>
                                         <Ionicons name="arrow-back" size={14} color={C.textMuted} />
-                                        <Text style={s.backBtnText}>Back</Text>
+                                        <Text style={s.backBtnText}>{t.obBack}</Text>
                                     </Pressable>
                                     <Pressable style={s.nextBtn} onPress={finish} disabled={saving}>
                                         {saving
                                             ? <ActivityIndicator color="#fff" size="small" />
                                             : <>
-                                                <Text style={s.nextBtnText}>Done</Text>
+                                                <Text style={s.nextBtnText}>{t.obDone}</Text>
                                                 <Ionicons name="checkmark" size={14} color="#fff" />
                                             </>
                                         }
@@ -408,7 +408,7 @@ export default function ClubOnboarding() {
                             await completeOnboarding();
                             router.replace("/(tabs)");
                         }}>
-                            <Text style={s.laterText}>I'll do this later</Text>
+                            <Text style={s.laterText}>{t.obDoThisLater}</Text>
                         </Pressable>
                     </ScrollView>
                 </SafeAreaView>

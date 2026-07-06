@@ -23,6 +23,8 @@ import { useToast } from "../../lib/ToastContext";
 import { PostDetailSkeleton, ErrorRetry } from "../../components/SkeletonLoader";
 import { useTheme } from "../../lib/ThemeContext";
 import type { AppColors } from "../../styles/theme";
+import { translateCategory } from "../../lib/categories";
+import { timeAgo, localeFor } from "../../lib/datetime";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -87,10 +89,10 @@ type RecapData = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmtDate(iso?: string) {
+function fmtDate(iso: string | undefined, lang: string) {
     if (!iso) return "";
     const d = new Date(iso);
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }).toUpperCase();
+    return d.toLocaleDateString(localeFor(lang), { month: "short", day: "numeric", year: "numeric" }).toUpperCase();
 }
 
 function fmtTime(iso?: string) {
@@ -109,15 +111,6 @@ function isLive(startAt?: string, endAt?: string): boolean {
     const start = new Date(startAt);
     const end = endAt ? new Date(endAt) : new Date(start.getTime() + 2 * 3600000);
     return now >= start && now <= end;
-}
-
-function timeAgo(iso: string): string {
-    const diff = Date.now() - new Date(iso).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
 }
 
 const calKey = (postId: string) => `calendarEvent:${postId}`;
@@ -560,7 +553,7 @@ export default function EventPage() {
     const clubName = event?.club?.clubName?.toUpperCase() ?? "";
     const clubId = event?.club?.id ?? "";
     const location = event?.locationName ?? "";
-    const date = fmtDate(event?.startAt);
+    const date = fmtDate(event?.startAt, lang);
     const startTime = fmtTime(event?.startAt);
     const endTime = fmtTime(event?.endAt);
     const timeStr = startTime && endTime ? `${startTime} – ${endTime}` : startTime;
@@ -590,7 +583,7 @@ export default function EventPage() {
             {/* ── Top bar ── */}
             <View style={styles.topBar}>
                 <View style={styles.topBarRow}>
-                    <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)" as any)} style={styles.backBtn} hitSlop={8} accessibilityLabel="Go back" accessibilityRole="button">
+                    <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)" as any)} style={styles.backBtn} hitSlop={8} accessibilityLabel={t.goBackLabel} accessibilityRole="button">
                         <Ionicons name="arrow-back" size={18} color="#111827" />
                     </Pressable>
                     <View style={styles.topBarActions}>
@@ -605,7 +598,7 @@ export default function EventPage() {
                                 <Ionicons name="eye-outline" size={19} color="#D97706" />
                             </Pressable>
                         )}
-                        <Pressable onPress={() => Share.share({ title, message: `${title}\n\n${API_BASE}/share/event/${id}` })} style={styles.topBarBtn} hitSlop={8} accessibilityLabel="Share event" accessibilityRole="button">
+                        <Pressable onPress={() => Share.share({ title, message: `${title}\n\n${API_BASE}/share/event/${id}` })} style={styles.topBarBtn} hitSlop={8} accessibilityLabel={t.shareEventLabel} accessibilityRole="button">
                             <Ionicons name="share-outline" size={19} color="#111827" />
                         </Pressable>
                         {isPostOwner ? (
@@ -623,7 +616,7 @@ export default function EventPage() {
                                     style={styles.topBarBtn}
                                     hitSlop={8}
                                     onPress={() => router.push({ pathname: "/edit/[id]", params: { id } } as any)}
-                                    accessibilityLabel="Edit event"
+                                    accessibilityLabel={t.editEventLabel}
                                     accessibilityRole="button"
                                 >
                                     <Ionicons name="create-outline" size={19} color="#111827" />
@@ -656,7 +649,7 @@ export default function EventPage() {
                                     style={styles.topBarBtn}
                                     hitSlop={8}
                                     onPress={() => reportPost()}
-                                    accessibilityLabel="Report event"
+                                    accessibilityLabel={t.reportEventLabel}
                                     accessibilityRole="button"
                                 >
                                     <Ionicons name="flag-outline" size={19} color="#9CA3AF" />
@@ -677,25 +670,25 @@ export default function EventPage() {
                     >
                         {(event.categories ?? []).map((cat) => (
                             <View key={cat} style={styles.categoryPill}>
-                                <Text style={styles.categoryPillText}>{cat.toUpperCase()}</Text>
+                                <Text style={styles.categoryPillText}>{translateCategory(cat, lang).toUpperCase()}</Text>
                             </View>
                         ))}
                         {!!event.freeFood && (
                             <View style={[styles.categoryPill, styles.freeFoodPill]}>
                                 <Text style={{ fontSize: 9 }}>🍕</Text>
-                                <Text style={[styles.categoryPillText, styles.freeFoodPillText]}>FREE FOOD</Text>
+                                <Text style={[styles.categoryPillText, styles.freeFoodPillText]}>{t.freeFoodBadge}</Text>
                             </View>
                         )}
                         {!!event.seriesId && (
                             <View style={[styles.categoryPill, styles.recurringPill]}>
                                 <Ionicons name="repeat" size={9} color="#8C0327" />
-                                <Text style={[styles.categoryPillText, styles.recurringPillText]}>RECURRING EVENT</Text>
+                                <Text style={[styles.categoryPillText, styles.recurringPillText]}>{t.recurringEventBadge}</Text>
                             </View>
                         )}
                         {event.followersOnly && (
                             <View style={[styles.categoryPill, styles.followersOnlyPill]}>
                                 <Ionicons name="people" size={9} color="#1D4ED8" />
-                                <Text style={[styles.categoryPillText, styles.followersOnlyPillText]}>FOLLOWERS ONLY</Text>
+                                <Text style={[styles.categoryPillText, styles.followersOnlyPillText]}>{t.followersOnlyBadge}</Text>
                             </View>
                         )}
                     </ScrollView>
@@ -706,14 +699,14 @@ export default function EventPage() {
             {isExpired && (
                 <View style={styles.expiryBanner}>
                     <Ionicons name="archive-outline" size={14} color="#9CA3AF" />
-                    <Text style={styles.expiryBannerText}>THIS POST HAS EXPIRED</Text>
+                    <Text style={styles.expiryBannerText}>{t.postExpired}</Text>
                 </View>
             )}
             {!isExpired && event.expiresAt && (
                 <View style={[styles.expiryBanner, styles.expiryBannerWarn]}>
                     <Ionicons name="time-outline" size={14} color="#D97706" />
                     <Text style={[styles.expiryBannerText, styles.expiryBannerWarnText]}>
-                        EXPIRES {new Date(event.expiresAt).toLocaleDateString("en-CA", { month: "short", day: "numeric" }).toUpperCase()}
+                        EXPIRES {new Date(event.expiresAt).toLocaleDateString(localeFor(lang), { month: "short", day: "numeric" }).toUpperCase()}
                     </Text>
                 </View>
             )}
@@ -803,7 +796,7 @@ export default function EventPage() {
                     {!!location && (
                         <>
                             <View style={styles.hairline} />
-                            <Pressable style={styles.locationRow} onPress={() => openMaps(event?.address || location)} accessibilityRole="button" accessibilityLabel="Get directions">
+                            <Pressable style={styles.locationRow} onPress={() => openMaps(event?.address || location)} accessibilityRole="button" accessibilityLabel={t.getDirectionsLabel}>
                                 <Ionicons name="location-outline" size={16} color="#8C0327" style={{ marginTop: 2 }} />
                                 <View style={{ flex: 1, gap: 2 }}>
                                     <Text style={styles.locationLabel}>{t.location}</Text>
@@ -849,7 +842,7 @@ export default function EventPage() {
                         </View>
                     )}
                     {event.hideAttendeeList && !isPostOwner && attendees > 0 && !event.hideRsvpCount && (
-                        <Text style={styles.hiddenListNote}>Attendee list is private</Text>
+                        <Text style={styles.hiddenListNote}>{t.attendeeListPrivate}</Text>
                     )}
                     {capacity != null && !event.hideRsvpCount && (
                         <View style={styles.capacityWrap}>
@@ -957,10 +950,10 @@ export default function EventPage() {
                 {/* ── Post-event recap ── */}
                 {isPast && recap && (
                     <View style={styles.recapSection} onLayout={(e) => { recapSectionY.current = e.nativeEvent.layout.y; }}>
-                        <Text style={styles.recapEyebrow}>EVENT RECAP</Text>
+                        <Text style={styles.recapEyebrow}>{t.eventRecapLabel}</Text>
                         <View style={styles.recapAccent} />
                         {!recap.visible ? (
-                            <Text style={styles.recapEmpty}>This recap is private to attendees.</Text>
+                            <Text style={styles.recapEmpty}>{t.recapPrivateMsg}</Text>
                         ) : (
                             <>
                                 <View style={styles.recapRatingRow}>
@@ -975,7 +968,7 @@ export default function EventPage() {
                                             <Text style={styles.recapCount}>({recap.ratingCount})</Text>
                                         </>
                                     ) : (
-                                        <Text style={styles.recapCount}>No ratings yet</Text>
+                                        <Text style={styles.recapCount}>{t.noRatingsYet}</Text>
                                     )}
                                 </View>
 
@@ -1015,7 +1008,7 @@ export default function EventPage() {
                                 ) : (
                                     <>
                                     <View style={styles.recapPhotosHeader}>
-                                        <Text style={styles.recapPhotosLabel}>PHOTOS</Text>
+                                        <Text style={styles.recapPhotosLabel}>{t.photosLabel}</Text>
                                         {recap.canContribute && (
                                             <Pressable onPress={addRecapPhoto} disabled={recapUploading} style={styles.recapAddBtn} accessibilityRole="button" accessibilityLabel="Add a photo">
                                                 <Ionicons name="camera-outline" size={14} color="#8C0327" />
@@ -1035,7 +1028,7 @@ export default function EventPage() {
                                                 {p.status === "PENDING" && !p.canModerate && (
                                                     <View style={styles.recapPendingBadge}>
                                                         <Ionicons name="time-outline" size={11} color="#fff" />
-                                                        <Text style={styles.recapPendingText}>Pending</Text>
+                                                        <Text style={styles.recapPendingText}>{t.recapPendingBadge}</Text>
                                                     </View>
                                                 )}
                                                 {p.canModerate ? (
@@ -1074,14 +1067,14 @@ export default function EventPage() {
                         </Pressable>
                     </View>
                     {recommended.length === 0 ? (
-                        <Text style={{ fontSize: 13, color: "#9CA3AF" }}>No upcoming events found.</Text>
+                        <Text style={{ fontSize: 13, color: "#9CA3AF" }}>{t.noUpcomingEvents}</Text>
                     ) : (
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recommendedScroll}>
                         {recommended.map((rec) => {
                             const recLocale = pickLocale(rec.locales, lang);
                             const recTitle = recLocale.title ?? "Untitled Event";
                             const recDate = rec.startAt
-                                ? new Date(rec.startAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase()
+                                ? new Date(rec.startAt).toLocaleDateString(localeFor(lang), { month: "short", day: "numeric" }).toUpperCase()
                                 : "";
                             const recAttending = rec._count?.rsvps ?? 0;
                             const recClub = (rec.clubName ?? rec.club?.clubName ?? "EVENT").toUpperCase();
@@ -1219,7 +1212,7 @@ export default function EventPage() {
                                             <View style={styles.commentMeta}>
                                                 <Text style={styles.commentName}>{name}</Text>
                                                 {isClub && <View style={styles.clubBadge}><Text style={styles.clubBadgeText}>{t.clubBadge}</Text></View>}
-                                                <Text style={styles.commentTime}>{timeAgo(c.createdAt)}</Text>
+                                                <Text style={styles.commentTime}>{timeAgo(c.createdAt, lang)}</Text>
                                                 <View style={{ flexDirection: "row", gap: 10, marginLeft: "auto" }}>
                                                     {!isPostOwner && (
                                                         <Pressable onPress={() => reportComment(c.id)} hitSlop={8}
@@ -1299,7 +1292,7 @@ export default function EventPage() {
                                                             <View style={styles.commentMeta}>
                                                                 <Text style={styles.commentName}>{rName}</Text>
                                                                 {rIsClub && <View style={styles.clubBadge}><Text style={styles.clubBadgeText}>{t.clubBadge}</Text></View>}
-                                                                <Text style={styles.commentTime}>{timeAgo(r.createdAt)}</Text>
+                                                                <Text style={styles.commentTime}>{timeAgo(r.createdAt, lang)}</Text>
                                                                 <View style={{ flexDirection: "row", gap: 10, marginLeft: "auto" }}>
                                                                     {!isPostOwner && (
                                                                         <Pressable onPress={() => reportComment(r.id)} hitSlop={8}

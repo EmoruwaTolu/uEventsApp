@@ -8,13 +8,24 @@ bottom — the backend must be deployed before the app build is useful.
 ## 1. Backend — deploy the latest code to Render
 
 The app now depends on backend changes (attendance streak/free-meals, hero
-`rsvpPreview`, feed `isBookmarked`, club signup). Until Render runs the updated
-code, those features silently fall back to empty/zero.
+`rsvpPreview`, feed `isBookmarked`, club signup, moderation/reports, weekly
+digest, club approval + calendar feed, and top-comment upvotes). Until Render
+runs the updated code, those features silently fall back to empty/zero.
 
 - [ ] Commit and push the `backend/` changes to the branch Render deploys from.
 - [ ] Confirm Render auto-deployed (or trigger a manual **Deploy → Deploy latest commit**).
 - [ ] Watch the deploy logs for a clean build + start (Prisma client generates on build).
-- [ ] No new database migration is required — schema is unchanged this round.
+- [ ] **Run the pending migrations against production.** The build only runs
+      `prisma generate && tsc` — it does **not** apply migrations automatically.
+      Several migrations were added since the last deploy (moderation, feed
+      signals, recap moderation + digest, club approval + calendar, and the
+      `CommentUpvote` table for top comments). If any are unapplied, those
+      features will 500 against the live DB. Apply them one of two ways:
+  - Locally, pointing at the production `DATABASE_URL`:
+    `cd backend && npx prisma migrate deploy`, **or**
+  - Add `prisma migrate deploy` to the Render build/pre-deploy command so it
+    runs on every deploy (recommended going forward).
+- [ ] Confirm `npx prisma migrate status` reports "Database schema is up to date."
 
 **Env vars (Render → service → Environment).** Confirm these are set:
 

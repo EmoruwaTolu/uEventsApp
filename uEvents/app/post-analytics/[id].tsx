@@ -10,6 +10,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useApi } from "../../lib/useApi";
 import { API_BASE } from "../../lib/api";
 import { useLang, useT } from "../../lib/LangContext";
+import { timeAgo } from "../../lib/datetime";
 import { useTheme } from "../../lib/ThemeContext";
 import type { AppColors } from "../../styles/theme";
 
@@ -73,16 +74,6 @@ function fmtNum(n: number): string {
     return String(n);
 }
 
-function timeAgo(iso: string): string {
-    const diff = Date.now() - new Date(iso).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    const days = Math.floor(hrs / 24);
-    if (days < 7) return `${days}d ago`;
-    return `${Math.floor(days / 7)}w ago`;
-}
 
 const BAR_MAX_H = 72;
 
@@ -660,7 +651,7 @@ export default function PostAnalyticsDetail() {
         return (
             <SafeAreaView style={s.safe} edges={["top"]}>
                 <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-                    <Text style={{ color: C.textLight, fontSize: 13 }}>Post not found.</Text>
+                    <Text style={{ color: C.textLight, fontSize: 13 }}>{t.postNotFound}</Text>
                 </View>
             </SafeAreaView>
         );
@@ -673,7 +664,7 @@ export default function PostAnalyticsDetail() {
                 <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)" as any)} style={s.topBarSide} hitSlop={8} accessibilityRole="button" accessibilityLabel="Go back">
                     <Ionicons name="arrow-back" size={18} color={C.text} />
                 </Pressable>
-                <Text style={s.topBarTitle}>POST ANALYTICS</Text>
+                <Text style={s.topBarTitle}>{t.postAnalyticsTitle}</Text>
                 <Pressable
                     style={s.topBarSide}
                     onPress={() => Share.share({ title: post.title, message: `${post.title}\n\n${API_BASE}/share/post/${id}` })}
@@ -746,16 +737,16 @@ export default function PostAnalyticsDetail() {
                 {post.rsvpTotal != null && (
                     <View style={s.rsvpCard}>
                         <View style={s.rsvpHeadRow}>
-                            <Text style={s.rsvpHeadLabel}>RSVP BREAKDOWN</Text>
+                            <Text style={s.rsvpHeadLabel}>{t.rsvpBreakdown}</Text>
                             <View style={{ flexDirection: "row", gap: 8 }}>
                                 <Pressable style={s.attendeesBtn} onPress={openAttendees}>
                                     <Ionicons name="people-outline" size={13} color="#fff" />
-                                    <Text style={s.attendeesBtnText}>ATTENDEES</Text>
+                                    <Text style={s.attendeesBtnText}>{t.attendeesLabel}</Text>
                                 </Pressable>
                                 {attendees.length > 0 && (
                                     <Pressable style={[s.attendeesBtn, { backgroundColor: "#374151" }]} onPress={exportAttendees}>
                                         <Ionicons name="share-outline" size={13} color="#fff" />
-                                        <Text style={s.attendeesBtnText}>EXPORT</Text>
+                                        <Text style={s.attendeesBtnText}>{t.exportLabel}</Text>
                                     </Pressable>
                                 )}
                             </View>
@@ -773,11 +764,11 @@ export default function PostAnalyticsDetail() {
                 {/* ── RSVP demographics ── */}
                 {post.rsvpDemographics && (
                     <View style={s.rsvpCard}>
-                        <Text style={s.rsvpHeadLabel}>ATTENDEE DEMOGRAPHICS</Text>
+                        <Text style={s.rsvpHeadLabel}>{t.attendeeDemographics}</Text>
 
                         {post.rsvpDemographics.yearBreakdown.length > 0 && (
                             <>
-                                <Text style={s.demoSectionLabel}>BY YEAR</Text>
+                                <Text style={s.demoSectionLabel}>{t.byYearLabel}</Text>
                                 {post.rsvpDemographics.yearBreakdown.map((item) => (
                                     <View key={item.label} style={s.demoRow}>
                                         <Text style={s.demoLabel}>{item.label}</Text>
@@ -792,7 +783,7 @@ export default function PostAnalyticsDetail() {
 
                         {post.rsvpDemographics.programBreakdown.length > 0 && (
                             <>
-                                <Text style={[s.demoSectionLabel, { marginTop: 14 }]}>BY PROGRAM</Text>
+                                <Text style={[s.demoSectionLabel, { marginTop: 14 }]}>{t.byProgramLabel}</Text>
                                 {post.rsvpDemographics.programBreakdown.map((item) => (
                                     <View key={item.label} style={s.demoRow}>
                                         <Text style={s.demoLabel} numberOfLines={1}>{item.label}</Text>
@@ -811,10 +802,10 @@ export default function PostAnalyticsDetail() {
                 {post.pollOptions && (
                     <View style={s.rsvpCard}>
                         <View style={s.rsvpHeadRow}>
-                            <Text style={s.rsvpHeadLabel}>POLL RESULTS</Text>
+                            <Text style={s.rsvpHeadLabel}>{t.pollResultsLabel}</Text>
                             <Pressable style={s.attendeesBtn} onPress={exportPollResults}>
                                 <Ionicons name="share-outline" size={13} color="#fff" />
-                                <Text style={s.attendeesBtnText}>EXPORT</Text>
+                                <Text style={s.attendeesBtnText}>{t.exportLabel}</Text>
                             </Pressable>
                         </View>
                         <View style={s.rsvpTotalRow}>
@@ -852,11 +843,11 @@ export default function PostAnalyticsDetail() {
                 {/* ── Poll voter demographics ── */}
                 {post.pollDemographics && (
                     <View style={s.rsvpCard}>
-                        <Text style={s.rsvpHeadLabel}>VOTER DEMOGRAPHICS</Text>
+                        <Text style={s.rsvpHeadLabel}>{t.voterDemographics}</Text>
 
                         {post.pollDemographics.yearBreakdown.length > 0 && (
                             <>
-                                <Text style={s.demoSectionLabel}>BY YEAR</Text>
+                                <Text style={s.demoSectionLabel}>{t.byYearLabel}</Text>
                                 {post.pollDemographics.yearBreakdown.map((item) => (
                                     <View key={item.label} style={s.demoRow}>
                                         <Text style={s.demoLabel}>{item.label}</Text>
@@ -871,7 +862,7 @@ export default function PostAnalyticsDetail() {
 
                         {post.pollDemographics.programBreakdown.length > 0 && (
                             <>
-                                <Text style={[s.demoSectionLabel, { marginTop: 14 }]}>BY PROGRAM</Text>
+                                <Text style={[s.demoSectionLabel, { marginTop: 14 }]}>{t.byProgramLabel}</Text>
                                 {post.pollDemographics.programBreakdown.map((item) => (
                                     <View key={item.label} style={s.demoRow}>
                                         <Text style={s.demoLabel} numberOfLines={1}>{item.label}</Text>
@@ -889,7 +880,7 @@ export default function PostAnalyticsDetail() {
                 {/* ── Engagement by class year ── */}
                 {post.classYear && (
                     <View style={s.chartCard}>
-                        <Text style={s.chartLabel}>ENGAGEMENT BY CLASS YEAR</Text>
+                        <Text style={s.chartLabel}>{t.engagementByYear}</Text>
                         <View style={s.chartBars}>
                             {post.classYear.map((item) => (
                                 <View key={item.label} style={s.chartBarCol}>
@@ -928,7 +919,7 @@ export default function PostAnalyticsDetail() {
                                 <View style={{ flex: 1 }}>
                                     <Text style={s.feedbackName}>{item.user.name}</Text>
                                 </View>
-                                <Text style={s.feedbackTime}>{timeAgo(item.createdAt)}</Text>
+                                <Text style={s.feedbackTime}>{timeAgo(item.createdAt, lang)}</Text>
                             </View>
                             <Text style={s.feedbackQuote}>{item.content}</Text>
                         </View>
@@ -991,7 +982,7 @@ export default function PostAnalyticsDetail() {
                                 const topProgPct = topProgram ? Math.round((progMap[topProgram] / total) * 100) : null;
                                 return (
                                     <View style={s.attendeeDemoHeader}>
-                                        <Text style={s.attendeeDemoTitle}>QUICK STATS</Text>
+                                        <Text style={s.attendeeDemoTitle}>{t.quickStatsLabel}</Text>
                                         <View style={s.attendeeDemoRow}>
                                             {topYear && (
                                                 <View style={s.attendeeDemoChip}>
@@ -1029,7 +1020,7 @@ export default function PostAnalyticsDetail() {
                                             </Text>
                                         )}
                                     </View>
-                                    <Text style={s.feedbackTime}>{timeAgo(item.rsvpedAt)}</Text>
+                                    <Text style={s.feedbackTime}>{timeAgo(item.rsvpedAt, lang)}</Text>
                                 </View>
                             )}
                         />
@@ -1046,7 +1037,7 @@ export default function PostAnalyticsDetail() {
             >
                 <SafeAreaView style={s.modalSafe} edges={["top"]}>
                     <View style={s.modalHeader}>
-                        <Text style={s.modalTitle}>ALL COMMENTS</Text>
+                        <Text style={s.modalTitle}>{t.allCommentsLabel}</Text>
                         <Pressable onPress={() => setCommentsOpen(false)} style={s.modalClose} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close">
                             <Ionicons name="close" size={20} color={C.text} />
                         </Pressable>
@@ -1080,7 +1071,7 @@ export default function PostAnalyticsDetail() {
                                                 {[item.user.firstName, item.user.lastName].filter(Boolean).join(" ") || "Anonymous"}
                                             </Text>
                                         </View>
-                                        <Text style={s.feedbackTime}>{timeAgo(item.createdAt)}</Text>
+                                        <Text style={s.feedbackTime}>{timeAgo(item.createdAt, lang)}</Text>
                                         <Pressable onPress={() => deleteComment(item.id)} hitSlop={8} style={{ marginLeft: 8 }} accessibilityRole="button" accessibilityLabel="Delete comment">
                                             <Ionicons name="trash-outline" size={15} color={C.textFaint} />
                                         </Pressable>

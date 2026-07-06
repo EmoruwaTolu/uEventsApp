@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { View, Text, Pressable, Image, FlatList } from "react-native";
 import { makeFollowedStyles } from "../styles/followed-accounts.styles";
 import { useTheme } from "../lib/ThemeContext";
+import { useT } from "../lib/LangContext";
 
 export type Account = { id: string; name: string; avatarUri?: string };
 
@@ -12,6 +13,7 @@ type Props = {
 };
 
 export default function FollowedAccounts({ accounts, onAccountPress, onViewAll }: Props) {
+    const t = useT();
     const { colors: C } = useTheme();
     const styles = useMemo(() => makeFollowedStyles(C), [C]);
     if (!accounts.length) return null;
@@ -19,9 +21,9 @@ export default function FollowedAccounts({ accounts, onAccountPress, onViewAll }
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.headerLabel}>Following</Text>
+                <Text style={styles.headerLabel}>{t.followingShort}</Text>
                 <Pressable onPress={onViewAll}>
-                    <Text style={styles.viewAll}>View All</Text>
+                    <Text style={styles.viewAll}>{t.viewAllShort}</Text>
                 </Pressable>
             </View>
             <FlatList

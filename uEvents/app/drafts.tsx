@@ -14,7 +14,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useApi } from "../lib/useApi";
 import { useToast } from "../lib/ToastContext";
-import { useT } from "../lib/LangContext";
+import { useT, useLang } from "../lib/LangContext";
+import { timeAgo } from "../lib/datetime";
 import type { DraftType } from "../lib/draftsStore";
 import { useTheme } from "../lib/ThemeContext";
 import type { AppColors } from "../styles/theme";
@@ -47,14 +48,7 @@ function getPreview(draft: ApiDraft): string {
     return locale.body ?? "";
 }
 
-function relativeTime(iso: string): string {
-    const diff = Date.now() - new Date(iso).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
-}
+
 
 function fmtScheduled(iso: string): string {
     const d = new Date(iso);
@@ -69,12 +63,18 @@ const TYPE_META: Record<DraftType, { label: string; icon: any; color: string; bg
     poll:         { label: "POLL",         icon: "grid",           color: "#1D4ED8", bg: "#DBEAFE" },
 };
 
-const FILTERS: { key: FilterType; label: string }[] = [
-    { key: "all",          label: "ALL" },
-    { key: "event",        label: "EVENTS" },
-    { key: "announcement", label: "ANNOUNCEMENTS" },
-    { key: "poll",         label: "POLLS" },
+const FILTERS: { key: FilterType }[] = [
+    { key: "all" },
+    { key: "event" },
+    { key: "announcement" },
+    { key: "poll" },
 ];
+const FILTER_LABELS = (t: any): Record<FilterType, string> => ({
+    all: t.filterAllTab,
+    event: t.filterEventsTab,
+    announcement: t.filterAnnouncementsTab,
+    poll: t.pollsTab,
+});
 
 const makeDraftsStyles = (C: AppColors) => StyleSheet.create({
     safe: { flex: 1, backgroundColor: C.bg },
@@ -167,6 +167,7 @@ export default function DraftsScreen() {
     const { showToast } = useToast();
     const { colors: C } = useTheme();
     const t = useT();
+    const { lang } = useLang();
     const styles = useMemo(() => makeDraftsStyles(C), [C]);
     const [drafts, setDrafts] = useState<ApiDraft[]>([]);
     const [loading, setLoading] = useState(true);
@@ -243,7 +244,7 @@ export default function DraftsScreen() {
             <View style={styles.topBar}>
                 <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)" as any)} style={styles.backGroup}>
                     <Ionicons name="arrow-back" size={18} color={C.primary} />
-                    <Text style={styles.backLabel}>BACK</Text>
+                    <Text style={styles.backLabel}>{t.back}</Text>
                 </Pressable>
                 <Text style={styles.topBarCount}>{unscheduled.length} DRAFT{unscheduled.length !== 1 ? "S" : ""}{scheduled.length > 0 ? ` · ${scheduled.length} SCHEDULED` : ""}</Text>
             </View>
@@ -251,7 +252,7 @@ export default function DraftsScreen() {
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadDrafts(true)} tintColor={C.primary} />}>
                 {/* Hero */}
                 <View style={styles.hero}>
-                    <Text style={styles.heroLabel}>EDITOR DASHBOARD</Text>
+                    <Text style={styles.heroLabel}>{t.editorDashboard}</Text>
                     <Text style={styles.heroHeading}>YOUR{"\n"}DRAFTS</Text>
                     <View style={styles.heroAccent} />
                 </View>
@@ -262,14 +263,16 @@ export default function DraftsScreen() {
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.filterRow}
                 >
-                    {FILTERS.map(({ key, label }) => (
+                    {FILTERS.map(({ key }) => (
                         <Pressable
                             key={key}
                             onPress={() => setFilter(key)}
                             style={[styles.filterPill, filter === key && styles.filterPillActive]}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: filter === key }}
                         >
                             <Text style={[styles.filterPillText, filter === key && styles.filterPillTextActive]}>
-                                {label}
+                                {FILTER_LABELS(t)[key]}
                             </Text>
                         </Pressable>
                     ))}
@@ -280,9 +283,9 @@ export default function DraftsScreen() {
                 ) : error ? (
                     <View style={styles.emptyState}>
                         <Ionicons name="cloud-offline-outline" size={32} color={C.textFaint} />
-                        <Text style={styles.emptyText}>COULDN'T LOAD DRAFTS</Text>
+                        <Text style={styles.emptyText}>{t.couldntLoadDrafts}</Text>
                         <Pressable style={styles.errorRetry} onPress={() => loadDrafts()}>
-                            <Text style={styles.errorRetryText}>RETRY</Text>
+                            <Text style={styles.errorRetryText}>{t.retry}</Text>
                         </Pressable>
                     </View>
                 ) : (
@@ -290,7 +293,7 @@ export default function DraftsScreen() {
                         {/* Scheduled queue */}
                         {visibleScheduled.length > 0 && (
                             <>
-                                <Text style={styles.sectionLabel}>SCHEDULED</Text>
+                                <Text style={styles.sectionLabel}>{t.scheduledBadge}</Text>
                                 <View style={styles.list}>
                                     {visibleScheduled.map((draft) => {
                                         const key = typeKey(draft.type);
@@ -320,7 +323,7 @@ export default function DraftsScreen() {
                                                     <View style={styles.cardFooter}>
                                                         <View style={styles.draftStatusRow}>
                                                             <View style={[styles.draftDot, { backgroundColor: "#1D4ED8" }]} />
-                                                            <Text style={styles.draftStatusText}>QUEUED</Text>
+                                                            <Text style={styles.draftStatusText}>{t.queuedBadge}</Text>
                                                         </View>
                                                         <View style={styles.cardActions}>
                                                             <Pressable
@@ -336,7 +339,7 @@ export default function DraftsScreen() {
                                                                 style={styles.editBtn}
                                                                 onPress={() => router.push({ pathname: "/edit/[id]", params: { id: draft.id } })}
                                                             >
-                                                                <Text style={styles.editBtnText}>EDIT</Text>
+                                                                <Text style={styles.editBtnText}>{t.editBtn}</Text>
                                                                 <Ionicons name="create-outline" size={12} color="#fff" />
                                                             </Pressable>
                                                         </View>
@@ -350,14 +353,14 @@ export default function DraftsScreen() {
                         )}
 
                         {/* Regular drafts */}
-                        <Text style={styles.sectionLabel}>DRAFTS</Text>
+                        <Text style={styles.sectionLabel}>{t.draftsTitle}</Text>
                         <View style={styles.list}>
                             {visible.length === 0 ? (
                                 <View style={styles.emptyState}>
                                     <Ionicons name="document-outline" size={32} color={C.textFaint} />
-                                    <Text style={styles.emptyText}>NO DRAFTS HERE</Text>
+                                    <Text style={styles.emptyText}>{t.noDraftsHere}</Text>
                                     <Pressable onPress={() => router.push("/(tabs)/create" as any)} style={{ marginTop: 4, backgroundColor: C.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 6 }} accessibilityRole="button" accessibilityLabel="Create a post">
-                                        <Text style={{ fontSize: 11, fontWeight: "800", color: "#fff", letterSpacing: 1.5 }}>CREATE A POST</Text>
+                                        <Text style={{ fontSize: 11, fontWeight: "800", color: "#fff", letterSpacing: 1.5 }}>{t.createAPost}</Text>
                                     </Pressable>
                                 </View>
                             ) : (
@@ -375,7 +378,7 @@ export default function DraftsScreen() {
                                                             {meta.label}
                                                         </Text>
                                                     </View>
-                                                    <Text style={styles.editedAt}>{relativeTime(draft.updatedAt)}</Text>
+                                                    <Text style={styles.editedAt}>{timeAgo(draft.updatedAt, lang)}</Text>
                                                 </View>
 
                                                 <Text style={styles.cardTitle} numberOfLines={2}>{getTitle(draft)}</Text>
@@ -384,7 +387,7 @@ export default function DraftsScreen() {
                                                 <View style={styles.cardFooter}>
                                                     <View style={styles.draftStatusRow}>
                                                         <View style={styles.draftDot} />
-                                                        <Text style={styles.draftStatusText}>DRAFT</Text>
+                                                        <Text style={styles.draftStatusText}>{t.draftBadge}</Text>
                                                     </View>
                                                     <View style={styles.cardActions}>
                                                         <Pressable
@@ -400,7 +403,7 @@ export default function DraftsScreen() {
                                                             style={styles.editBtn}
                                                             onPress={() => router.push({ pathname: "/edit/[id]", params: { id: draft.id } })}
                                                         >
-                                                            <Text style={styles.editBtnText}>CONTINUE</Text>
+                                                            <Text style={styles.editBtnText}>{t.continueBtn}</Text>
                                                             <Ionicons name="arrow-forward" size={12} color="#fff" />
                                                         </Pressable>
                                                     </View>

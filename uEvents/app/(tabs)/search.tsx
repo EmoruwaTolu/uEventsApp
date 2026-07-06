@@ -10,8 +10,10 @@ import { useAuth } from "../../auth/AuthContext";
 import { useRsvp } from "../../lib/RsvpContext";
 import { useLang, pickLocale } from "../../lib/LangContext";
 import { useTheme } from "../../lib/ThemeContext";
+import { useT } from "../../lib/LangContext";
 import type { AppColors } from "../../styles/theme";
 import { EVENT_TAGS } from "../../lib/eventTags";
+import { translateCategory } from "../../lib/categories";
 import { LinearGradient } from "expo-linear-gradient";
 import { makeFeedStyles } from "../../styles/feed.styles";
 
@@ -32,14 +34,17 @@ type ApiEvent = {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 // 30 days: 7 before today through 22 ahead
-function getScrollDays(): { iso: string; letter: string; num: number }[] {
+// Map the app language to a BCP-47 locale for date/day-name formatting.
+const locFor = (lang: string) => (lang === "fr" ? "fr-CA" : "en-US");
+
+function getScrollDays(lang: string): { iso: string; letter: string; num: number }[] {
     const today = new Date();
     return Array.from({ length: 30 }, (_, i) => {
         const d = new Date(today);
         d.setDate(today.getDate() - 7 + i);
         return {
             iso: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
-            letter: d.toLocaleString("en-US", { weekday: "short" }).slice(0, 3).toUpperCase(),
+            letter: d.toLocaleString(locFor(lang), { weekday: "short" }).slice(0, 3).toUpperCase(),
             num: d.getDate(),
         };
     });
@@ -53,10 +58,10 @@ function todayISO() {
     return toISO(new Date());
 }
 
-function formatDayHeader(iso: string) {
+function formatDayHeader(iso: string, lang: string) {
     const [y, m, d] = iso.split("-").map(Number);
     const date = new Date(y, m - 1, d);
-    return date.toLocaleString("en-US", { weekday: "long", month: "long", day: "numeric" }).toUpperCase();
+    return date.toLocaleString(locFor(lang), { weekday: "long", month: "long", day: "numeric" }).toUpperCase();
 }
 
 function formatEventTime(iso?: string) {
@@ -77,7 +82,7 @@ function getRangeISO(mode: "week" | "month"): { from: string; to: string; label:
     }
 }
 
-function groupByDay(events: ApiEvent[]): { iso: string; label: string; events: ApiEvent[] }[] {
+function groupByDay(events: ApiEvent[], lang: string, todayLabel: string): { iso: string; label: string; events: ApiEvent[] }[] {
     const map = new Map<string, ApiEvent[]>();
     for (const e of events) {
         if (!e.startAt) continue;
@@ -92,8 +97,8 @@ function groupByDay(events: ApiEvent[]): { iso: string; label: string; events: A
             const date = new Date(y, mo - 1, d);
             const isToday = iso === todayISO();
             const label = isToday
-                ? "TODAY"
-                : date.toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase();
+                ? todayLabel
+                : date.toLocaleString(locFor(lang), { weekday: "short", month: "short", day: "numeric" }).toUpperCase();
             return { iso, label, events: evs };
         });
 }
@@ -121,7 +126,6 @@ const TYPE_ICONS: Record<string, string> = {
     POLL: "bar-chart-outline",
 };
 
-const SCROLL_DAYS = getScrollDays();
 const TODAY = todayISO();
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -833,8 +837,10 @@ export default function DiscoverScreen() {
     const authApi = useApi();
     const { session } = useAuth();
     const { lang } = useLang();
+    const SCROLL_DAYS = useMemo(() => getScrollDays(lang), [lang]);
     const { width: screenWidth } = useWindowDimensions();
     const { colors: C } = useTheme();
+    const t = useT();
     const styles = useMemo(() => makeSearchStyles(C), [C]);
     const [rangeMode, setRangeMode] = useState<"today" | "week" | "month">("today");
     const [selectedDay, setSelectedDay] = useState(TODAY);
@@ -961,9 +967,9 @@ export default function DiscoverScreen() {
                 {/* ── Hero heading ── */}
                 <View style={styles.hero}>
                     <View style={styles.heroTop}>
-                        <Text style={styles.dailyBrief}>THE DAILY BRIEF</Text>
+                        <Text style={styles.dailyBrief}>{t.dailyBrief}</Text>
                         <Text style={styles.heroDate}>
-                            {rangeMode === "today" ? formatDayHeader(selectedDay) : getRangeISO(rangeMode).label}
+                            {rangeMode === "today" ? formatDayHeader(selectedDay, lang) : (rangeMode === "week" ? t.thisWeekRange : t.thisMonthRange)}
                         </Text>
                     </View>
                     <View style={styles.heroTitleRow}>
@@ -976,13 +982,16 @@ export default function DiscoverScreen() {
                     {/* ── Range tabs ── */}
                     <View style={styles.rangeTabs}>
                         {(["today", "week", "month"] as const).map((mode) => {
-                            const label = mode === "today" ? "TODAY" : mode === "week" ? "THIS WEEK" : "THIS MONTH";
+                            const label = mode === "today" ? t.todayRange : mode === "week" ? t.thisWeekRange : t.thisMonthRange;
                             const active = rangeMode === mode;
                             return (
                                 <Pressable
                                     key={mode}
                                     onPress={() => setRangeMode(mode)}
                                     style={[styles.rangeTab, active && styles.rangeTabActive]}
+                                    accessibilityRole="tab"
+                                    accessibilityState={{ selected: active }}
+                                    accessibilityLabel={label}
                                 >
                                     <Text style={[styles.rangeTabText, active && styles.rangeTabTextActive]}>{label}</Text>
                                 </Pressable>
@@ -1007,6 +1016,9 @@ export default function DiscoverScreen() {
                                     key={day.iso}
                                     style={styles.weekDay}
                                     onPress={() => setSelectedDay(day.iso)}
+                                    accessibilityRole="button"
+                                    accessibilityState={{ selected: isSelected }}
+                                    accessibilityLabel={new Date(day.iso).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
                                 >
                                     <Text style={[styles.weekDayLetter, isSelected && styles.weekDayActive]}>
                                         {day.letter}
@@ -1049,8 +1061,11 @@ export default function DiscoverScreen() {
                                                 key={cat}
                                                 onPress={() => { setCategoryFilter(cat); setActiveIndex(0); carouselRef.current?.scrollTo({ x: 0, animated: false }); }}
                                                 style={{ paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: categoryFilter === cat ? C.primary : C.borderWarm, backgroundColor: categoryFilter === cat ? C.primary : C.surface }}
+                                                accessibilityRole="button"
+                                                accessibilityState={{ selected: categoryFilter === cat }}
+                                                accessibilityLabel={cat}
                                             >
-                                                <Text style={{ fontSize: 10, fontWeight: "800", letterSpacing: 1, color: categoryFilter === cat ? "#fff" : C.textMuted }}>{cat.toUpperCase()}</Text>
+                                                <Text style={{ fontSize: 10, fontWeight: "800", letterSpacing: 1, color: categoryFilter === cat ? "#fff" : C.textMuted }}>{cat === "ALL" ? t.filterAllTab : translateCategory(cat, lang).toUpperCase()}</Text>
                                             </Pressable>
                                         ))}
                                     </ScrollView>
@@ -1058,7 +1073,7 @@ export default function DiscoverScreen() {
                                 {filteredEvents.length === 0 ? (
                                     <View style={styles.featuredPlaceholder}>
                                         <Ionicons name="calendar-outline" size={32} color="#D0D0D0" />
-                                        <Text style={styles.placeholderText}>No events on this day</Text>
+                                        <Text style={styles.placeholderText}>{t.noEventsThisDay}</Text>
                                     </View>
                                 ) : (
                                     <View style={styles.carouselWrapper}>
@@ -1095,7 +1110,7 @@ export default function DiscoverScreen() {
                                                 <Pressable style={[styles.moreCard, { width: moreCardWidth }]} onPress={() => router.push({ pathname: "/all-events-modal", params: { date: selectedDay, events: JSON.stringify(filteredEvents) } } as any)}>
                                                     <Text style={styles.moreCardCount}>+{extraCount}</Text>
                                                     <Text style={styles.moreCardLabel}>more{"\n"}events</Text>
-                                                    <View style={styles.moreCardBtn}><Text style={styles.moreCardBtnText}>VIEW ALL</Text></View>
+                                                    <View style={styles.moreCardBtn}><Text style={styles.moreCardBtnText}>{t.viewAll}</Text></View>
                                                 </Pressable>
                                             )}
                                         </ScrollView>
@@ -1120,7 +1135,7 @@ export default function DiscoverScreen() {
                         }
                         const categories = ["ALL", ...Array.from(new Set(rangeEvents.flatMap(e => e.categories ?? []).filter(Boolean)))];
                         const filtered = categoryFilter === "ALL" ? rangeEvents : rangeEvents.filter(e => e.categories?.includes(categoryFilter));
-                        const groups = groupByDay(filtered);
+                        const groups = groupByDay(filtered, lang, t.todayRange);
                         return (
                             <View>
                                 {/* Category chips */}
@@ -1131,8 +1146,11 @@ export default function DiscoverScreen() {
                                                 key={cat}
                                                 onPress={() => setCategoryFilter(cat)}
                                                 style={{ paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: categoryFilter === cat ? C.primary : C.borderWarm, backgroundColor: categoryFilter === cat ? C.primary : C.surface }}
+                                                accessibilityRole="button"
+                                                accessibilityState={{ selected: categoryFilter === cat }}
+                                                accessibilityLabel={cat}
                                             >
-                                                <Text style={{ fontSize: 10, fontWeight: "800", letterSpacing: 1, color: categoryFilter === cat ? "#fff" : C.textMuted }}>{cat.toUpperCase()}</Text>
+                                                <Text style={{ fontSize: 10, fontWeight: "800", letterSpacing: 1, color: categoryFilter === cat ? "#fff" : C.textMuted }}>{cat === "ALL" ? t.filterAllTab : translateCategory(cat, lang).toUpperCase()}</Text>
                                             </Pressable>
                                         ))}
                                     </ScrollView>
@@ -1191,13 +1209,13 @@ export default function DiscoverScreen() {
                 {/* ── Latest updates ── */}
                 <View style={styles.section}>
                     <View style={styles.sectionHeaderRow}>
-                        <Text style={styles.sectionTitle}>LATEST UPDATES</Text>
+                        <Text style={styles.sectionTitle}>{t.latestUpdates}</Text>
                         <View style={styles.sectionLine} />
                         <Pressable
                             style={styles.viewAllBtn}
                             onPress={() => router.push({ pathname: "/search-modal", params: { category: "posts" } } as any)}
                         >
-                            <Text style={styles.viewAllText}>View more</Text>
+                            <Text style={styles.viewAllText}>{t.viewMore}</Text>
                             <Ionicons name="chevron-forward" size={13} color={C.primary} />
                         </Pressable>
                     </View>
@@ -1209,7 +1227,7 @@ export default function DiscoverScreen() {
                         const color = TYPE_COLORS[item.type] ?? C.textBody;
                         const icon = (TYPE_ICONS[item.type] ?? "newspaper-outline") as any;
                         return (
-                        <Pressable key={item.id} style={styles.updateRow} onPress={() => item.type === "event"
+                        <Pressable key={item.id} style={styles.updateRow} accessibilityRole="button" accessibilityLabel={locale.title ?? item.clubName ?? "Update"} onPress={() => item.type === "event"
                             ? router.push({ pathname: "/event/[id]", params: { id: item.eventId ?? item.id } })
                             : router.push({ pathname: "/post/[id]", params: { id: item.id } })
                         }>
@@ -1229,7 +1247,7 @@ export default function DiscoverScreen() {
                 {/* ── Follow topics ── */}
                 <View style={styles.section}>
                     <View style={styles.sectionHeaderRow}>
-                        <Text style={styles.sectionTitle}>FOLLOW TOPICS</Text>
+                        <Text style={styles.sectionTitle}>{t.followTopics}</Text>
                         <View style={styles.sectionLine} />
                     </View>
                     <Text style={{ fontSize: 12, color: C.textMuted, marginTop: -4, marginBottom: 12 }} maxFontSizeMultiplier={1.3}>
@@ -1245,11 +1263,11 @@ export default function DiscoverScreen() {
                                     style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1, borderColor: on ? C.primary : C.borderWarm, backgroundColor: on ? C.primary : C.surface }}
                                     accessibilityRole="button"
                                     accessibilityState={{ selected: on }}
-                                    accessibilityLabel={`${on ? "Unfollow" : "Follow"} ${tag}`}
+                                    accessibilityLabel={`${on ? t.unfollowWord : t.followWord} ${translateCategory(tag, lang)}`}
                                 >
                                     {on && <Ionicons name="checkmark" size={12} color="#fff" />}
                                     <Text style={{ fontSize: 11, fontWeight: "800", letterSpacing: 0.5, color: on ? "#fff" : C.textMuted }} maxFontSizeMultiplier={1.3}>
-                                        {tag.toUpperCase()}
+                                        {translateCategory(tag, lang).toUpperCase()}
                                     </Text>
                                 </Pressable>
                             );
@@ -1260,7 +1278,7 @@ export default function DiscoverScreen() {
                 {/* ── Discover Clubs ── */}
                 <View style={styles.section}>
                     <View style={styles.sectionHeaderRow}>
-                        <Text style={styles.sectionTitle}>CLUBS TO DISCOVER</Text>
+                        <Text style={styles.sectionTitle}>{t.clubsToDiscover}</Text>
                         <View style={styles.sectionLine} />
                     </View>
                     {(() => {
@@ -1292,7 +1310,7 @@ export default function DiscoverScreen() {
                                                 style={styles.followBtn}
                                                 onPress={() => toggleFollow(club.id)}
                                             >
-                                                <Text style={styles.followBtnText}>FOLLOW</Text>
+                                                <Text style={styles.followBtnText}>{t.follow}</Text>
                                             </Pressable>
                                         </Pressable>
                                     );
@@ -1321,11 +1339,12 @@ export default function DiscoverScreen() {
 
 function EventCard({ event, width, onPress }: { event: ApiEvent; width: number; onPress: () => void }) {
     const { lang } = useLang();
+    const t = useT();
     const { colors: C } = useTheme();
     // Use the shared feed styles so carousel cards match the feed's event cards.
     const s = useMemo(() => makeFeedStyles(C), [C]);
     const locale = pickLocale(event.locales, lang);
-    const title = (locale.title ?? "Untitled Event").toUpperCase();
+    const title = (locale.title ?? t.untitledEvent).toUpperCase();
     const time = formatEventTime(event.startAt);
     const endTime = formatEventTime(event.endAt);
     const timeStr = time && endTime ? `${time} – ${endTime}` : time;
@@ -1343,7 +1362,7 @@ function EventCard({ event, width, onPress }: { event: ApiEvent; width: number; 
     if (event.startAt) {
         const d = new Date(event.startAt);
         dateBadgeDay = String(d.getDate());
-        dateBadgeMon = d.toLocaleDateString("en-US", { month: "short" });
+        dateBadgeMon = d.toLocaleDateString(locFor(lang), { month: "short" });
     }
 
     const { isRsvped, toggleRsvp } = useRsvp();
@@ -1376,11 +1395,11 @@ function EventCard({ event, width, onPress }: { event: ApiEvent; width: number; 
                 {/* Top row: type label (+ free food) and date badge */}
                 <View style={s.evBannerTop}>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                        <Text style={s.evTypeLabel}>EVENT</Text>
+                        <Text style={s.evTypeLabel}>{t.eventBadge}</Text>
                         {isFreeFood && (
                             <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: C.gold, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
                                 <Text style={{ fontSize: 9 }}>🍕</Text>
-                                <Text style={{ fontSize: 8, fontWeight: "800", letterSpacing: 1, color: "#fff" }}>FREE FOOD</Text>
+                                <Text style={{ fontSize: 8, fontWeight: "800", letterSpacing: 1, color: "#fff" }}>{t.freeFoodBadge}</Text>
                             </View>
                         )}
                     </View>
@@ -1431,7 +1450,7 @@ function EventCard({ event, width, onPress }: { event: ApiEvent; width: number; 
                     <View style={{ flex: 1, flexDirection: "row", flexWrap: "wrap", alignItems: "flex-start", gap: 6 }}>
                         {tags.map((tag, i) => (
                             <View key={i} style={s.evTag}>
-                                <Text style={s.evTagText}>{tag.toUpperCase()}</Text>
+                                <Text style={s.evTagText}>{translateCategory(tag, lang).toUpperCase()}</Text>
                             </View>
                         ))}
                     </View>
@@ -1441,7 +1460,7 @@ function EventCard({ event, width, onPress }: { event: ApiEvent; width: number; 
                             onPress={handleRsvp}
                             disabled={rsvpLoading}
                             accessibilityRole="button"
-                            accessibilityLabel={going ? "Cancel RSVP" : "RSVP to event"}
+                            accessibilityLabel={going ? t.cancelRsvpLabel : t.rsvpToEventLabel}
                         >
                             <Ionicons name={going ? "checkmark-circle" : "ticket-outline"} size={12} color={going ? C.primary : "#fff"} />
                             <Text style={[s.evRsvpText, going && s.evRsvpTextGoing]}>{going ? "GOING" : "RSVP"}</Text>
@@ -1465,9 +1484,10 @@ function EventCard({ event, width, onPress }: { event: ApiEvent; width: number; 
 function GroupEventRow({ event, onPress }: { event: ApiEvent; onPress: () => void }) {
     const { lang } = useLang();
     const { colors: C } = useTheme();
+    const t = useT();
     const styles = useMemo(() => makeSearchStyles(C), [C]);
     const locale = pickLocale(event.locales, lang);
-    const title = (locale.title ?? "Untitled Event").toUpperCase();
+    const title = (locale.title ?? t.untitledEvent).toUpperCase();
     const time = formatEventTime(event.startAt);
     const endTime = formatEventTime(event.endAt);
     const clubName = event.club?.clubName?.toUpperCase() ?? "";
@@ -1498,7 +1518,7 @@ function GroupEventRow({ event, onPress }: { event: ApiEvent; onPress: () => voi
                         {endTime ? <Text style={styles.groupTimeSub}>{endTime}</Text> : null}
                     </>
                 ) : (
-                    <Text style={styles.groupTimeSub}>TBD</Text>
+                    <Text style={styles.groupTimeSub}>{t.tbd}</Text>
                 )}
             </View>
             <View style={styles.groupDivider} />
@@ -1525,7 +1545,7 @@ function GroupEventRow({ event, onPress }: { event: ApiEvent; onPress: () => voi
                         {isFreeFood && (
                             <View style={styles.groupFreeFood}>
                                 <Text style={{ fontSize: 9 }}>🍕</Text>
-                                <Text style={styles.groupFreeFoodText}>FREE FOOD</Text>
+                                <Text style={styles.groupFreeFoodText}>{t.freeFoodBadge}</Text>
                             </View>
                         )}
                     </View>
@@ -1535,7 +1555,7 @@ function GroupEventRow({ event, onPress }: { event: ApiEvent; onPress: () => voi
                         disabled={rsvpLoading}
                         hitSlop={8}
                         accessibilityRole="button"
-                        accessibilityLabel={going ? "Cancel RSVP" : "RSVP to event"}
+                        accessibilityLabel={going ? t.cancelRsvpLabel : t.rsvpToEventLabel}
                     >
                         <Ionicons name={going ? "checkmark-circle" : "ticket-outline"} size={11} color={going ? C.primary : "#fff"} />
                         <Text style={[styles.groupRsvpText, going && styles.groupRsvpTextGoing]}>{going ? "GOING" : "RSVP"}</Text>

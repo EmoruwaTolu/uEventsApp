@@ -147,7 +147,7 @@ export default function MyEventsScreen() {
                 <View style={s.center}>
                     <Text style={s.emptyText}>—</Text>
                     <Pressable style={s.retry} onPress={() => load()}>
-                        <Text style={s.retryText}>RETRY</Text>
+                        <Text style={s.retryText}>{t.retry}</Text>
                     </Pressable>
                 </View>
             ) : !hasAny ? (

@@ -240,9 +240,9 @@ export default function EditClubProfile() {
                 <View style={styles.topBar}>
                     <Pressable onPress={() => router.back()} style={styles.backGroup}>
                         <Ionicons name="arrow-back" size={18} color={C.primary} />
-                        <Text style={styles.backLabel}>BACK</Text>
+                        <Text style={styles.backLabel}>{t.back}</Text>
                     </Pressable>
-                    <Text style={styles.topBarTitle}>EDIT PROFILE</Text>
+                    <Text style={styles.topBarTitle}>{t.editProfile}</Text>
                     <View style={{ width: 80 }} />
                 </View>
                 <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, padding: 32 }}>
@@ -271,7 +271,7 @@ export default function EditClubProfile() {
                         }}
                         style={{ borderWidth: 1.5, borderColor: C.primary, paddingHorizontal: 24, paddingVertical: 10 }}
                     >
-                        <Text style={{ fontSize: 11, fontWeight: "800", color: C.primary, letterSpacing: 1.5 }}>TRY AGAIN</Text>
+                        <Text style={{ fontSize: 11, fontWeight: "800", color: C.primary, letterSpacing: 1.5 }}>{t.tryAgainBtn}</Text>
                     </Pressable>
                 </View>
             </SafeAreaView>
@@ -285,13 +285,13 @@ export default function EditClubProfile() {
                 <View style={styles.topBar}>
                     <Pressable onPress={() => router.back()} style={styles.backGroup}>
                         <Ionicons name="arrow-back" size={18} color={C.primary} />
-                        <Text style={styles.backLabel}>BACK</Text>
+                        <Text style={styles.backLabel}>{t.back}</Text>
                     </Pressable>
-                    <Text style={styles.topBarTitle}>EDIT PROFILE</Text>
+                    <Text style={styles.topBarTitle}>{t.editProfile}</Text>
                     <Pressable onPress={save} disabled={saving} style={styles.saveBtn}>
                         {saving
                             ? <ActivityIndicator size="small" color="#fff" />
-                            : <Text style={styles.saveBtnText}>SAVE</Text>
+                            : <Text style={styles.saveBtnText}>{t.save}</Text>
                         }
                     </Pressable>
                 </View>
@@ -305,30 +305,30 @@ export default function EditClubProfile() {
                     <View style={styles.section}>
                         <Text style={styles.sectionLabel}>1. IDENTITY</Text>
 
-                        <Text style={styles.label}>CLUB NAME</Text>
+                        <Text style={styles.label}>{t.clubNameLabel}</Text>
                         <TextInput
                             style={styles.input}
                             value={clubName}
                             onChangeText={setClubName}
-                            placeholder="e.g. Computer Science Society"
+                            placeholder={t.phClubName}
                             placeholderTextColor={C.textLight}
                         />
 
-                        <Text style={styles.label}>CATEGORY</Text>
+                        <Text style={styles.label}>{t.categoryLabel}</Text>
                         <TextInput
                             style={styles.input}
                             value={category}
                             onChangeText={setCategory}
-                            placeholder="e.g. Academic, Sports, Arts"
+                            placeholder={t.phCategory}
                             placeholderTextColor={C.textLight}
                         />
 
-                        <Text style={styles.label}>LOCATION</Text>
+                        <Text style={styles.label}>{t.locationLabel}</Text>
                         <TextInput
                             style={styles.input}
                             value={location}
                             onChangeText={setLocation}
-                            placeholder="e.g. Room 204, Arts Building"
+                            placeholder={t.phLocation}
                             placeholderTextColor={C.textLight}
                         />
                     </View>
@@ -342,7 +342,7 @@ export default function EditClubProfile() {
                             style={[styles.input, styles.multiline]}
                             value={description}
                             onChangeText={setDescription}
-                            placeholder="Tell students what your club is about..."
+                            placeholder={t.phDescription}
                             placeholderTextColor={C.textLight}
                             multiline
                             textAlignVertical="top"
@@ -353,7 +353,7 @@ export default function EditClubProfile() {
                             style={[styles.input, styles.multiline]}
                             value={descriptionFr}
                             onChangeText={setDescriptionFr}
-                            placeholder="Description en français..."
+                            placeholder={t.phDescriptionFr}
                             placeholderTextColor={C.textLight}
                             multiline
                             textAlignVertical="top"
@@ -364,7 +364,7 @@ export default function EditClubProfile() {
                     <View style={styles.section}>
                         <Text style={styles.sectionLabel}>3. VISUALS</Text>
 
-                        <Text style={styles.label}>CLUB LOGO</Text>
+                        <Text style={styles.label}>{t.clubLogoLabel}</Text>
                         <Pressable style={styles.logoPicker} onPress={pickLogo}>
                             {logoPreview ? (
                                 <Image source={{ uri: logoPreview }} style={styles.logoPreview} />
@@ -377,7 +377,7 @@ export default function EditClubProfile() {
                                 <Text style={styles.logoPickerTitle}>
                                     {logoPreview ? "CHANGE LOGO" : "UPLOAD LOGO"}
                                 </Text>
-                                <Text style={styles.logoPickerSub}>Tap to choose from your photo library</Text>
+                                <Text style={styles.logoPickerSub}>{t.tapToChoosePhoto}</Text>
                                 {logoPreview && (
                                     <Pressable
                                         hitSlop={8}
@@ -385,7 +385,7 @@ export default function EditClubProfile() {
                                         accessibilityRole="button"
                                         accessibilityLabel="Remove logo"
                                     >
-                                        <Text style={styles.logoRemove}>Remove</Text>
+                                        <Text style={styles.logoRemove}>{t.removeLabel}</Text>
                                     </Pressable>
                                 )}
                             </View>
@@ -397,12 +397,12 @@ export default function EditClubProfile() {
                     <View style={styles.section}>
                         <Text style={styles.sectionLabel}>4. CONTACT</Text>
 
-                        <Text style={styles.label}>EMAIL</Text>
+                        <Text style={styles.label}>{t.emailLabel}</Text>
                         <TextInput
                             style={styles.input}
                             value={contactEmail}
                             onChangeText={setContactEmail}
-                            placeholder="contact@yourclub.com"
+                            placeholder={t.phContactEmail}
                             placeholderTextColor={C.textLight}
                             autoCapitalize="none"
                             keyboardType="email-address"
@@ -413,27 +413,27 @@ export default function EditClubProfile() {
                     <View style={styles.section}>
                         <Text style={styles.sectionLabel}>5. SOCIAL LINKS</Text>
 
-                        <Text style={styles.label}>INSTAGRAM</Text>
+                        <Text style={styles.label}>{t.instagramLabel}</Text>
                         <View style={styles.prefixRow}>
                             <Text style={styles.prefix}>@</Text>
                             <TextInput
                                 style={styles.prefixField}
                                 value={instagram}
                                 onChangeText={setInstagram}
-                                placeholder="yourclub"
+                                placeholder={t.phSocialHandle}
                                 placeholderTextColor={C.textLight}
                                 autoCapitalize="none"
                             />
                         </View>
 
-                        <Text style={styles.label}>TWITTER / X</Text>
+                        <Text style={styles.label}>{t.twitterLabel}</Text>
                         <View style={styles.prefixRow}>
                             <Text style={styles.prefix}>@</Text>
                             <TextInput
                                 style={styles.prefixField}
                                 value={twitter}
                                 onChangeText={setTwitter}
-                                placeholder="yourclub"
+                                placeholder={t.phSocialHandle}
                                 placeholderTextColor={C.textLight}
                                 autoCapitalize="none"
                             />

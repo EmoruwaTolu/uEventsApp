@@ -37,8 +37,8 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
                     return (
                         <TouchableOpacity
                             key={route.key}
-                            accessibilityRole="button"
-                            accessibilityState={isFocused ? { selected: true } : {}}
+                            accessibilityRole="tab"
+                            accessibilityState={{ selected: isFocused }}
                             accessibilityLabel={options.tabBarAccessibilityLabel ?? String(label)}
                             onPress={onPress}
                             onLongPress={onLongPress}

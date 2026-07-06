@@ -18,6 +18,7 @@ import { useLang, pickLocale, useT } from "../../lib/LangContext";
 import { useAuth } from "../../auth/AuthContext";
 import { PostDetailSkeleton } from "../../components/SkeletonLoader";
 import { useTheme } from "../../lib/ThemeContext";
+import { timeAgo, localeFor } from "../../lib/datetime";
 import type { AppColors } from "../../styles/theme";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -79,14 +80,7 @@ type Comment = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function timeAgo(iso: string): string {
-    const diff = Date.now() - new Date(iso).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
-}
+
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -785,7 +779,7 @@ export default function PostDetailScreen() {
                         onPress={() => loadPost()}
                         style={{ marginTop: 16, borderWidth: 1.5, borderColor: C.primary, paddingHorizontal: 20, paddingVertical: 10 }}
                     >
-                        <Text style={{ fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 1.5 }}>RETRY</Text>
+                        <Text style={{ fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 1.5 }}>{t.retry}</Text>
                     </Pressable>
                 </View>
             </SafeAreaView>
@@ -804,7 +798,7 @@ export default function PostDetailScreen() {
                         onPress={() => router.replace("/(tabs)" as any)}
                         style={{ marginTop: 16, backgroundColor: C.primary, paddingHorizontal: 24, paddingVertical: 10 }}
                     >
-                        <Text style={{ color: "#fff", fontSize: 11, fontWeight: "800", letterSpacing: 1.5 }}>GO HOME</Text>
+                        <Text style={{ color: "#fff", fontSize: 11, fontWeight: "800", letterSpacing: 1.5 }}>{t.goHome}</Text>
                     </Pressable>
                 </View>
             </SafeAreaView>
@@ -826,7 +820,7 @@ export default function PostDetailScreen() {
         <SafeAreaView style={s.page} edges={["top"]}>
             {/* Top bar */}
             <View style={s.topBar}>
-                <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)" as any)} style={s.backBtn} hitSlop={8} accessibilityLabel="Go back" accessibilityRole="button">
+                <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)" as any)} style={s.backBtn} hitSlop={8} accessibilityLabel={t.goBackLabel} accessibilityRole="button">
                     <Ionicons name="arrow-back" size={18} color={C.text} />
                 </Pressable>
                 <Text style={s.topBarTitle}>
@@ -850,7 +844,7 @@ export default function PostDetailScreen() {
                                 style={s.topBarBtn}
                                 hitSlop={8}
                                 onPress={() => router.push({ pathname: "/post-analytics/[id]", params: { id } } as any)}
-                                accessibilityLabel="View post analytics"
+                                accessibilityLabel={t.viewAnalyticsLabel}
                                 accessibilityRole="button"
                             >
                                 <Ionicons name="bar-chart-outline" size={19} color={C.text} />
@@ -859,7 +853,7 @@ export default function PostDetailScreen() {
                                 style={s.topBarBtn}
                                 hitSlop={8}
                                 onPress={() => router.push({ pathname: "/edit/[id]", params: { id } })}
-                                accessibilityLabel="Edit post"
+                                accessibilityLabel={t.editPostLabel}
                                 accessibilityRole="button"
                             >
                                 <Ionicons name="create-outline" size={19} color={C.text} />
@@ -892,21 +886,21 @@ export default function PostDetailScreen() {
                     {post.expiresAt && new Date(post.expiresAt) <= new Date() && (
                         <View style={s.infoBanner}>
                             <Ionicons name="archive-outline" size={13} color={C.textLight} />
-                            <Text style={s.infoBannerText}>THIS POST HAS EXPIRED</Text>
+                            <Text style={s.infoBannerText}>{t.postExpired}</Text>
                         </View>
                     )}
                     {post.expiresAt && new Date(post.expiresAt) > new Date() && (
                         <View style={[s.infoBanner, s.infoBannerWarn]}>
                             <Ionicons name="time-outline" size={13} color="#D97706" />
                             <Text style={[s.infoBannerText, s.infoBannerWarnText]}>
-                                EXPIRES {new Date(post.expiresAt).toLocaleDateString("en-CA", { month: "short", day: "numeric" }).toUpperCase()}
+                                EXPIRES {new Date(post.expiresAt).toLocaleDateString(localeFor(lang), { month: "short", day: "numeric" }).toUpperCase()}
                             </Text>
                         </View>
                     )}
                     {post.followersOnly && (
                         <View style={[s.infoBanner, s.infoBannerBlue]}>
                             <Ionicons name="people" size={13} color="#1D4ED8" />
-                            <Text style={[s.infoBannerText, s.infoBannerBlueText]}>FOLLOWERS ONLY</Text>
+                            <Text style={[s.infoBannerText, s.infoBannerBlueText]}>{t.followersOnlyBadge}</Text>
                         </View>
                     )}
 
@@ -955,10 +949,10 @@ export default function PostDetailScreen() {
                             }
                         </View>
                         <View style={{ flex: 1 }}>
-                            <Text style={s.clubLabel}>POSTED BY</Text>
+                            <Text style={s.clubLabel}>{t.postedBy}</Text>
                             <Text style={s.clubName}>{clubName}</Text>
                         </View>
-                        <Text style={s.postAge}>{timeAgo(post.createdAt)}</Text>
+                        <Text style={s.postAge}>{timeAgo(post.createdAt, lang)}</Text>
                     </Pressable>
 
                     <View style={s.hairline} />
@@ -1054,7 +1048,7 @@ export default function PostDetailScreen() {
                             style={s.actionBtn}
                             hitSlop={8}
                             onPress={() => Share.share({ message: `${title}\n\n${API_BASE}/share/post/${id}` })}
-                            accessibilityLabel="Share post"
+                            accessibilityLabel={t.sharePostLabel}
                             accessibilityRole="button"
                         >
                             <Ionicons name="share-outline" size={20} color={C.textLight} />
@@ -1064,7 +1058,7 @@ export default function PostDetailScreen() {
                                 style={s.actionBtn}
                                 hitSlop={8}
                                 onPress={reportPost}
-                                accessibilityLabel="Report post"
+                                accessibilityLabel={t.reportPostLabel}
                                 accessibilityRole="button"
                             >
                                 <Ionicons name="flag-outline" size={20} color={C.textLight} />
@@ -1077,7 +1071,7 @@ export default function PostDetailScreen() {
                                     {!post.canEdit && isRsvped(id!) && (
                                         <Pressable style={s.checkInBtn} onPress={openScanner}>
                                             <Ionicons name="qr-code-outline" size={13} color="#fff" />
-                                            <Text style={s.checkInBtnText}>CHECK IN</Text>
+                                            <Text style={s.checkInBtnText}>{t.checkInBtn}</Text>
                                         </Pressable>
                                     )}
                                     <Pressable
@@ -1112,7 +1106,7 @@ export default function PostDetailScreen() {
                                 <Ionicons name="qr-code" size={28} color="#fff" />
                             </View>
                             <View style={s.checkInBannerBody}>
-                                <Text style={s.checkInBannerTitle}>CHECK-IN MODE</Text>
+                                <Text style={s.checkInBannerTitle}>{t.checkInMode}</Text>
                                 <Text style={s.checkInBannerSub}>Open QR code · track attendance live</Text>
                             </View>
                             <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.5)" />
@@ -1124,17 +1118,17 @@ export default function PostDetailScreen() {
                     <View style={[s.card, s.commentsSection]} onLayout={(e) => { commentsSectionY.current = e.nativeEvent.layout.y; }}>
                         {/* Header row: label + status badges */}
                         <View style={s.commentsHeaderRow}>
-                            <Text style={s.commentsLabel}>COMMENTS</Text>
+                            <Text style={s.commentsLabel}>{t.comments}</Text>
                             {post.commentsDisabled && (
                                 <View style={s.commentStatusBadge}>
                                     <Ionicons name="ban-outline" size={10} color={C.textLight} />
-                                    <Text style={s.commentStatusText}>DISABLED</Text>
+                                    <Text style={s.commentStatusText}>{t.disabledBadge}</Text>
                                 </View>
                             )}
                             {!post.commentsDisabled && post.commentsLockedAt && new Date(post.commentsLockedAt) <= new Date() && (
                                 <View style={s.commentStatusBadge}>
                                     <Ionicons name="lock-closed-outline" size={10} color={C.textLight} />
-                                    <Text style={s.commentStatusText}>LOCKED</Text>
+                                    <Text style={s.commentStatusText}>{t.lockedBadge}</Text>
                                 </View>
                             )}
                             {!post.commentsDisabled && post.slowModeSeconds && post.slowModeSeconds > 0 && (
@@ -1174,7 +1168,7 @@ export default function PostDetailScreen() {
                                             {c.isPinned && (
                                                 <View style={s.pinnedBadgeRow}>
                                                     <Ionicons name="pin" size={10} color={C.primary} />
-                                                    <Text style={s.pinnedBadgeText}>PINNED</Text>
+                                                    <Text style={s.pinnedBadgeText}>{t.pinnedBadge}</Text>
                                                 </View>
                                             )}
                                             <View style={s.commentInner}>
@@ -1187,7 +1181,7 @@ export default function PostDetailScreen() {
                                                 <View style={s.commentBody}>
                                                     <View style={s.commentHeader}>
                                                         <Text style={s.commentName}>{name}</Text>
-                                                        <Text style={s.commentAge}>{timeAgo(c.createdAt)}</Text>
+                                                        <Text style={s.commentAge}>{timeAgo(c.createdAt, lang)}</Text>
                                                         {!isReply && post.canEdit && (
                                                             <Pressable
                                                                 onPress={() => togglePinComment(c.id, !!c.isPinned)}
@@ -1203,12 +1197,12 @@ export default function PostDetailScreen() {
                                                             </Pressable>
                                                         )}
                                                         {!canDelete && (
-                                                            <Pressable onPress={() => reportComment(c.id)} hitSlop={8} accessibilityLabel="Report comment" accessibilityRole="button">
+                                                            <Pressable onPress={() => reportComment(c.id)} hitSlop={8} accessibilityLabel={t.reportCommentLabel} accessibilityRole="button">
                                                                 <Ionicons name="flag-outline" size={13} color={C.textFaint} />
                                                             </Pressable>
                                                         )}
                                                         {canDelete && (
-                                                            <Pressable onPress={() => deleteComment(c.id, isReply ? c.parentId : null)} hitSlop={8} accessibilityLabel="Delete comment" accessibilityRole="button">
+                                                            <Pressable onPress={() => deleteComment(c.id, isReply ? c.parentId : null)} hitSlop={8} accessibilityLabel={t.deleteCommentLabel} accessibilityRole="button">
                                                                 <Ionicons name="trash-outline" size={13} color={C.textFaint} />
                                                             </Pressable>
                                                         )}
@@ -1224,7 +1218,7 @@ export default function PostDetailScreen() {
                                                             accessibilityLabel={`Reply to ${name}`}
                                                         >
                                                             <Ionicons name="return-down-forward-outline" size={11} color={C.textLight} />
-                                                            <Text style={s.replyBtnText}>REPLY</Text>
+                                                            <Text style={s.replyBtnText}>{t.reply}</Text>
                                                         </Pressable>
                                                     )}
                                                 </View>
@@ -1249,12 +1243,12 @@ export default function PostDetailScreen() {
                 {post.commentsDisabled ? (
                     <View style={s.commentsClosedBar}>
                         <Ionicons name="ban-outline" size={14} color={C.textLight} />
-                        <Text style={s.commentsClosedText}>Comments are disabled on this post</Text>
+                        <Text style={s.commentsClosedText}>{t.commentsDisabledMsg}</Text>
                     </View>
                 ) : post.commentsLockedAt && new Date(post.commentsLockedAt) <= new Date() ? (
                     <View style={s.commentsClosedBar}>
                         <Ionicons name="lock-closed-outline" size={14} color={C.textLight} />
-                        <Text style={s.commentsClosedText}>Comments are locked</Text>
+                        <Text style={s.commentsClosedText}>{t.commentsLockedMsg}</Text>
                     </View>
                 ) : (
                     <View style={[s.commentInputBar, { paddingBottom: 10 + insets.bottom }]}>
@@ -1271,7 +1265,7 @@ export default function PostDetailScreen() {
                                     <View style={s.replyingToBar}>
                                         <Ionicons name="return-down-forward-outline" size={12} color={C.primary} />
                                         <Text style={s.replyingToText}>Replying to <Text style={{ fontWeight: "700" }}>{replyingTo.name}</Text></Text>
-                                        <Pressable onPress={() => setReplyingTo(null)} hitSlop={8} style={{ marginLeft: "auto" }} accessibilityLabel="Cancel reply" accessibilityRole="button">
+                                        <Pressable onPress={() => setReplyingTo(null)} hitSlop={8} style={{ marginLeft: "auto" }} accessibilityLabel={t.cancelReplyLabel} accessibilityRole="button">
                                             <Ionicons name="close" size={14} color={C.textLight} />
                                         </Pressable>
                                     </View>
@@ -1292,7 +1286,7 @@ export default function PostDetailScreen() {
                                     ]}
                                     onPress={submitComment}
                                     disabled={!commentText.trim() || commentSubmitting}
-                                    accessibilityLabel="Send comment"
+                                    accessibilityLabel={t.sendCommentLabel}
                                     accessibilityRole="button"
                                 >
                                     {commentSubmitting
@@ -1310,10 +1304,10 @@ export default function PostDetailScreen() {
             <Modal visible={scannerOpen} animationType="slide" onRequestClose={() => setScannerOpen(false)}>
                 <SafeAreaView style={s.scannerSafe} edges={["top"]}>
                     <View style={s.scannerTopBar}>
-                        <Pressable onPress={() => setScannerOpen(false)} style={s.scannerClose} hitSlop={8} accessibilityLabel="Close scanner" accessibilityRole="button">
+                        <Pressable onPress={() => setScannerOpen(false)} style={s.scannerClose} hitSlop={8} accessibilityLabel={t.closeScannerLabel} accessibilityRole="button">
                             <Ionicons name="close" size={22} color="#fff" />
                         </Pressable>
-                        <Text style={s.scannerTitle}>SCAN CHECK-IN CODE</Text>
+                        <Text style={s.scannerTitle}>{t.scanCheckInCode}</Text>
                         <View style={{ width: 36 }} />
                     </View>
 
@@ -1350,7 +1344,7 @@ export default function PostDetailScreen() {
                                     : "You already checked in to this event."}
                             </Text>
                             <Pressable style={s.scannerDoneBtn} onPress={() => setScannerOpen(false)}>
-                                <Text style={s.scannerDoneBtnText}>DONE</Text>
+                                <Text style={s.scannerDoneBtnText}>{t.done}</Text>
                             </Pressable>
                         </View>
                     )}

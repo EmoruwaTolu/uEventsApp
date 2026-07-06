@@ -1,22 +1,30 @@
 import { useEffect, useRef } from "react";
 import { Animated, Text, StyleSheet } from "react-native";
 import { useNetworkState } from "../lib/useNetworkState";
+import { useReduceMotion } from "../lib/useReduceMotion";
+import { useT } from "../lib/LangContext";
 
 export default function OfflineBanner() {
+    const t = useT();
     const { isConnected } = useNetworkState();
+    const reduceMotion = useReduceMotion();
     const translateY = useRef(new Animated.Value(-60)).current;
 
     useEffect(() => {
         Animated.timing(translateY, {
             toValue: isConnected ? -60 : 0,
-            duration: 280,
+            duration: reduceMotion ? 0 : 280,
             useNativeDriver: true,
         }).start();
-    }, [isConnected]);
+    }, [isConnected, reduceMotion]);
 
     return (
-        <Animated.View style={[styles.banner, { transform: [{ translateY }] }]}>
-            <Text style={styles.text}>NO INTERNET CONNECTION</Text>
+        <Animated.View
+            style={[styles.banner, { transform: [{ translateY }] }]}
+            accessibilityRole="alert"
+            accessibilityLabel={isConnected ? undefined : t.noInternet}
+        >
+            <Text style={styles.text}>{t.noInternet}</Text>
         </Animated.View>
     );
 }

@@ -14,10 +14,12 @@ import { useLang, useT } from "../lib/LangContext";
 import { useToast } from "../lib/ToastContext";
 import { uploadImage } from "../lib/uploadImage";
 import { useTheme } from "../lib/ThemeContext";
+import { API_BASE } from "../lib/api";
 import type { AppColors } from "../styles/theme";
 
-const TOS_URL = "https://uevents.app/terms";
-const PRIVACY_URL = "https://uevents.app/privacy";
+// Legal pages are hosted by the backend (see backend/src/routes/legal.ts).
+const TOS_URL = `${API_BASE}/legal/terms`;
+const PRIVACY_URL = `${API_BASE}/legal/privacy`;
 
 type Lang = "en" | "fr";
 type Section = "profile" | "club-profile" | "password" | null;
@@ -446,7 +448,7 @@ export default function SettingsScreen() {
         <SafeAreaView style={s.safe} edges={["top"]}>
             {/* Top bar */}
             <View style={s.topBar}>
-                <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)" as any)} style={s.backGroup}>
+                <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)" as any)} style={s.backGroup} hitSlop={8} accessibilityRole="button" accessibilityLabel={t.back}>
                     <Ionicons name="arrow-back" size={18} color={C.primary} />
                     <Text style={s.backLabel}>{t.back}</Text>
                 </Pressable>
@@ -461,13 +463,13 @@ export default function SettingsScreen() {
                 </View>
 
                 {/* ── Account card ── */}
-                <Text style={s.sectionLabel}>ACCOUNT</Text>
+                <Text style={s.sectionLabel}>{t.settingsAccount}</Text>
                 <View style={s.card}>
                     {/* Edit Profile — student */}
                     {!isClub && (
                         <Row
                             icon="person-outline"
-                            label="Edit Profile"
+                            label={t.settingsEditProfile}
                             onPress={() => openModal("profile")}
                             C={C}
                             s={s}
@@ -478,7 +480,7 @@ export default function SettingsScreen() {
                     {isClub && (
                         <Row
                             icon="shield-outline"
-                            label="Club Profile"
+                            label={t.settingsClubProfile}
                             onPress={() => openModal("club-profile")}
                             C={C}
                             s={s}
@@ -520,20 +522,20 @@ export default function SettingsScreen() {
                 </View>
 
                 {/* ── Calendar subscription ── */}
-                <Text style={s.sectionLabel}>CALENDAR</Text>
+                <Text style={s.sectionLabel}>{t.settingsCalendar}</Text>
                 <View style={s.card}>
                     <Pressable
                         onPress={subscribeCalendar}
                         disabled={calLoading}
                         style={({ pressed }) => [s.row, pressed && s.rowPressed]}
                         accessibilityRole="button"
-                        accessibilityLabel="Subscribe to your events calendar"
-                        accessibilityHint="Adds your RSVP'd events to your device calendar and keeps them in sync"
+                        accessibilityLabel={t.settingsSubscribe}
+                        accessibilityHint={t.settingsSubscribeHint}
                     >
                         <View style={s.rowIcon}>
                             <Ionicons name="calendar-outline" size={18} color={C.primary} />
                         </View>
-                        <Text style={s.rowLabel}>Subscribe to my events</Text>
+                        <Text style={s.rowLabel}>{t.settingsSubscribe}</Text>
                         {calLoading
                             ? <ActivityIndicator size="small" color={C.primary} />
                             : <Ionicons name="chevron-forward" size={16} color={C.textLight} />}
@@ -547,13 +549,16 @@ export default function SettingsScreen() {
                         <View style={s.rowIcon}>
                             <Ionicons name="language-outline" size={18} color={C.primary} />
                         </View>
-                        <Text style={s.rowLabel}>App Language</Text>
+                        <Text style={s.rowLabel}>{t.settingsAppLanguage}</Text>
                         <View style={s.langPicker}>
                             {(["en", "fr"] as Lang[]).map((l) => (
                                 <Pressable
                                     key={l}
                                     onPress={() => setLanguage(l)}
                                     style={[s.langOption, language === l && s.langOptionActive]}
+                                    accessibilityRole="button"
+                                    accessibilityState={{ selected: language === l }}
+                                    accessibilityLabel={l === "en" ? "English" : "Français"}
                                 >
                                     <Text style={[s.langOptionText, language === l && s.langOptionTextActive]}>
                                         {l === "en" ? "EN" : "FR"}
@@ -565,42 +570,48 @@ export default function SettingsScreen() {
                 </View>
 
                 {/* ── Support ── */}
-                <Text style={s.sectionLabel}>SUPPORT</Text>
+                <Text style={s.sectionLabel}>{t.settingsSupport}</Text>
                 <View style={s.card}>
                     <Pressable
                         onPress={() => router.push("/feedback" as any)}
                         style={({ pressed }) => [s.row, pressed && s.rowPressed]}
+                        accessibilityRole="button"
+                        accessibilityLabel={t.settingsSendFeedback}
                     >
                         <View style={s.rowIcon}>
                             <Ionicons name="chatbubble-ellipses-outline" size={18} color={C.primary} />
                         </View>
-                        <Text style={s.rowLabel}>Send Feedback</Text>
+                        <Text style={s.rowLabel}>{t.settingsSendFeedback}</Text>
                         <Ionicons name="chevron-forward" size={16} color={C.textLight} />
                     </Pressable>
                 </View>
 
                 {/* ── Legal ── */}
-                <Text style={s.sectionLabel}>LEGAL</Text>
+                <Text style={s.sectionLabel}>{t.settingsLegal}</Text>
                 <View style={s.card}>
                     <Pressable
                         onPress={() => Linking.openURL(TOS_URL)}
                         style={({ pressed }) => [s.row, pressed && s.rowPressed]}
+                        accessibilityRole="link"
+                        accessibilityLabel={t.settingsTerms}
                     >
                         <View style={s.rowIcon}>
                             <Ionicons name="document-text-outline" size={18} color={C.primary} />
                         </View>
-                        <Text style={s.rowLabel}>Terms of Service</Text>
+                        <Text style={s.rowLabel}>{t.settingsTerms}</Text>
                         <Ionicons name="open-outline" size={16} color={C.textLight} />
                     </Pressable>
                     <View style={s.divider} />
                     <Pressable
                         onPress={() => Linking.openURL(PRIVACY_URL)}
                         style={({ pressed }) => [s.row, pressed && s.rowPressed]}
+                        accessibilityRole="link"
+                        accessibilityLabel={t.settingsPrivacy}
                     >
                         <View style={s.rowIcon}>
                             <Ionicons name="shield-checkmark-outline" size={18} color={C.primary} />
                         </View>
-                        <Text style={s.rowLabel}>Privacy Policy</Text>
+                        <Text style={s.rowLabel}>{t.settingsPrivacy}</Text>
                         <Ionicons name="open-outline" size={16} color={C.textLight} />
                     </Pressable>
                 </View>
@@ -610,6 +621,8 @@ export default function SettingsScreen() {
                     <Pressable
                         onPress={confirmLogout}
                         style={({ pressed }) => [s.row, pressed && s.rowPressed]}
+                        accessibilityRole="button"
+                        accessibilityLabel={t.signOut}
                     >
                         <View style={[s.rowIcon, s.rowIconDestructive]}>
                             <Ionicons name="log-out-outline" size={18} color="#fff" />
@@ -620,11 +633,13 @@ export default function SettingsScreen() {
                     <Pressable
                         onPress={confirmDeleteAccount}
                         style={({ pressed }) => [s.row, pressed && s.rowPressed]}
+                        accessibilityRole="button"
+                        accessibilityLabel={t.deleteAccount}
                     >
                         <View style={[s.rowIcon, s.rowIconDestructive]}>
                             <Ionicons name="trash-outline" size={18} color="#fff" />
                         </View>
-                        <Text style={[s.rowLabel, s.rowLabelDestructive]}>DELETE ACCOUNT</Text>
+                        <Text style={[s.rowLabel, s.rowLabelDestructive]}>{t.deleteAccount}</Text>
                     </Pressable>
                 </View>
 
@@ -635,14 +650,14 @@ export default function SettingsScreen() {
             <Modal visible={modalMounted} animationType="none" transparent onRequestClose={closeModal}>
                 <KeyboardAvoidingView style={{ flex: 1, justifyContent: "flex-end" }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
                     <Animated.View style={[s.modalBackdrop, { opacity: backdropAnim }]} pointerEvents="none" />
-                    <Pressable style={StyleSheet.absoluteFill} onPress={closeModal} />
+                    <Pressable style={StyleSheet.absoluteFill} onPress={closeModal} accessibilityRole="button" accessibilityLabel={t.close} />
                     <Animated.View style={[s.modalSheet, { paddingBottom: insets.bottom + 16, transform: [{ translateY: slideAnim }] }]}>
                         <View style={s.modalHandle} />
                         <View style={s.modalHeader}>
                             <Text style={s.modalTitle}>
                                 {openSection === "profile" ? "EDIT PROFILE" : openSection === "club-profile" ? "CLUB PROFILE" : "CHANGE PASSWORD"}
                             </Text>
-                            <Pressable onPress={closeModal} hitSlop={8} accessibilityLabel="Close" accessibilityRole="button">
+                            <Pressable onPress={closeModal} hitSlop={8} accessibilityLabel={t.close} accessibilityRole="button">
                                 <Ionicons name="close" size={20} color={C.text} />
                             </Pressable>
                         </View>
@@ -658,7 +673,7 @@ export default function SettingsScreen() {
                                                     <Ionicons name="person" size={24} color={C.textLight} />
                                                 </View>
                                             )}
-                                            <Text style={s.avatarChangeText}>TAP TO CHANGE</Text>
+                                            <Text style={s.avatarChangeText}>{t.settingsTapToChange}</Text>
                                         </Pressable>
                                     </Field>
                                     <Field label="Display Name" s={s}>
@@ -763,6 +778,8 @@ function Row({ icon, label, onPress, C, s }: {
         <Pressable
             onPress={onPress}
             style={({ pressed }) => [s.row, pressed && s.rowPressed]}
+            accessibilityRole="button"
+            accessibilityLabel={label}
         >
             <View style={s.rowIcon}>
                 <Ionicons name={icon as any} size={18} color={C.primary} />

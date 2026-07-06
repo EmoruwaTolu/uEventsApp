@@ -8,6 +8,7 @@ import { api } from "../lib/api";
 import { useApi } from "../lib/useApi";
 import { useAuth } from "../auth/AuthContext";
 import { useTheme } from "../lib/ThemeContext";
+import { useT } from "../lib/LangContext";
 import type { AppColors } from "../styles/theme";
 
 type Stage = "verifying" | "success" | "error" | "prompt";
@@ -27,6 +28,7 @@ export default function VerifyEmailScreen() {
     const router = useRouter();
     const { token } = useLocalSearchParams<{ token?: string }>();
     const { colors: C } = useTheme();
+    const t = useT();
     const s = useMemo(() => makeStyles(C), [C]);
     const { session, markEmailVerified } = useAuth();
     const authApi = useApi();
@@ -87,8 +89,8 @@ export default function VerifyEmailScreen() {
                         <View style={[s.iconWrap, { backgroundColor: C.primaryBg }]}>
                             <Ionicons name="checkmark-circle" size={44} color={C.primary} />
                         </View>
-                        <Text style={s.eyebrow}>ACCOUNT</Text>
-                        <Text style={s.title}>Email verified</Text>
+                        <Text style={s.eyebrow}>{t.accountEyebrow}</Text>
+                        <Text style={s.title}>{t.emailVerifiedTitle}</Text>
                         <View style={s.accent} />
                         <Text style={s.subtitle}>You're all set. Thanks for confirming your email address.</Text>
                         <LoginButton title="CONTINUE" onPress={goHome} filled />
@@ -100,8 +102,8 @@ export default function VerifyEmailScreen() {
                         <View style={[s.iconWrap, { backgroundColor: C.primaryBg }]}>
                             <Ionicons name="alert-circle" size={44} color={C.primary} />
                         </View>
-                        <Text style={s.eyebrow}>ACCOUNT</Text>
-                        <Text style={s.title}>Link expired</Text>
+                        <Text style={s.eyebrow}>{t.accountEyebrow}</Text>
+                        <Text style={s.title}>{t.linkExpiredTitle}</Text>
                         <View style={s.accent} />
                         <Text style={s.subtitle}>{message}</Text>
                         {session?.token && (
@@ -118,8 +120,8 @@ export default function VerifyEmailScreen() {
                         <View style={[s.iconWrap, { backgroundColor: C.primaryBg }]}>
                             <Ionicons name="mail-outline" size={40} color={C.primary} />
                         </View>
-                        <Text style={s.eyebrow}>ACCOUNT</Text>
-                        <Text style={s.title}>Verify your email</Text>
+                        <Text style={s.eyebrow}>{t.accountEyebrow}</Text>
+                        <Text style={s.title}>{t.verifyYourEmailTitle}</Text>
                         <View style={s.accent} />
                         <Text style={s.subtitle}>
                             {session?.email

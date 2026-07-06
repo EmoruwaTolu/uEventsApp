@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from "react";
 import { useApi } from "../../lib/useApi";
 import { useAuth } from "../../auth/AuthContext";
-import { useT } from "../../lib/LangContext";
+import { useT, useLang } from "../../lib/LangContext";
+import { translateCategory } from "../../lib/categories";
 import {
     View,
     Text,
@@ -170,6 +171,7 @@ export default function ProfilePage({
     const s = useMemo(() => makeStyles(C), [C]);
 
     const t = useT();
+    const { lang } = useLang();
     const [tab, setTab] = useState<FeedTab>(initialTab);
     const [editOpen, setEditOpen] = useState(false);
     const [clubsModalOpen, setClubsModalOpen] = useState(false);
@@ -242,10 +244,13 @@ export default function ProfilePage({
                         <Pressable
                             onPress={openEditModal}
                             style={s.iconBtn}
+                            hitSlop={8}
+                            accessibilityRole="button"
+                            accessibilityLabel="Edit profile"
                         >
                             <Ionicons name="pencil-outline" size={18} color={C.textBody} />
                         </Pressable>
-                        <Pressable onPress={() => router.push("/settings" as any)} style={s.iconBtn}>
+                        <Pressable onPress={() => router.push("/settings" as any)} style={s.iconBtn} hitSlop={8} accessibilityRole="button" accessibilityLabel="Settings">
                             <Ionicons name="settings-outline" size={18} color={C.textBody} />
                         </Pressable>
                     </View>
@@ -320,7 +325,7 @@ export default function ProfilePage({
                                 </View>
                             ) : null}
                             <View style={[s.aboutDetailRow, { borderBottomWidth: 0 }]}>
-                                <Text style={s.aboutDetailLabel}>EMAIL</Text>
+                                <Text style={s.aboutDetailLabel}>{t.emailLabel}</Text>
                                 <Text style={[s.aboutDetailValue, s.aboutLink]}>{user.email}</Text>
                             </View>
                         </View>
@@ -357,7 +362,7 @@ export default function ProfilePage({
                 {/* Feed tabs */}
                 <View style={s.tabBar}>
                     {TABS.map(({ key, label }) => (
-                        <Pressable key={key} onPress={() => setTab(key)} style={s.tabItem}>
+                        <Pressable key={key} onPress={() => setTab(key)} style={s.tabItem} accessibilityRole="tab" accessibilityState={{ selected: tab === key }} accessibilityLabel={label}>
                             <Text style={[s.tabLabel, tab === key && s.tabLabelActive]}>{label}</Text>
                             {tab === key && <View style={s.tabUnderline} />}
                         </Pressable>
@@ -592,10 +597,10 @@ export default function ProfilePage({
                                 style={[s.spChip, on && s.spChipActive]}
                                 accessibilityRole="button"
                                 accessibilityState={{ selected: on }}
-                                accessibilityLabel={`${on ? "Unfollow" : "Follow"} ${tag}`}
+                                accessibilityLabel={`${on ? t.unfollowWord : t.followWord} ${translateCategory(tag, lang)}`}
                             >
                                 {on && <Ionicons name="checkmark" size={12} color="#fff" />}
-                                <Text style={[s.spChipText, on && s.spChipTextActive]} maxFontSizeMultiplier={1.3}>{tag.toUpperCase()}</Text>
+                                <Text style={[s.spChipText, on && s.spChipTextActive]} maxFontSizeMultiplier={1.3}>{translateCategory(tag, lang).toUpperCase()}</Text>
                             </Pressable>
                         );
                     })}
@@ -764,7 +769,7 @@ function MyPostCard({ post, onPress }: { post: MyPost; onPress: () => void }) {
     const { colors: C } = useTheme();
     const s = useMemo(() => makeStyles(C), [C]);
     return (
-        <Pressable style={s.feedCard} onPress={onPress}>
+        <Pressable style={s.feedCard} onPress={onPress} accessibilityRole="button">
             <View style={s.feedCardHeader}>
                 <Text style={s.postTypeBadge}>{POST_TYPE_LABEL[post.type.toUpperCase()] ?? post.type}</Text>
                 <Text style={[s.feedCardTime, { marginLeft: "auto" as any }]}>{post.timeAgo}</Text>
@@ -815,9 +820,9 @@ function ClubList({
                     <View key={club.id}>
                         <View style={s.clubRow}>
                             {/* Thumbnail */}
-                            <Pressable style={s.clubRowMain} onPress={() => onNavigate(club.id)}>
+                            <Pressable style={s.clubRowMain} onPress={() => onNavigate(club.id)} accessibilityRole="button" accessibilityLabel={`${club.name} club profile`}>
                                 {club.logoUrl ? (
-                                    <Image source={{ uri: club.logoUrl }} style={s.clubThumb} />
+                                    <Image source={{ uri: club.logoUrl }} style={s.clubThumb} accessibilityIgnoresInvertColors />
                                 ) : (
                                     <ClubInitials name={club.name} size={56} />
                                 )}
@@ -833,6 +838,9 @@ function ClubList({
                                 style={[s.clubBellBtn, bellActive && s.clubBellBtnActive]}
                                 onPress={() => onBell(club.id, club.name)}
                                 hitSlop={8}
+                                accessibilityRole="button"
+                                accessibilityState={{ selected: bellActive }}
+                                accessibilityLabel={`Notifications for ${club.name}${bellActive ? " on" : " off"}`}
                             >
                                 <Ionicons
                                     name={bellIcon}
@@ -869,7 +877,7 @@ function ActivityCard({ post, onPress }: { post: ActivityPost; onPress: () => vo
     const { colors: C } = useTheme();
     const s = useMemo(() => makeStyles(C), [C]);
     return (
-        <Pressable style={s.feedCard} onPress={onPress}>
+        <Pressable style={s.feedCard} onPress={onPress} accessibilityRole="button">
             <View style={s.feedCardHeader}>
                 <ClubInitials name={post.clubName} size={36} />
                 <View style={{ flex: 1, gap: 2 }}>
@@ -907,7 +915,7 @@ function RSVPCard({ event, onPress }: { event: RSVPEvent; onPress: () => void })
     const s = useMemo(() => makeStyles(C), [C]);
     const soon = soonLabel(event.startAt);
     return (
-        <Pressable style={s.feedCard} onPress={onPress}>
+        <Pressable style={s.feedCard} onPress={onPress} accessibilityRole="button">
             <View style={s.rsvpBadgeRow}>
                 <View style={s.rsvpBadgeBar} />
                 <Text style={s.rsvpBadgeText}>EVENT · RSVP'D</Text>
@@ -943,7 +951,7 @@ function SavedCard({ post, onPress }: { post: SavedPost; onPress: () => void }) 
     const { colors: C } = useTheme();
     const s = useMemo(() => makeStyles(C), [C]);
     return (
-        <Pressable style={s.feedCard} onPress={onPress}>
+        <Pressable style={s.feedCard} onPress={onPress} accessibilityRole="button">
             <View style={s.feedCardHeader}>
                 <ClubInitials name={post.clubName} size={36} />
                 <View style={{ flex: 1, gap: 2 }}>

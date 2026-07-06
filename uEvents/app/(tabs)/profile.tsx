@@ -11,6 +11,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { useLang, pickLocale, useT } from "../../lib/LangContext";
 import { useToast } from "../../lib/ToastContext";
 import { ProfileSkeleton } from "../../components/SkeletonLoader";
+import { timeAgo, localeFor } from "../../lib/datetime";
 import { useTheme } from "../../lib/ThemeContext";
 
 
@@ -69,14 +70,7 @@ type Attendance = {
     events: { id: string; title: string; clubName: string; startAt?: string; checkedAt: string }[];
 };
 
-function timeAgo(iso: string): string {
-    const diff = Date.now() - new Date(iso).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
-}
+
 
 export default function ProfileScreen() {
     const { session, signOut } = useAuth();
@@ -211,12 +205,14 @@ export default function ProfileScreen() {
                     <Pressable
                         onPress={signOut}
                         style={{ backgroundColor: C.primary, paddingHorizontal: 32, paddingVertical: 14, width: "100%", alignItems: "center", marginBottom: 12 }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Create account"
                     >
-                        <Text style={{ fontSize: 12, fontWeight: "900", color: "#fff", letterSpacing: 2 }}>CREATE ACCOUNT</Text>
+                        <Text style={{ fontSize: 12, fontWeight: "900", color: "#fff", letterSpacing: 2 }}>{t.createAccountBtn}</Text>
                     </Pressable>
-                    <Pressable onPress={signOut} style={{ paddingVertical: 8 }}>
+                    <Pressable onPress={signOut} style={{ paddingVertical: 8 }} accessibilityRole="button" accessibilityLabel="Log in">
                         <Text style={{ fontSize: 13, color: C.textMuted }}>
-                            Already have an account? <Text style={{ fontWeight: "800", color: C.text }}>LOG IN</Text>
+                            Already have an account? <Text style={{ fontWeight: "800", color: C.text }}>{t.logInBtn}</Text>
                         </Text>
                     </Pressable>
                 </View>
@@ -263,7 +259,7 @@ export default function ProfileScreen() {
             type: p.type,
             title: loc.title ?? "",
             body: loc.body ?? "",
-            timeAgo: timeAgo(p.createdAt),
+            timeAgo: timeAgo(p.createdAt, lang),
             likes: p._count.likes,
             comments: p._count.comments,
         };
@@ -275,7 +271,7 @@ export default function ProfileScreen() {
             id: p.id,
             name: loc.title ?? "",
             posterUrl: loc.imageUrl,
-            countdown: p.startAt ? new Date(p.startAt).toLocaleDateString("en-CA", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "",
+            countdown: p.startAt ? new Date(p.startAt).toLocaleDateString(localeFor(lang), { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "",
             location: p.locationName ?? "",
             clubName: p.club?.clubName ?? "",
             desc: loc.body,
@@ -291,7 +287,7 @@ export default function ProfileScreen() {
             clubName: p.club?.clubName ?? "",
             type: p.type.toLowerCase() as any,
             content: loc.body ?? loc.title ?? "",
-            timestamp: timeAgo(p.createdAt),
+            timestamp: timeAgo(p.createdAt, lang),
             imageUrl: loc.imageUrl,
             likes: p._count.likes,
             comments: p._count.comments,
@@ -305,8 +301,8 @@ export default function ProfileScreen() {
         clubName: a.clubName,
         type: a.type as any,
         content: a.content,
-        timestamp: timeAgo(a.timestamp),
-        actionTime: timeAgo(a.actionTime),
+        timestamp: timeAgo(a.timestamp, lang),
+        actionTime: timeAgo(a.actionTime, lang),
         likes: a.likes,
         comments: a.comments,
     }));

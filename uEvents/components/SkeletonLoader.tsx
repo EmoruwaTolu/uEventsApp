@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Animated, View, Text, Pressable, StyleSheet, ViewStyle, DimensionValue } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../lib/ThemeContext";
+import { useT } from "../lib/LangContext";
 import { useReduceMotion } from "../lib/useReduceMotion";
 
 export function SkeletonBox({ width, height, style }: { width?: DimensionValue; height: number; style?: ViewStyle }) {
@@ -126,6 +127,7 @@ export function ProfileSkeleton() {
 
 export function ErrorRetry({ message = "Something went wrong", onRetry }: { message?: string; onRetry: () => void }) {
     const { colors: C } = useTheme();
+    const t = useT();
     return (
         <View style={{ alignItems: "center", paddingVertical: 48, gap: 12 }}>
             <Ionicons name="cloud-offline-outline" size={32} color={C.textFaint} />
@@ -137,7 +139,7 @@ export function ErrorRetry({ message = "Something went wrong", onRetry }: { mess
                 accessibilityLabel="Retry"
                 hitSlop={8}
             >
-                <Text style={{ fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 1.5 }}>RETRY</Text>
+                <Text style={{ fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 1.5 }}>{t.retry}</Text>
             </Pressable>
         </View>
     );

@@ -506,7 +506,7 @@ export default function CreateContentScreen() {
                         { icon: "people-outline",   label: t.clubFollowers, route: `/club/followers?id=${session?.userId}` },
                         { icon: "create-outline",   label: t.editProfile,  route: "/club/edit-profile" },
                     ] as const).map(({ icon, label, route }) => (
-                        <Pressable key={label} style={styles.quickLink} onPress={() => router.push(route as any)}>
+                        <Pressable key={label} style={styles.quickLink} onPress={() => router.push(route as any)} accessibilityRole="button" accessibilityLabel={label}>
                             <Ionicons name={icon} size={20} color={C.primary} />
                             <Text style={styles.quickLinkText}>{label}</Text>
                         </Pressable>
@@ -533,7 +533,7 @@ export default function CreateContentScreen() {
                 {/* Content type cards */}
                 <View style={[styles.cards, !isApproved && styles.cardsDisabled]}>
                     {/* Analytics card */}
-                    <Pressable style={[styles.analyticsCard, styles.cardFeatured]} onPress={() => router.push("/analytics" as any)}>
+                    <Pressable style={[styles.analyticsCard, styles.cardFeatured]} onPress={() => router.push("/analytics" as any)} accessibilityRole="button" accessibilityLabel={t.analytics}>
                         <View style={[styles.cardIcon, styles.cardIconFeatured]}>
                             <Ionicons name="bar-chart" size={22} color="#fff" />
                         </View>
@@ -546,6 +546,8 @@ export default function CreateContentScreen() {
                             key={type}
                             style={[styles.card, featured && styles.cardFeatured]}
                             onPress={() => openForm(type)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${label}. ${desc}`}
                         >
                             <View style={[styles.cardIcon, featured && styles.cardIconFeatured]}>
                                 <Ionicons name={icon} size={22} color="#fff" />
@@ -581,7 +583,7 @@ export default function CreateContentScreen() {
                         <View style={styles.draftsBadge}>
                             <Text style={styles.draftsBadgeText}>{draftCount ?? "—"} {t.pendingLabel}</Text>
                         </View>
-                        <Pressable style={styles.draftsBtn} onPress={() => router.push("/drafts")}>
+                        <Pressable style={styles.draftsBtn} onPress={() => router.push("/drafts")} accessibilityRole="button" accessibilityLabel={`${t.viewAll} drafts`}>
                             <Text style={styles.draftsBtnText}>{t.viewAll}</Text>
                             <Ionicons name="open-outline" size={12} color="#fff" />
                         </Pressable>

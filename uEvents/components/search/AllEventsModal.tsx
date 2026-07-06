@@ -6,6 +6,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useApi } from "../../lib/useApi";
+import { useT, useLang } from "../../lib/LangContext";
+import { localeFor } from "../../lib/datetime";
 
 type RsvpEvent = {
     id: string;
@@ -27,24 +29,24 @@ function toDateKey(iso: string) {
     return iso.slice(0, 10); // "YYYY-MM-DD"
 }
 
-function fmtDayLabel(dateKey: string) {
+function fmtDayLabel(dateKey: string, lang: string) {
     const [y, m, d] = dateKey.split("-").map(Number);
     const date = new Date(y, m - 1, d);
-    const weekday = date.toLocaleString("en-US", { weekday: "long" }).toUpperCase();
-    const month = date.toLocaleString("en-US", { month: "long" }).toUpperCase();
+    const weekday = date.toLocaleString(localeFor(lang), { weekday: "long" }).toUpperCase();
+    const month = date.toLocaleString(localeFor(lang), { month: "long" }).toUpperCase();
     return { label: `${weekday}, ${month} ${d}`, dayNum: String(d) };
 }
 
-function fmtTime(iso?: string) {
+function fmtTime(iso: string | undefined, lang: string) {
     if (!iso) return "";
-    return new Date(iso).toLocaleTimeString("en-US", {
+    return new Date(iso).toLocaleTimeString(localeFor(lang), {
         hour: "numeric",
         minute: "2-digit",
         hour12: true,
     });
 }
 
-function groupByDay(events: RsvpEvent[]): DayGroup[] {
+function groupByDay(events: RsvpEvent[], lang: string): DayGroup[] {
     const map = new Map<string, RsvpEvent[]>();
     for (const e of events) {
         if (!e.startAt) continue;
@@ -58,12 +60,14 @@ function groupByDay(events: RsvpEvent[]): DayGroup[] {
             const sorted = evts.sort(
                 (a, b) => new Date(a.startAt!).getTime() - new Date(b.startAt!).getTime()
             );
-            const { label, dayNum } = fmtDayLabel(dateKey);
+            const { label, dayNum } = fmtDayLabel(dateKey, lang);
             return { dateKey, label, dayNum, events: sorted };
         });
 }
 
 export default function AllEventsModal() {
+    const t = useT();
+    const { lang } = useLang();
     const router = useRouter();
     const authApi = useApi();
     const { events: eventsParam } = useLocalSearchParams<{ events?: string; date?: string }>();
@@ -79,7 +83,7 @@ export default function AllEventsModal() {
             try {
                 const parsed = (JSON.parse(eventsParam) as RsvpEvent[]).filter((e) => e.startAt);
                 setTotal(parsed.length);
-                setGroups(groupByDay(parsed));
+                setGroups(groupByDay(parsed, lang));
             } catch {}
             setLoading(false);
             return;
@@ -90,7 +94,7 @@ export default function AllEventsModal() {
                     (e) => e.startAt && new Date(e.startAt) >= new Date(new Date().setHours(0, 0, 0, 0))
                 );
                 setTotal(upcoming.length);
-                setGroups(groupByDay(upcoming));
+                setGroups(groupByDay(upcoming, lang));
             })
             .catch(() => {})
             .finally(() => setLoading(false));
@@ -100,7 +104,7 @@ export default function AllEventsModal() {
         <SafeAreaView style={s.page} edges={["top"]}>
             {/* Top bar */}
             <View style={s.topBar}>
-                <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
+                <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={12} accessibilityRole="button" accessibilityLabel={t.goBackLabel}>
                     <Ionicons name="arrow-back" size={18} color="#111827" />
                 </Pressable>
                 <Text style={s.topBarTitle}>{browse ? "ALL EVENTS" : "MY SCHEDULE"}</Text>
@@ -119,7 +123,7 @@ export default function AllEventsModal() {
             ) : groups.length === 0 ? (
                 <View style={s.empty}>
                     <Ionicons name="calendar-outline" size={40} color="#D1CBC3" />
-                    <Text style={s.emptyText}>NO UPCOMING EVENTS</Text>
+                    <Text style={s.emptyText}>{t.noUpcomingEvents}</Text>
                     <Text style={s.emptySub}>{browse ? "Nothing scheduled for this view." : "RSVP to events to see them here."}</Text>
                 </View>
             ) : (
@@ -144,10 +148,10 @@ export default function AllEventsModal() {
                             {/* Event rows */}
                             {group.events.map((event, i) => {
                                 const locale = event.locales?.en ?? {};
-                                const title = locale.title ?? "Untitled Event";
+                                const title = locale.title ?? t.untitledEvent;
                                 const imgUri = locale.posterUrl ?? locale.imageUrl;
-                                const startTime = fmtTime(event.startAt);
-                                const endTime = fmtTime(event.endAt);
+                                const startTime = fmtTime(event.startAt, lang);
+                                const endTime = fmtTime(event.endAt, lang);
                                 const clubName = event.club?.clubName?.toUpperCase() ?? "";
 
                                 return (

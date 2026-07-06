@@ -9,7 +9,8 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useApi } from "../lib/useApi";
 import { useAuth } from "../auth/AuthContext";
-import { useT } from "../lib/LangContext";
+import { useT, useLang } from "../lib/LangContext";
+import { timeAgo, localeFor } from "../lib/datetime";
 import { useTheme } from "../lib/ThemeContext";
 import type { AppColors } from "../styles/theme";
 
@@ -34,16 +35,6 @@ function fmtNum(n: number): string {
     return String(n);
 }
 
-function timeAgo(iso: string): string {
-    const diff = Date.now() - new Date(iso).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    const days = Math.floor(hrs / 24);
-    if (days < 7) return `${days}d ago`;
-    return `${Math.floor(days / 7)}w ago`;
-}
 
 const makeAnalyticsStyles = (C: AppColors) => StyleSheet.create({
     safe: { flex: 1, backgroundColor: C.bg },
@@ -555,6 +546,7 @@ export default function AnalyticsScreen() {
     const authApi = useApi();
     const { session } = useAuth();
     const t = useT();
+    const { lang } = useLang();
     const { colors: C } = useTheme();
     const styles = useMemo(() => makeAnalyticsStyles(C), [C]);
     const [posts, setPosts] = useState<AnalyticsPost[]>([]);
@@ -601,7 +593,7 @@ export default function AnalyticsScreen() {
     const reportPeriod = (() => {
         if (!posts.length) return null;
         const dates = posts.map((p) => new Date(p.createdAt).getTime());
-        const fmt = (ms: number) => new Date(ms).toLocaleDateString("en-US", { month: "short", year: "numeric" }).toUpperCase();
+        const fmt = (ms: number) => new Date(ms).toLocaleDateString(localeFor(lang), { month: "short", year: "numeric" }).toUpperCase();
         const earliest = fmt(Math.min(...dates));
         const latest = fmt(Math.max(...dates));
         return earliest === latest ? earliest : `${earliest} – ${latest}`;
@@ -874,7 +866,7 @@ export default function AnalyticsScreen() {
                                         <View style={styles.postTypeBadge}>
                                             <Text style={styles.postTypeText}>{post.type}</Text>
                                         </View>
-                                        <Text style={styles.postTimeAgo}>{timeAgo(post.createdAt)}</Text>
+                                        <Text style={styles.postTimeAgo}>{timeAgo(post.createdAt, lang)}</Text>
                                     </View>
                                     <Text style={styles.postTitle}>{post.title}</Text>
                                     <View style={styles.postStats}>

@@ -10,6 +10,8 @@ import QRCode from "react-native-qrcode-svg";
 import { useApi } from "../../lib/useApi";
 import { useToast } from "../../lib/ToastContext";
 import { useTheme } from "../../lib/ThemeContext";
+import { useT, useLang } from "../../lib/LangContext";
+import { timeAgo } from "../../lib/datetime";
 import type { AppColors } from "../../styles/theme";
 
 const POLL_INTERVAL = 5000;
@@ -23,13 +25,6 @@ type Attendee = {
     year: string | null;
 };
 
-function timeAgo(iso: string): string {
-    const diff = Date.now() - new Date(iso).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins}m ago`;
-    return `${Math.floor(mins / 60)}h ago`;
-}
 
 const makeStyles = (C: AppColors) => StyleSheet.create({
     safe: { flex: 1, backgroundColor: C.bg },
@@ -149,6 +144,8 @@ export default function CheckInScreen() {
     const authApi = useApi();
     const { showToast } = useToast();
     const { colors: C } = useTheme();
+    const t = useT();
+    const { lang } = useLang();
     const s = useMemo(() => makeStyles(C), [C]);
 
     const [qrValue, setQrValue] = useState<string | null>(null);
@@ -198,17 +195,17 @@ export default function CheckInScreen() {
             <View style={s.topBar}>
                 <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)" as any)} style={s.backGroup} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}>
                     <Ionicons name="arrow-back" size={18} color={C.primary} />
-                    <Text style={s.backLabel}>BACK</Text>
+                    <Text style={s.backLabel}>{t.back}</Text>
                 </Pressable>
-                <Text style={s.topBarTitle}>CHECK-IN MODE</Text>
+                <Text style={s.topBarTitle}>{t.checkInMode}</Text>
                 <View style={{ width: 64 }} />
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
                 {/* QR block */}
                 <View style={s.qrCard}>
-                    <Text style={s.qrCardLabel}>SHOW THIS TO ATTENDEES</Text>
-                    <Text style={s.qrCardSub}>Students scan with their uEvents app to check in</Text>
+                    <Text style={s.qrCardLabel}>{t.showToAttendees}</Text>
+                    <Text style={s.qrCardSub}>{t.scanToCheckIn}</Text>
 
                     <View style={s.qrWrap}>
                         {qrValue ? (
@@ -229,10 +226,10 @@ export default function CheckInScreen() {
                     <View style={s.counterRow}>
                         <View style={s.liveIndicator}>
                             <View style={s.liveDot} />
-                            <Text style={s.liveText}>LIVE</Text>
+                            <Text style={s.liveText}>{t.liveBadge}</Text>
                         </View>
                         <Text style={s.counterNum}>{count}</Text>
-                        <Text style={s.counterLabel}>CHECKED IN</Text>
+                        <Text style={s.counterLabel}>{t.checkedInLabel}</Text>
                     </View>
                 </View>
 
@@ -248,7 +245,7 @@ export default function CheckInScreen() {
                     <View style={s.listBlock}>
                         {attendees.length === 0 ? (
                             <View style={s.emptyState}>
-                                <Text style={s.emptyText}>NO CHECK-INS YET</Text>
+                                <Text style={s.emptyText}>{t.noCheckInsYet}</Text>
                             </View>
                         ) : (
                             attendees.map((a) => (
@@ -268,7 +265,7 @@ export default function CheckInScreen() {
                                             </Text>
                                         )}
                                     </View>
-                                    <Text style={s.checkedAt}>{timeAgo(a.checkedAt)}</Text>
+                                    <Text style={s.checkedAt}>{timeAgo(a.checkedAt, lang)}</Text>
                                 </View>
                             ))
                         )}

@@ -72,11 +72,11 @@ export default function MultiImagePicker({ images, onChange }: Props) {
         >
             {images.map((uri, idx) => (
                 <View key={`${uri}-${idx}`} style={s.thumbWrap}>
-                    <Pressable onPress={() => makeCover(idx)} style={s.thumb}>
-                        <Image source={{ uri }} style={s.thumbImg} resizeMode="cover" />
+                    <Pressable onPress={() => makeCover(idx)} style={s.thumb} accessibilityRole="button" accessibilityLabel={idx === 0 ? "Cover image" : "Set as cover image"}>
+                        <Image source={{ uri }} style={s.thumbImg} resizeMode="cover" accessibilityIgnoresInvertColors />
                         {isCover(idx) && (
                             <View style={s.coverBadge}>
-                                <Text style={s.coverBadgeText}>COVER</Text>
+                                <Text style={s.coverBadgeText}>{t.coverBadge}</Text>
                             </View>
                         )}
                     </Pressable>
@@ -89,7 +89,7 @@ export default function MultiImagePicker({ images, onChange }: Props) {
             {images.length < MAX_IMAGES && (
                 <Pressable style={s.addTile} onPress={pickMore} accessibilityRole="button" accessibilityLabel="Add image">
                     <Ionicons name="add" size={22} color="#9CA3AF" />
-                    <Text style={s.addLabel}>ADD</Text>
+                    <Text style={s.addLabel}>{t.addBadge}</Text>
                 </Pressable>
             )}
         </ScrollView>

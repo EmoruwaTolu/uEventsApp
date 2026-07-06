@@ -8,6 +8,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useApi } from "../../lib/useApi";
 import { useLang, pickLocale, useT } from "../../lib/LangContext";
+import { translateCategory } from "../../lib/categories";
+import { localeFor } from "../../lib/datetime";
 import { useTheme } from "../../lib/ThemeContext";
 import type { AppColors } from "../../styles/theme";
 
@@ -35,9 +37,9 @@ const CATEGORIES: { key: SearchCategory; label: string }[] = [
     { key: "posts",  label: "POSTS" },
 ];
 
-function fmtDate(iso?: string) {
+function fmtDate(iso: string | undefined, lang: string) {
     if (!iso) return "";
-    return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    return new Date(iso).toLocaleDateString(localeFor(lang), { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 type PopularClub = { id: string; clubName: string; category?: string; logoUrl?: string; _count: { followedBy: number } };
@@ -204,13 +206,13 @@ export default function SearchModal() {
                         ref={inputRef}
                         value={query}
                         onChangeText={setQuery}
-                        placeholder="Search events, clubs, posts..."
+                        placeholder={t.searchPlaceholder}
                         placeholderTextColor={C.textLight}
                         style={s.input}
                         returnKeyType="search"
                     />
                     {query.length > 0 && (
-                        <Pressable onPress={() => setQuery("")} hitSlop={8} accessibilityRole="button" accessibilityLabel="Clear search">
+                        <Pressable onPress={() => setQuery("")} hitSlop={8} accessibilityRole="button" accessibilityLabel={t.clearSearchLabel}>
                             <Ionicons name="close-circle" size={17} color={C.textLight} />
                         </Pressable>
                     )}
@@ -277,7 +279,7 @@ export default function SearchModal() {
                                             }
                                         </View>
                                         <View style={s.cardContent}>
-                                            <Text style={s.cardLabel}>CLUB{club.category ? ` · ${club.category.toUpperCase()}` : ""}</Text>
+                                            <Text style={s.cardLabel}>CLUB{club.category ? ` · ${translateCategory(club.category, lang).toUpperCase()}` : ""}</Text>
                                             <Text style={s.cardTitle} numberOfLines={1}>{club.clubName}</Text>
                                             <Text style={s.cardMeta}>{club._count.followedBy} followers</Text>
                                         </View>
@@ -296,7 +298,7 @@ export default function SearchModal() {
                                 </View>
                                 {upcomingEvents.map((event) => {
                                     const evLocale = pickLocale(event.locales, lang);
-                                    const evTitle = evLocale.title ?? event.title ?? "Untitled Event";
+                                    const evTitle = evLocale.title ?? event.title ?? t.untitledEvent;
                                     const evPoster = evLocale.posterUrl ?? (evLocale as any).imageUrl ?? event.posterUrl;
                                     const evClubName = event.clubName ?? event.club?.clubName;
                                     return (
@@ -319,7 +321,7 @@ export default function SearchModal() {
                                             <Text style={s.cardTitle} numberOfLines={2}>{evTitle}</Text>
                                             {(event.startAt || event.locationName) ? (
                                                 <Text style={s.cardMeta} numberOfLines={1}>
-                                                    {[fmtDate(event.startAt), event.locationName].filter(Boolean).join(" · ")}
+                                                    {[fmtDate(event.startAt, lang), event.locationName].filter(Boolean).join(" · ")}
                                                 </Text>
                                             ) : null}
                                         </View>
@@ -348,7 +350,7 @@ export default function SearchModal() {
                         {visibleClubs.length > 0 && (
                             <>
                                 <View style={s.sectionHeaderRow}>
-                                    <Text style={s.sectionTitle}>CLUBS</Text>
+                                    <Text style={s.sectionTitle}>{t.clubsTab}</Text>
                                     <View style={s.sectionLine} />
                                 </View>
                                 {visibleClubs.map((club) => (
@@ -365,7 +367,7 @@ export default function SearchModal() {
                                             }
                                         </View>
                                         <View style={s.cardContent}>
-                                            <Text style={s.cardLabel}>CLUB{club.category ? ` · ${club.category.toUpperCase()}` : ""}</Text>
+                                            <Text style={s.cardLabel}>CLUB{club.category ? ` · ${translateCategory(club.category, lang).toUpperCase()}` : ""}</Text>
                                             <Text style={s.cardTitle} numberOfLines={1}>{club.clubName}</Text>
                                             {club.description ? (
                                                 <Text style={s.cardMeta} numberOfLines={1}>{lang === "fr" && club.descriptionFr ? club.descriptionFr : club.description}</Text>
@@ -382,7 +384,7 @@ export default function SearchModal() {
                         {visibleEvents.length > 0 && (
                             <>
                                 <View style={s.sectionHeaderRow}>
-                                    <Text style={s.sectionTitle}>EVENTS</Text>
+                                    <Text style={s.sectionTitle}>{t.eventsUpper}</Text>
                                     <View style={s.sectionLine} />
                                 </View>
                                 {visibleEvents.map((event) => (
@@ -405,7 +407,7 @@ export default function SearchModal() {
                                             <Text style={s.cardTitle} numberOfLines={2}>{event.title}</Text>
                                             {(event.startAt || event.locationName) ? (
                                                 <Text style={s.cardMeta} numberOfLines={1}>
-                                                    {[fmtDate(event.startAt), event.locationName].filter(Boolean).join(" · ")}
+                                                    {[fmtDate(event.startAt, lang), event.locationName].filter(Boolean).join(" · ")}
                                                 </Text>
                                             ) : null}
                                         </View>
@@ -419,7 +421,7 @@ export default function SearchModal() {
                         {visiblePosts.length > 0 && (
                             <>
                                 <View style={s.sectionHeaderRow}>
-                                    <Text style={s.sectionTitle}>POSTS</Text>
+                                    <Text style={s.sectionTitle}>{t.postsUpper}</Text>
                                     <View style={s.sectionLine} />
                                 </View>
                                 {visiblePosts.map((post) => (

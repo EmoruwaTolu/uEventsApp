@@ -235,10 +235,10 @@ export default function FeedbackModal() {
 
                 {/* Top bar */}
                 <View style={styles.topBar}>
-                    <Pressable onPress={() => router.back()} style={styles.closeBtn} accessibilityRole="button" accessibilityLabel="Close" hitSlop={8}>
+                    <Pressable onPress={() => router.back()} style={styles.closeBtn} accessibilityRole="button" accessibilityLabel={t.close} hitSlop={8}>
                         <Ionicons name="close" size={22} color={C.textMuted} />
                     </Pressable>
-                    <Text style={styles.topBarTitle}>FEEDBACK</Text>
+                    <Text style={styles.topBarTitle}>{t.feedbackTitle}</Text>
                     <View style={{ width: 36 }} />
                 </View>
 
@@ -248,41 +248,43 @@ export default function FeedbackModal() {
                     showsVerticalScrollIndicator={false}
                 >
                     {/* Heading */}
-                    <Text style={styles.heading}>Tell us what's on your mind</Text>
+                    <Text style={styles.heading}>{t.feedbackHeading}</Text>
                     <Text style={styles.sub}>
-                        Found a bug or have an idea? We read every submission.
+                        {t.feedbackSub}
                     </Text>
 
                     {/* Type toggle */}
-                    <Text style={styles.label}>TYPE</Text>
+                    <Text style={styles.label}>{t.feedbackTypeLabel}</Text>
                     <View style={styles.typePicker}>
-                        {(["BUG_REPORT", "FEATURE_REQUEST"] as FeedbackType[]).map((t) => (
+                        {(["BUG_REPORT", "FEATURE_REQUEST"] as FeedbackType[]).map((ft) => (
                             <Pressable
-                                key={t}
-                                style={[styles.typeOption, feedbackType === t && styles.typeOptionActive]}
-                                onPress={() => setFeedbackType(t)}
+                                key={ft}
+                                style={[styles.typeOption, feedbackType === ft && styles.typeOptionActive]}
+                                onPress={() => setFeedbackType(ft)}
+                                accessibilityRole="button"
+                                accessibilityState={{ selected: feedbackType === ft }}
                             >
                                 <Ionicons
-                                    name={t === "BUG_REPORT" ? "bug-outline" : "bulb-outline"}
+                                    name={ft === "BUG_REPORT" ? "bug-outline" : "bulb-outline"}
                                     size={16}
-                                    color={feedbackType === t ? "#fff" : C.textMuted}
+                                    color={feedbackType === ft ? "#fff" : C.textMuted}
                                 />
-                                <Text style={[styles.typeOptionText, feedbackType === t && styles.typeOptionTextActive]}>
-                                    {t === "BUG_REPORT" ? "Bug Report" : "Suggestion"}
+                                <Text style={[styles.typeOptionText, feedbackType === ft && styles.typeOptionTextActive]}>
+                                    {ft === "BUG_REPORT" ? t.feedbackBugReport : t.feedbackSuggestion}
                                 </Text>
                             </Pressable>
                         ))}
                     </View>
 
                     {/* Message */}
-                    <Text style={styles.label}>MESSAGE</Text>
+                    <Text style={styles.label}>{t.feedbackMessageLabel}</Text>
                     <TextInput
                         style={styles.messageInput}
                         value={message}
                         onChangeText={setMessage}
                         placeholder={
                             feedbackType === "BUG_REPORT"
-                                ? "Describe what happened and how to reproduce it..."
+                                ? t.feedbackBugPlaceholder
                                 : "Describe the feature or improvement you'd like to see..."
                         }
                         placeholderTextColor={C.textLight}
@@ -293,18 +295,18 @@ export default function FeedbackModal() {
                     <Text style={styles.charCount}>{message.length}/2000</Text>
 
                     {/* Screenshot */}
-                    <Text style={styles.label}>SCREENSHOT{feedbackType === "BUG_REPORT" ? " (optional)" : ""}</Text>
+                    <Text style={styles.label}>{t.feedbackScreenshot}{feedbackType === "BUG_REPORT" ? t.feedbackOptional : ""}</Text>
                     {screenshotUri ? (
                         <View style={styles.screenshotPreviewWrap}>
                             <Image source={{ uri: screenshotUri }} style={styles.screenshotPreview} resizeMode="cover" />
-                            <Pressable style={styles.removeScreenshot} onPress={() => setScreenshotUri(null)} accessibilityRole="button" accessibilityLabel="Remove screenshot" hitSlop={8}>
+                            <Pressable style={styles.removeScreenshot} onPress={() => setScreenshotUri(null)} accessibilityRole="button" accessibilityLabel={t.feedbackScreenshot} hitSlop={8}>
                                 <Ionicons name="close-circle" size={24} color="#fff" />
                             </Pressable>
                         </View>
                     ) : (
                         <Pressable style={styles.screenshotPicker} onPress={pickScreenshot}>
                             <Ionicons name="image-outline" size={28} color={C.textLight} />
-                            <Text style={styles.screenshotPickerText}>TAP TO ATTACH A SCREENSHOT</Text>
+                            <Text style={styles.screenshotPickerText}>{t.feedbackAttach}</Text>
                         </Pressable>
                     )}
                 </ScrollView>
@@ -319,7 +321,7 @@ export default function FeedbackModal() {
                         {submitting ? (
                             <ActivityIndicator color="#fff" size="small" />
                         ) : (
-                            <Text style={styles.submitBtnText}>SEND FEEDBACK</Text>
+                            <Text style={styles.submitBtnText}>{t.feedbackSend}</Text>
                         )}
                     </Pressable>
                 </View>

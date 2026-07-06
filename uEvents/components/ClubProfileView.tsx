@@ -15,6 +15,8 @@ import { useToast } from "../lib/ToastContext";
 import { ProfileSkeleton, ErrorRetry } from "./SkeletonLoader";
 import { useTheme } from "../lib/ThemeContext";
 import { useT } from "../lib/LangContext";
+import { translateCategory } from "../lib/categories";
+import { timeAgo, fmtTime24 as fmtTime, fmtLongDate } from "../lib/datetime";
 import type { AppColors } from "../styles/theme";
 import { LinearGradient } from "expo-linear-gradient";
 import SocialFeed, { FeedPost } from "./SocialFeed";
@@ -53,29 +55,6 @@ type ApiPost = {
     _count: { likes: number; comments: number; rsvps: number };
 };
 
-function timeAgo(iso: string): string {
-    const diff = Date.now() - new Date(iso).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
-}
-
-function fmtTime(iso: string): string {
-    const d = new Date(iso);
-    return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
-}
-
-function fmtDate(iso: string): string {
-    const d = new Date(iso);
-    const weekday = d.toLocaleString("en-US", { weekday: "long" });
-    const month = d.toLocaleString("en-US", { month: "long" });
-    const day = d.getDate();
-    const h = d.getHours().toString().padStart(2, "0");
-    const m = d.getMinutes().toString().padStart(2, "0");
-    return `${weekday}, ${month} ${day} · ${h}:${m}`;
-}
 
 function formatMembers(n: number): string {
     if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
@@ -112,12 +91,12 @@ function toFeedPost(p: ApiPost, club: Club, lang: string): FeedPost {
         clubAvatar: club.logoUrl,
         isFollowing: true,
         type: rawType,
-        timestamp: timeAgo(p.createdAt),
+        timestamp: timeAgo(p.createdAt, lang),
         content: body,
         imageUrl,
         images: p.images ?? [],
         eventTitle: rawType !== "poll" ? title : undefined,
-        eventDate: rawType === "event" && p.startAt ? fmtDate(p.startAt) : undefined,
+        eventDate: rawType === "event" && p.startAt ? fmtLongDate(p.startAt, lang) : undefined,
         eventTime,
         eventEndAt: rawType === "event" ? (p.endAt ?? p.startAt) : undefined,
         eventLocation: p.locationName,
@@ -136,12 +115,18 @@ function filterPosts(posts: FeedPost[], tab: PostTab): FeedPost[] {
     }
 }
 
-const TABS: { key: PostTab; label: string }[] = [
-    { key: "history", label: "POST HISTORY" },
-    { key: "events", label: "UPCOMING EVENTS" },
-    { key: "polls", label: "POLLS" },
-    { key: "media", label: "MEDIA" },
+const TABS: { key: PostTab }[] = [
+    { key: "history" },
+    { key: "events" },
+    { key: "polls" },
+    { key: "media" },
 ];
+const TAB_LABELS = (t: any): Record<PostTab, string> => ({
+    history: t.postHistoryTab,
+    events: t.upcomingEventsTab,
+    polls: t.pollsTab,
+    media: t.mediaTab,
+});
 
 type Props = {
     id: string;
@@ -296,7 +281,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
             <View style={{ flex: 1, backgroundColor: "#F7F3EE" }}>
                 {fetchError
                     ? <ErrorRetry message="Couldn't load club profile" onRetry={() => loadClub()} />
-                    : <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><Text style={{ color: "#6B7280" }}>Club not found</Text></View>
+                    : <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><Text style={{ color: "#6B7280" }}>{t.clubNotFound}</Text></View>
                 }
             </View>
         );
@@ -337,7 +322,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                                 accessibilityLabel="Edit club profile"
                             >
                                 <Ionicons name="create-outline" size={13} color={BURGUNDY} />
-                                <Text style={s.editProfileBtnText}>EDIT PROFILE</Text>
+                                <Text style={s.editProfileBtnText}>{t.editProfile}</Text>
                             </Pressable>
                         ) : (
                             <Pressable
@@ -356,7 +341,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                     {/* Club name & category */}
                     <Text style={s.clubNameNew} numberOfLines={2}>{club.clubName}</Text>
                     {!!club.category && (
-                        <Text style={s.categoryLabelNew}>{club.category.toUpperCase()}</Text>
+                        <Text style={s.categoryLabelNew}>{translateCategory(club.category!, lang).toUpperCase()}</Text>
                     )}
 
                     {/* Stats row */}
@@ -365,17 +350,17 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                             style={s.statItem}
                             onPress={isOwner ? () => router.push(`/club/followers?id=${id}` as any) : undefined}
                             accessibilityRole={isOwner ? "button" : "text"}
-                            accessibilityLabel={`${formatMembers(club._count.followedBy)} members`}
+                            accessibilityLabel={`${formatMembers(club._count.followedBy)} ${t.membersLabel}`}
                         >
                             <Text style={[s.statValue, isOwner && { color: BURGUNDY }]}>
                                 {formatMembers(club._count.followedBy)}
                             </Text>
-                            <Text style={s.statLabel}>MEMBERS{isOwner ? " ›" : ""}</Text>
+                            <Text style={s.statLabel}>{t.membersLabel}{isOwner ? " ›" : ""}</Text>
                         </Pressable>
                         <View style={s.statDivider} />
                         <View style={s.statItem}>
                             <Text style={s.statValue}>{club._count.posts}</Text>
-                            <Text style={s.statLabel}>POSTS</Text>
+                            <Text style={s.statLabel}>{t.posts}</Text>
                         </View>
                         {!!club.location && (
                             <>
@@ -393,11 +378,11 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
             {/* About section */}
             {(!!club.description || isOwner) && (
                 <View style={s.aboutBlock}>
-                    <Text style={s.aboutLabel}>ABOUT</Text>
+                    <Text style={s.aboutLabel}>{t.about}</Text>
                     {club.description ? (
                         <Text style={s.aboutText}>{lang === "fr" && club.descriptionFr ? club.descriptionFr : club.description}</Text>
                     ) : (
-                        <Text style={s.aboutPlaceholder}>Add a description in Edit Profile.</Text>
+                        <Text style={s.aboutPlaceholder}>{t.addDescriptionHint}</Text>
                     )}
                     {!!club.category && (
                         <View style={s.tagsRow}>
@@ -450,10 +435,10 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                         <View style={s.pinnedEventBody}>
                             <View style={s.pinnedTagRow}>
                                 <View style={s.pinnedTagBurgundy}>
-                                    <Text style={s.pinnedTagText}>PINNED POST</Text>
+                                    <Text style={s.pinnedTagText}>{t.pinnedPostBadge}</Text>
                                 </View>
                                 <View style={s.pinnedTagDark}>
-                                    <Text style={s.pinnedTagText}>FEATURED</Text>
+                                    <Text style={s.pinnedTagText}>{t.featuredBadge}</Text>
                                 </View>
                             </View>
                             <Text style={s.pinnedEventTitle} numberOfLines={3}>
@@ -491,7 +476,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                     >
                         <View style={s.pinnedHeader}>
                             <Ionicons name="pin" size={12} color={BURGUNDY} />
-                            <Text style={s.pinnedLabel}>PINNED POST</Text>
+                            <Text style={s.pinnedLabel}>{t.pinnedPostBadge}</Text>
                         </View>
                         <Text style={s.pinnedTitle} numberOfLines={2}>
                             {(pinnedPost.eventTitle ?? pinnedPost.poll?.question ?? pinnedPost.content ?? "").toUpperCase()}
@@ -509,9 +494,9 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
             {/* Tabs */}
             <View style={s.tabBar}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.tabRow}>
-                    {TABS.map(({ key, label }) => (
-                        <Pressable key={key} onPress={() => switchTab(key)} style={s.tabItem}>
-                            <Text style={[s.tabLabel, tab === key && s.tabLabelActive]}>{label}</Text>
+                    {TABS.map(({ key }) => (
+                        <Pressable key={key} onPress={() => switchTab(key)} style={s.tabItem} accessibilityRole="tab" accessibilityState={{ selected: tab === key }}>
+                            <Text style={[s.tabLabel, tab === key && s.tabLabelActive]}>{TAB_LABELS(t)[key]}</Text>
                             {tab === key && <View style={s.tabUnderline} />}
                         </Pressable>
                     ))}
@@ -527,7 +512,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                     {loadingMore
                         ? <ActivityIndicator color={BURGUNDY} size="small" />
                         : <>
-                            <Text style={s.loadArchiveText}>LOAD ARCHIVE</Text>
+                            <Text style={s.loadArchiveText}>{t.loadArchiveBtn}</Text>
                             <Ionicons name="chevron-down" size={14} color={BURGUNDY} />
                         </>
                     }
@@ -544,7 +529,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
             {visible.length === 0 ? (
                 <View style={s.emptyState}>
                     <Ionicons name="document-outline" size={32} color="#D1CBC3" />
-                    <Text style={s.emptyText}>NO POSTS HERE</Text>
+                    <Text style={s.emptyText}>{t.noPostsHere}</Text>
                 </View>
             ) : (() => {
                 const cellSize = (screenWidth - 2) / 3;
@@ -588,7 +573,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
             ListEmptyComponent={
                 <View style={s.emptyState}>
                     <Ionicons name="document-outline" size={32} color="#D1CBC3" />
-                    <Text style={s.emptyText}>NO POSTS HERE</Text>
+                    <Text style={s.emptyText}>{t.noPostsHere}</Text>
                 </View>
             }
             ListFooterComponent={footerNode}
@@ -607,7 +592,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                             <Ionicons name="arrow-back" size={18} color={BURGUNDY} />
                         </Pressable>
                     )}
-                    <Text style={s.topBarTitle}>CLUB PROFILE</Text>
+                    <Text style={s.topBarTitle}>{t.clubProfileTitle}</Text>
                     <View style={{ flexDirection: "row", gap: 4 }}>
                         {isProfileTab ? (
                             <Pressable style={s.menuBtn} onPress={() => router.push("/settings" as any)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Settings">
@@ -655,7 +640,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                     <Animated.View style={[s.modalSheet, { transform: [{ translateY: notifSheetY }] }]}>
                         <View style={s.modalHandle} />
                         <View style={s.modalHeader}>
-                            <Text style={s.modalTitle}>NOTIFICATIONS</Text>
+                            <Text style={s.modalTitle}>{t.notificationsSection}</Text>
                             <Pressable onPress={() => closeSheet(notifSheetY, () => setNotifModalOpen(false))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close">
                                 <Ionicons name="close" size={20} color="#374151" />
                             </Pressable>

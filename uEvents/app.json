@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "scheme": "uevents",
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -26,7 +25,6 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F5F4F0"
       },
-      "edgeToEdgeEnabled": true,
       "permissions": [
         "android.permission.READ_CALENDAR",
         "android.permission.WRITE_CALENDAR",
@@ -65,7 +63,8 @@
           "photosPermission": "Allow uEvents to access your photos to upload event recaps and your profile picture.",
           "cameraPermission": "Allow uEvents to use the camera to take event photos."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "router": {},

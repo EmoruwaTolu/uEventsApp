@@ -24,6 +24,7 @@ import { uploadImage } from "../../lib/uploadImage";
 import { useToast } from "../../lib/ToastContext";
 import { cs } from "./CreateEventForm";
 import { useT } from "../../lib/LangContext";
+import { localeFor } from "../../lib/datetime";
 
 type Lang = "en" | "fr";
 
@@ -220,7 +221,7 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
         <SafeAreaView style={s.safe} edges={["top"]}>
             {/* Top bar */}
             <View style={s.topBar}>
-                <Pressable onPress={onBack} style={s.backGroup}>
+                <Pressable onPress={onBack} style={s.backGroup} hitSlop={8} accessibilityRole="button" accessibilityLabel={t.back}>
                     <Ionicons name="arrow-back" size={18} color={BURGUNDY} />
                     <Text style={s.topBarBrand}>{t.back}</Text>
                 </Pressable>
@@ -320,14 +321,14 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
                         <Pressable onPress={() => setPickerTarget("sched-date")} style={{ flex: 1 }}>
                             <Text style={[s.schedText, !scheduleDate && s.schedPlaceholder]}>
                                 {scheduleDate
-                                    ? scheduleDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }).toUpperCase()
+                                    ? scheduleDate.toLocaleDateString(localeFor(lang), { month: "short", day: "numeric", year: "numeric" }).toUpperCase()
                                     : t.optionalTapToSet}
                             </Text>
                         </Pressable>
                         {scheduleDate && (
                             <Pressable onPress={() => setPickerTarget("sched-time")}>
                                 <Text style={[s.schedText, { color: BURGUNDY }]}>
-                                    {scheduleDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                                    {scheduleDate.toLocaleTimeString(localeFor(lang), { hour: "numeric", minute: "2-digit" })}
                                 </Text>
                             </Pressable>
                         )}
@@ -376,7 +377,7 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
                             <Text style={cs.rowTitle}>{t.hideLikeCountLabel}</Text>
                             <Text style={cs.rowSub}>{t.hideLikeCountSub}</Text>
                         </View>
-                        <Pressable style={[cs.toggle, hideLikeCount && cs.toggleOn]} onPress={() => setHideLikeCount((v) => !v)}>
+                        <Pressable style={[cs.toggle, hideLikeCount && cs.toggleOn]} onPress={() => setHideLikeCount((v) => !v)} accessibilityRole="switch" accessibilityState={{ checked: hideLikeCount }} accessibilityLabel={t.hideLikeCountLabel}>
                             <View style={[cs.toggleThumb, hideLikeCount && cs.toggleThumbOn]} />
                         </Pressable>
                     </View>
@@ -385,7 +386,7 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
                             <Text style={cs.rowTitle}>{t.followersOnlyLabel}</Text>
                             <Text style={cs.rowSub}>{t.followersOnlySub}</Text>
                         </View>
-                        <Pressable style={[cs.toggle, followersOnly && cs.toggleOn]} onPress={() => setFollowersOnly((v) => !v)}>
+                        <Pressable style={[cs.toggle, followersOnly && cs.toggleOn]} onPress={() => setFollowersOnly((v) => !v)} accessibilityRole="switch" accessibilityState={{ checked: followersOnly }} accessibilityLabel={t.followersOnlyLabel}>
                             <View style={[cs.toggleThumb, followersOnly && cs.toggleThumbOn]} />
                         </Pressable>
                     </View>
@@ -397,7 +398,7 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
                         <Pressable style={cs.dateBtn} onPress={() => setShowExpirePicker(true)}>
                             <Text style={cs.dateBtnText}>
                                 {expiresAt
-                                    ? expiresAt.toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" }).toUpperCase()
+                                    ? expiresAt.toLocaleDateString(localeFor(lang), { month: "short", day: "numeric", year: "numeric" }).toUpperCase()
                                     : t.noneLabel}
                             </Text>
                             {expiresAt && (
@@ -417,7 +418,7 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
                             <Text style={cs.rowTitle}>{t.disableCommentsLabel}</Text>
                             <Text style={cs.rowSub}>{t.disableCommentsSub}</Text>
                         </View>
-                        <Pressable style={[cs.toggle, commentsDisabled && cs.toggleOn]} onPress={() => setCommentsDisabled((v) => !v)}>
+                        <Pressable style={[cs.toggle, commentsDisabled && cs.toggleOn]} onPress={() => setCommentsDisabled((v) => !v)} accessibilityRole="switch" accessibilityState={{ checked: commentsDisabled }} accessibilityLabel={t.disableCommentsLabel}>
                             <View style={[cs.toggleThumb, commentsDisabled && cs.toggleThumbOn]} />
                         </Pressable>
                     </View>
@@ -431,7 +432,7 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
                                 <Pressable style={cs.dateBtn} onPress={() => setShowLockPicker(true)}>
                                     <Text style={cs.dateBtnText}>
                                         {commentsLockDate
-                                            ? commentsLockDate.toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" }).toUpperCase()
+                                            ? commentsLockDate.toLocaleDateString(localeFor(lang), { month: "short", day: "numeric", year: "numeric" }).toUpperCase()
                                             : t.noneLabel}
                                     </Text>
                                     {commentsLockDate && (

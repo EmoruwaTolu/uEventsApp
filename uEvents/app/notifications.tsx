@@ -4,7 +4,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useApi } from "../lib/useApi";
-import { useT } from "../lib/LangContext";
+import { useT, useLang } from "../lib/LangContext";
+import { timeAgo } from "../lib/datetime";
 import { useTheme } from "../lib/ThemeContext";
 import type { AppColors } from "../styles/theme";
 import { NotifRowSkeleton } from "../components/SkeletonLoader";
@@ -36,13 +37,7 @@ function typeColor(type: string): { bg: string; icon: string } {
     return { bg: "#FEE2E2", icon: "#8C0327" };
 }
 
-function timeAgo(iso: string): string {
-    const diff = (Date.now() - new Date(iso).getTime()) / 1000;
-    if (diff < 60)    return "Just now";
-    if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    return `${Math.floor(diff / 86400)}d ago`;
-}
+
 
 const makeStyles = (C: AppColors) => StyleSheet.create({
     page: { flex: 1, backgroundColor: C.bg },
@@ -106,6 +101,7 @@ export default function NotificationsScreen() {
     const router = useRouter();
     const authApi = useApi();
     const t = useT();
+    const { lang } = useLang();
     const { colors: C } = useTheme();
     const s = useMemo(() => makeStyles(C), [C]);
     const [notifications, setNotifications] = useState<ApiNotif[]>([]);
@@ -152,9 +148,9 @@ export default function NotificationsScreen() {
             <SafeAreaView style={s.page} edges={["top"]}>
                 <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 12 }}>
                     <Ionicons name="cloud-offline-outline" size={36} color={C.textFaint} />
-                    <Text style={s.errorText}>COULDN'T LOAD NOTIFICATIONS</Text>
-                    <Pressable style={s.errorRetry} onPress={() => loadNotifications()}>
-                        <Text style={s.errorRetryText}>RETRY</Text>
+                    <Text style={s.errorText}>{t.couldntLoadNotifications}</Text>
+                    <Pressable style={s.errorRetry} onPress={() => loadNotifications()} accessibilityRole="button" accessibilityLabel="Retry">
+                        <Text style={s.errorRetryText}>{t.retry}</Text>
                     </Pressable>
                 </View>
             </SafeAreaView>
@@ -170,7 +166,7 @@ export default function NotificationsScreen() {
                     <Text style={s.backLabel}>{t.back}</Text>
                 </Pressable>
                 {unreadCount > 0 && (
-                    <Pressable onPress={markAllRead} style={s.markAllBtn}>
+                    <Pressable onPress={markAllRead} style={s.markAllBtn} hitSlop={6} accessibilityRole="button" accessibilityLabel={t.markAllRead}>
                         <Text style={s.markAllText}>{t.markAllRead}</Text>
                     </Pressable>
                 )}
@@ -200,6 +196,8 @@ export default function NotificationsScreen() {
                                 key={n.id}
                                 style={[s.item, !n.isRead && s.itemUnread]}
                                 onPress={() => handleTap(n)}
+                                accessibilityRole="button"
+                                accessibilityHint={n.isRead ? undefined : "Unread"}
                             >
                                 {/* Left accent for unread */}
                                 <View style={[s.itemAccent, { backgroundColor: n.isRead ? "transparent" : C.primary }]} />
@@ -211,7 +209,7 @@ export default function NotificationsScreen() {
                                 <View style={s.itemContent}>
                                     <View style={s.itemTopRow}>
                                         <Text style={s.notifTitle} numberOfLines={1}>{n.title}</Text>
-                                        <Text style={s.notifTime}>{timeAgo(n.createdAt)}</Text>
+                                        <Text style={s.notifTime}>{timeAgo(n.createdAt, lang)}</Text>
                                     </View>
                                     <Text style={s.notifBody} numberOfLines={2}>{n.body}</Text>
                                 </View>

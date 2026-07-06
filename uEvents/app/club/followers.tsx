@@ -8,6 +8,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useApi } from "../../lib/useApi";
 import { useTheme } from "../../lib/ThemeContext";
+import { useT, useLang } from "../../lib/LangContext";
+import { timeAgo } from "../../lib/datetime";
 import type { AppColors } from "../../styles/theme";
 
 type Follower = {
@@ -20,16 +22,6 @@ type Follower = {
     followedAt: string;
 };
 
-function timeAgo(iso: string): string {
-    const diff = Date.now() - new Date(iso).getTime();
-    const days = Math.floor(diff / 86400000);
-    if (days === 0) return "today";
-    if (days === 1) return "yesterday";
-    if (days < 30) return `${days}d ago`;
-    const months = Math.floor(days / 30);
-    if (months < 12) return `${months}mo ago`;
-    return `${Math.floor(months / 12)}y ago`;
-}
 
 const NOTIF_ICON: Record<string, string> = {
     ALL: "notifications",
@@ -127,6 +119,8 @@ export default function FollowersScreen() {
     const authApi = useApi();
     const { id } = useLocalSearchParams<{ id: string }>();
     const { colors: C } = useTheme();
+    const t = useT();
+    const { lang } = useLang();
     const styles = useMemo(() => makeFollowersStyles(C), [C]);
 
     const [followers, setFollowers] = useState<Follower[]>([]);
@@ -175,7 +169,7 @@ export default function FollowersScreen() {
                 <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)" as any)} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Go back">
                     <Ionicons name="arrow-back" size={18} color={C.primary} />
                 </Pressable>
-                <Text style={styles.topBarTitle}>FOLLOWERS</Text>
+                <Text style={styles.topBarTitle}>{t.followersTitle}</Text>
                 <View style={{ width: 36 }} />
             </View>
 
@@ -186,15 +180,15 @@ export default function FollowersScreen() {
             ) : error ? (
                 <View style={styles.center}>
                     <Ionicons name="cloud-offline-outline" size={36} color={C.textFaint} />
-                    <Text style={styles.emptyText}>COULDN'T LOAD FOLLOWERS</Text>
+                    <Text style={styles.emptyText}>{t.couldntLoadFollowers}</Text>
                     <Pressable style={styles.retryBtn} onPress={() => loadFollowers()}>
-                        <Text style={styles.retryBtnText}>TRY AGAIN</Text>
+                        <Text style={styles.retryBtnText}>{t.tryAgainBtn}</Text>
                     </Pressable>
                 </View>
             ) : followers.length === 0 ? (
                 <View style={styles.center}>
                     <Ionicons name="people-outline" size={36} color={C.textFaint} />
-                    <Text style={styles.emptyText}>NO FOLLOWERS YET</Text>
+                    <Text style={styles.emptyText}>{t.noFollowersYet}</Text>
                 </View>
             ) : (
                 <FlatList
@@ -217,7 +211,7 @@ export default function FollowersScreen() {
                                         {[item.program, item.year].filter(Boolean).join(" · ")}
                                     </Text>
                                 )}
-                                <Text style={styles.since}>Followed {timeAgo(item.followedAt)}</Text>
+                                <Text style={styles.since}>{`${t.followedWord} ${timeAgo(item.followedAt, lang)}`}</Text>
                             </View>
                             <Ionicons
                                 name={NOTIF_ICON[item.notifPref] as any}

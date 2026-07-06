@@ -19,15 +19,8 @@ import { useToast } from "../../lib/ToastContext";
 import { useLikes } from "../../lib/LikeContext";
 import { api } from "../../lib/api";
 import { FeedCardSkeleton, ErrorRetry } from "../../components/SkeletonLoader";
-
-function timeAgo(iso: string): string {
-    const diff = Date.now() - new Date(iso).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
-}
+import { translateCategory } from "../../lib/categories";
+import { timeAgo, fmtFeedDate } from "../../lib/datetime";
 
 type ApiFeedPost = {
     id: string;
@@ -71,16 +64,6 @@ type ApiFeedPost = {
 };
 
 
-function formatEventDate(iso: string): string {
-    const d = new Date(iso);
-    const weekday = d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
-    const month = d.toLocaleDateString("en-US", { month: "short" }).toUpperCase();
-    const day = d.getDate();
-    const h = d.getHours().toString().padStart(2, "0");
-    const m = d.getMinutes().toString().padStart(2, "0");
-    return `${weekday}, ${month} ${day} · ${h}:${m}`;
-}
-
 function mapPost(p: ApiFeedPost, lang: "en" | "fr"): FeedPost {
     const locale = pickLocale(p.locales, lang);
     const endsAt = p.poll?.expiresAt
@@ -98,18 +81,18 @@ function mapPost(p: ApiFeedPost, lang: "en" | "fr"): FeedPost {
         clubName: p.clubName,
         clubAvatar: p.clubAvatar,
         type: p.type.toLowerCase() as FeedPost["type"],
-        timestamp: timeAgo(p.createdAt),
+        timestamp: timeAgo(p.createdAt, lang),
         content: locale.body ?? "",
         imageUrl: (locale as any).posterUrl ?? undefined,
         images: p.images ?? [],
         eventId: p.type.toLowerCase() === "event" ? p.id : undefined,
         eventTitle: (["event", "announcement", "update"].includes(p.type.toLowerCase())) ? locale.title : undefined,
-        eventDate: p.type.toLowerCase() === "event" && p.startAt ? formatEventDate(p.startAt) : undefined,
+        eventDate: p.type.toLowerCase() === "event" && p.startAt ? fmtFeedDate(p.startAt, lang) : undefined,
         eventLocation: p.type.toLowerCase() === "event" && p.locationName ? p.locationName : undefined,
         eventEndAt: p.type.toLowerCase() === "event" ? (p.endAt ?? p.startAt) : undefined,
         eventStartAt: p.type.toLowerCase() === "event" ? (p.startAt ?? undefined) : undefined,
         eventTime: undefined,
-        eventTags: p.type.toLowerCase() === "event" ? (p.categories ?? []) : undefined,
+        eventTags: p.type.toLowerCase() === "event" ? (p.categories ?? []).map((c) => translateCategory(c, lang)) : undefined,
         isRecurring: p.type.toLowerCase() === "event" ? !!p.isRecurring : undefined,
         freeFood: p.type.toLowerCase() === "event" ? !!p.freeFood : undefined,
         rsvpCount: p.type.toLowerCase() === "event" ? (p.rsvpCount ?? 0) : undefined,
@@ -491,7 +474,7 @@ export default function HomeScreen() {
         return (
             <SafeAreaView style={styles.safe} edges={["top"]}>
                 <View style={styles.mastheadTopRow}>
-                    <Text style={styles.mastheadLabel}>For You</Text>
+                    <Text style={styles.mastheadLabel}>{t.forYouPane}</Text>
                     <Pressable onPress={() => router.push("/search-modal" as any)} style={styles.mastheadIconBtn} accessibilityRole="button" accessibilityLabel="Search" hitSlop={8}>
                         <Ionicons name="search-outline" size={20} color={C.text} />
                     </Pressable>
@@ -652,11 +635,11 @@ export default function HomeScreen() {
                                         <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, paddingHorizontal: 14 }}>
                                             <Text style={{ fontSize: 20 }}>🍕</Text>
                                             <View style={{ flex: 1, gap: 4 }}>
-                                                <Text style={{ fontSize: 9, fontWeight: "800", letterSpacing: 1.5, color: C.primary }} maxFontSizeMultiplier={1.3}>FREE FOOD ALERT</Text>
+                                                <Text style={{ fontSize: 9, fontWeight: "800", letterSpacing: 1.5, color: C.primary }} maxFontSizeMultiplier={1.3}>{t.freeFoodAlertTitle}</Text>
                                                 <Text style={{ fontSize: 13, fontWeight: "700", color: C.text }} maxFontSizeMultiplier={1.3}>{t.freeFoodAlertPrompt}</Text>
                                             </View>
                                             <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                                                <Text style={{ fontSize: 10, fontWeight: "800", letterSpacing: 1, color: C.primary }} maxFontSizeMultiplier={1.2}>OPEN</Text>
+                                                <Text style={{ fontSize: 10, fontWeight: "800", letterSpacing: 1, color: C.primary }} maxFontSizeMultiplier={1.2}>{t.openBtn}</Text>
                                                 <Ionicons name="open-outline" size={14} color={C.primary} />
                                             </View>
                                         </View>
@@ -790,7 +773,7 @@ export default function HomeScreen() {
                         <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
                             {Array.from(new Set(onboardingClubs.map((c) => c.category ?? "Other"))).map((cat) => (
                                 <View key={cat} style={ob.catSection}>
-                                    <Text style={ob.catLabel}>{cat.toUpperCase()}</Text>
+                                    <Text style={ob.catLabel}>{translateCategory(cat, lang).toUpperCase()}</Text>
                                     {onboardingClubs.filter((c) => (c.category ?? "Other") === cat).map((club) => {
                                         const following = onboardingFollowed.has(club.id);
                                         return (

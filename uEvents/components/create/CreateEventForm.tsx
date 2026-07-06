@@ -22,7 +22,9 @@ import { useAuth } from "../../auth/AuthContext";
 import { uploadImage } from "../../lib/uploadImage";
 import { useToast } from "../../lib/ToastContext";
 import { EVENT_TAGS } from "../../lib/eventTags";
-import { useT } from "../../lib/LangContext";
+import { localeFor } from "../../lib/datetime";
+import { useT, useLang } from "../../lib/LangContext";
+import { translateCategory } from "../../lib/categories";
 
 type Lang = "en" | "fr";
 
@@ -78,12 +80,12 @@ function parseInitialDate(date?: string, time?: string): Date | null {
     return dt ? new Date(dt) : null;
 }
 
-function fmtDate(d: Date): string {
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }).toUpperCase();
+function fmtDate(d: Date, lang: string): string {
+    return d.toLocaleDateString(localeFor(lang), { month: "short", day: "numeric", year: "numeric" }).toUpperCase();
 }
 
-function fmtTime(d: Date): string {
-    return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+function fmtTime(d: Date, lang: string): string {
+    return d.toLocaleTimeString(localeFor(lang), { hour: "numeric", minute: "2-digit" });
 }
 
 export default function CreateEventForm({ onBack, onSuccess, initialValues, postId, seriesId }: Props) {
@@ -384,7 +386,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
         <SafeAreaView style={s.safe} edges={["top"]}>
             {/* Top bar */}
             <View style={s.topBar}>
-                <Pressable onPress={onBack} style={s.backGroup}>
+                <Pressable onPress={onBack} style={s.backGroup} hitSlop={8} accessibilityRole="button" accessibilityLabel={t.back}>
                     <Ionicons name="arrow-back" size={18} color="#8C0327" />
                     <Text style={s.topBarBrand}>{t.back}</Text>
                 </Pressable>
@@ -451,20 +453,20 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
 
                     {/* Start */}
                     <View style={s.scheduleRow}>
-                        <Pressable style={[s.fieldCard, { flex: 1 }]} onPress={() => setPickerTarget("start-date")}>
+                        <Pressable style={[s.fieldCard, { flex: 1 }]} onPress={() => setPickerTarget("start-date")} accessibilityRole="button" accessibilityLabel={`${t.eventDateLabel}: ${startDate ? fmtDate(startDate, lang) : t.selectDate}`}>
                             <Text style={s.fieldLabel}>{t.eventDateLabel}</Text>
                             <View style={s.fieldRow}>
                                 <Text style={[s.fieldInput, !startDate && s.fieldInputPlaceholder]}>
-                                    {startDate ? fmtDate(startDate) : t.selectDate}
+                                    {startDate ? fmtDate(startDate, lang) : t.selectDate}
                                 </Text>
                                 <Ionicons name="calendar-outline" size={18} color="#9CA3AF" />
                             </View>
                         </Pressable>
-                        <Pressable style={[s.fieldCard, { flex: 1 }]} onPress={() => setPickerTarget("start-time")}>
+                        <Pressable style={[s.fieldCard, { flex: 1 }]} onPress={() => setPickerTarget("start-time")} accessibilityRole="button" accessibilityLabel={`${t.startTimeLabel}: ${startDate ? fmtTime(startDate, lang) : "time"}`}>
                             <Text style={s.fieldLabel}>{t.startTimeLabel}</Text>
                             <View style={s.fieldRow}>
                                 <Text style={[s.fieldInput, !startDate && s.fieldInputPlaceholder]}>
-                                    {startDate ? fmtTime(startDate) : "TIME"}
+                                    {startDate ? fmtTime(startDate, lang) : "TIME"}
                                 </Text>
                                 <Ionicons name="time-outline" size={18} color="#9CA3AF" />
                             </View>
@@ -473,20 +475,20 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
 
                     {/* End (optional) */}
                     <View style={[s.scheduleRow, { marginTop: 12 }]}>
-                        <Pressable style={[s.fieldCard, { flex: 1, opacity: !startDate ? 0.5 : 1 }]} onPress={() => startDate && setPickerTarget("end-date")}>
+                        <Pressable style={[s.fieldCard, { flex: 1, opacity: !startDate ? 0.5 : 1 }]} onPress={() => startDate && setPickerTarget("end-date")} accessibilityRole="button" accessibilityLabel={`${t.endDateLabel}: ${endDate ? fmtDate(endDate, lang) : t.noneLabel}`}>
                             <Text style={s.fieldLabel}>{t.endDateLabel}</Text>
                             <View style={s.fieldRow}>
                                 <Text style={[s.fieldInput, !endDate && s.fieldInputPlaceholder]}>
-                                    {endDate ? fmtDate(endDate) : t.noneLabel}
+                                    {endDate ? fmtDate(endDate, lang) : t.noneLabel}
                                 </Text>
                                 <Ionicons name="calendar-outline" size={18} color="#9CA3AF" />
                             </View>
                         </Pressable>
-                        <Pressable style={[s.fieldCard, { flex: 1, opacity: !endDate ? 0.5 : 1 }]} onPress={() => endDate && setPickerTarget("end-time")}>
+                        <Pressable style={[s.fieldCard, { flex: 1, opacity: !endDate ? 0.5 : 1 }]} onPress={() => endDate && setPickerTarget("end-time")} accessibilityRole="button" accessibilityLabel={`${t.endTimeLabel}: ${endDate ? fmtTime(endDate, lang) : "time"}`}>
                             <Text style={s.fieldLabel}>{t.endTimeLabel}</Text>
                             <View style={s.fieldRow}>
                                 <Text style={[s.fieldInput, !endDate && s.fieldInputPlaceholder]}>
-                                    {endDate ? fmtTime(endDate) : "TIME"}
+                                    {endDate ? fmtTime(endDate, lang) : "TIME"}
                                 </Text>
                                 <Ionicons name="time-outline" size={18} color="#9CA3AF" />
                             </View>
@@ -501,12 +503,12 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                                 <Ionicons name="time-outline" size={14} color="#9CA3AF" style={{ marginRight: 6 }} />
                                 <Pressable onPress={() => setPickerTarget("sched-date")} style={{ flex: 1 }}>
                                     <Text style={[s.fieldInput, !scheduleDate && s.fieldInputPlaceholder]}>
-                                        {scheduleDate ? `${fmtDate(scheduleDate)}` : t.noneLabel}
+                                        {scheduleDate ? `${fmtDate(scheduleDate, lang)}` : t.noneLabel}
                                     </Text>
                                 </Pressable>
                                 {scheduleDate && (
                                     <Pressable onPress={() => setPickerTarget("sched-time")}>
-                                        <Text style={[s.fieldInput, { color: "#8C0327" }]}>{fmtTime(scheduleDate)}</Text>
+                                        <Text style={[s.fieldInput, { color: "#8C0327" }]}>{fmtTime(scheduleDate, lang)}</Text>
                                     </Pressable>
                                 )}
                                 {scheduleDate && (
@@ -614,7 +616,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                                     )}
                                     style={[s.tagChip, active && s.tagChipActive]}
                                 >
-                                    <Text style={[s.tagChipText, active && s.tagChipTextActive]}>{tag}</Text>
+                                    <Text style={[s.tagChipText, active && s.tagChipTextActive]}>{translateCategory(tag, lang)}</Text>
                                 </Pressable>
                             );
                         })}
@@ -659,7 +661,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                             <Text style={cs.rowTitle}>{t.hideLikeCountLabel}</Text>
                             <Text style={cs.rowSub}>{t.hideLikeCountSub}</Text>
                         </View>
-                        <Pressable style={[cs.toggle, hideLikeCount && cs.toggleOn]} onPress={() => setHideLikeCount((v) => !v)}>
+                        <Pressable style={[cs.toggle, hideLikeCount && cs.toggleOn]} onPress={() => setHideLikeCount((v) => !v)} accessibilityRole="switch" accessibilityState={{ checked: hideLikeCount }} accessibilityLabel={t.hideLikeCountLabel}>
                             <View style={[cs.toggleThumb, hideLikeCount && cs.toggleThumbOn]} />
                         </Pressable>
                     </View>
@@ -669,7 +671,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                             <Text style={cs.rowTitle}>{t.followersOnlyLabel}</Text>
                             <Text style={cs.rowSub}>{t.followersOnlySub}</Text>
                         </View>
-                        <Pressable style={[cs.toggle, followersOnly && cs.toggleOn]} onPress={() => setFollowersOnly((v) => !v)}>
+                        <Pressable style={[cs.toggle, followersOnly && cs.toggleOn]} onPress={() => setFollowersOnly((v) => !v)} accessibilityRole="switch" accessibilityState={{ checked: followersOnly }} accessibilityLabel={t.followersOnlyLabel}>
                             <View style={[cs.toggleThumb, followersOnly && cs.toggleThumbOn]} />
                         </Pressable>
                     </View>
@@ -682,7 +684,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                         <Pressable style={cs.dateBtn} onPress={() => setShowExpirePicker(true)}>
                             <Text style={cs.dateBtnText}>
                                 {expiresAt
-                                    ? expiresAt.toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" }).toUpperCase()
+                                    ? expiresAt.toLocaleDateString(localeFor(lang), { month: "short", day: "numeric", year: "numeric" }).toUpperCase()
                                     : t.noneLabel}
                             </Text>
                             {expiresAt && (
@@ -815,7 +817,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                             <Text style={cs.rowTitle}>{t.hideRsvpCountLabel}</Text>
                             <Text style={cs.rowSub}>{t.hideRsvpCountSub}</Text>
                         </View>
-                        <Pressable style={[cs.toggle, hideRsvpCount && cs.toggleOn]} onPress={() => setHideRsvpCount((v) => !v)}>
+                        <Pressable style={[cs.toggle, hideRsvpCount && cs.toggleOn]} onPress={() => setHideRsvpCount((v) => !v)} accessibilityRole="switch" accessibilityState={{ checked: hideRsvpCount }} accessibilityLabel={t.hideRsvpCountLabel}>
                             <View style={[cs.toggleThumb, hideRsvpCount && cs.toggleThumbOn]} />
                         </Pressable>
                     </View>
@@ -825,7 +827,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                             <Text style={cs.rowTitle}>{t.privateAttendeeList}</Text>
                             <Text style={cs.rowSub}>{t.privateAttendeeListSub}</Text>
                         </View>
-                        <Pressable style={[cs.toggle, hideAttendeeList && cs.toggleOn]} onPress={() => setHideAttendeeList((v) => !v)}>
+                        <Pressable style={[cs.toggle, hideAttendeeList && cs.toggleOn]} onPress={() => setHideAttendeeList((v) => !v)} accessibilityRole="switch" accessibilityState={{ checked: hideAttendeeList }} accessibilityLabel={t.privateAttendeeList}>
                             <View style={[cs.toggleThumb, hideAttendeeList && cs.toggleThumbOn]} />
                         </Pressable>
                     </View>
@@ -835,7 +837,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                             <Text style={cs.rowTitle}>{t.waitlistModeLabel}</Text>
                             <Text style={cs.rowSub}>{t.waitlistModeSub}</Text>
                         </View>
-                        <Pressable style={[cs.toggle, waitlistEnabled && cs.toggleOn]} onPress={() => setWaitlistEnabled((v) => !v)}>
+                        <Pressable style={[cs.toggle, waitlistEnabled && cs.toggleOn]} onPress={() => setWaitlistEnabled((v) => !v)} accessibilityRole="switch" accessibilityState={{ checked: waitlistEnabled }} accessibilityLabel={t.waitlistModeLabel}>
                             <View style={[cs.toggleThumb, waitlistEnabled && cs.toggleThumbOn]} />
                         </Pressable>
                     </View>
@@ -845,7 +847,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                             <Text style={cs.rowTitle}>{t.requireApprovalLabel}</Text>
                             <Text style={cs.rowSub}>{t.requireApprovalSub}</Text>
                         </View>
-                        <Pressable style={[cs.toggle, rsvpRequiresApproval && cs.toggleOn]} onPress={() => setRsvpRequiresApproval((v) => !v)}>
+                        <Pressable style={[cs.toggle, rsvpRequiresApproval && cs.toggleOn]} onPress={() => setRsvpRequiresApproval((v) => !v)} accessibilityRole="switch" accessibilityState={{ checked: rsvpRequiresApproval }} accessibilityLabel={t.requireApprovalLabel}>
                             <View style={[cs.toggleThumb, rsvpRequiresApproval && cs.toggleThumbOn]} />
                         </Pressable>
                     </View>
@@ -855,7 +857,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                             <Text style={cs.rowTitle}>{t.closeRsvpLabel}</Text>
                             <Text style={cs.rowSub}>{t.closeRsvpSub}</Text>
                         </View>
-                        <Pressable style={[cs.toggle, rsvpClosed && cs.toggleOn]} onPress={() => setRsvpClosed((v) => !v)}>
+                        <Pressable style={[cs.toggle, rsvpClosed && cs.toggleOn]} onPress={() => setRsvpClosed((v) => !v)} accessibilityRole="switch" accessibilityState={{ checked: rsvpClosed }} accessibilityLabel={t.closeRsvpLabel}>
                             <View style={[cs.toggleThumb, rsvpClosed && cs.toggleThumbOn]} />
                         </Pressable>
                     </View>
@@ -893,7 +895,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                                 >
                                     <Text style={cs.dateBtnText}>
                                         {commentsLockDate
-                                            ? commentsLockDate.toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" }).toUpperCase()
+                                            ? commentsLockDate.toLocaleDateString(localeFor(lang), { month: "short", day: "numeric", year: "numeric" }).toUpperCase()
                                             : t.noneLabel}
                                     </Text>
                                     {commentsLockDate && (
