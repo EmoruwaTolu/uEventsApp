@@ -84,7 +84,7 @@ const editSeriesSchema = z.object({
 
 const commentSchema = z.object({
     content:  z.string().min(1, "Comment cannot be empty").max(1000, "Comment must be 1000 characters or fewer").trim(),
-    parentId: z.string().cuid().optional(),
+    parentId: z.string().min(1).optional(),
 });
 
 function checkinToken(postId: string): string {
@@ -900,13 +900,18 @@ router.get("/for-you", requireAuth, async (req, res, next) => {
         const userId = req.user!.userId;
         const now = new Date();
 
-        const [follows, topics, signals] = await Promise.all([
+        const [follows, topics, signals, views] = await Promise.all([
             prisma.follow.findMany({ where: { userId }, select: { clubId: true } }),
             prisma.interestFollow.findMany({ where: { userId }, select: { category: true } }),
             prisma.feedSignal.findMany({ where: { userId }, select: { postId: true, clubId: true, categories: true } }),
+            prisma.postView.findMany({ where: { userId }, select: { postId: true } }),
         ]);
         const followedIds = new Set(follows.map((f) => f.clubId));
         const followedTopics = topics.map((t) => t.category);
+        // Posts the user has already scrolled past get down-ranked (not excluded) so
+        // fresh content floats to the top without permanently hiding good events.
+        const seenPosts = new Set(views.map((v) => v.postId));
+        const SEEN_PENALTY = 55;
 
         // "Show less like this" signals: suppress the exact post, and down-rank
         // future posts from the same club / matching categories (weighted by how
@@ -993,6 +998,10 @@ router.get("/for-you", requireAuth, async (req, res, next) => {
             const catMute  = cats.reduce((m, c) => Math.max(m, mutedCats.get(c) ?? 0), 0);
             score -= Math.min(clubMute, 3) * 50;
             score -= Math.min(catMute, 3) * 40;
+
+            // Freshness: down-rank posts the user has already seen so they don't keep
+            // resurfacing at the top of For You.
+            if (seenPosts.has(p.id)) score -= SEEN_PENALTY;
 
             let daysUntil = Infinity;
             if (isEvent && p.startAt) {
