@@ -486,12 +486,16 @@ router.get("/me/bookmarks", requireAuth, async (req, res, next) => {
                         id: true, type: true, locales: true, createdAt: true,
                         club: { select: { id: true, clubName: true } },
                         _count: { select: { likes: true, comments: true } },
+                        likes: { where: { userId: req.user!.userId }, select: { userId: true } },
                     },
                 },
             },
             orderBy: { createdAt: "desc" },
         });
-        res.json(bookmarks.map((b) => b.post));
+        res.json(bookmarks.map((b) => {
+            const { likes, ...post } = b.post as any;
+            return { ...post, isLiked: likes.length > 0 };
+        }));
     } catch (err) {
         next(err);
     }

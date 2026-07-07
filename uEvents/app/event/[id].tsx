@@ -2,9 +2,10 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
     View, Text, ScrollView, Pressable, Share, TextInput, Keyboard, Animated,
-    StyleSheet, ActivityIndicator, useWindowDimensions, Linking, Platform, KeyboardAvoidingView, Alert, RefreshControl, FlatList,
+    StyleSheet, ActivityIndicator, useWindowDimensions, Linking, Platform, KeyboardAvoidingView, Alert, RefreshControl, FlatList, Modal,
 } from "react-native";
 import { Image as ExpoImage } from "expo-image";
+import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Calendar from "expo-calendar";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -215,11 +216,15 @@ export default function EventPage() {
     const [commentFilter, setCommentFilter] = useState<"all" | "clubs" | "students">("all");
     const [commentSort, setCommentSort] = useState<"newest" | "oldest">("newest");
     const [replyingTo, setReplyingTo] = useState<string | null>(null);
-    const [replyText, setReplyText] = useState("");
     const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
     const [liveCountdown, setLiveCountdown] = useState<string | null>(null);
     const [heroImageFailed, setHeroImageFailed] = useState(false);
     const [carouselIndex, setCarouselIndex] = useState(0);
+    // Attendance check-in (student scans the club's QR)
+    const [scannerOpen, setScannerOpen] = useState(false);
+    const [checkInStatus, setCheckInStatus] = useState<"idle" | "success" | "already" | "error">("idle");
+    const [scanning, setScanning] = useState(false);
+    const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
     // Load any previously-saved calendar entry for this event so we can tell
     // whether to offer "Add", "Update" (start time changed), or "In calendar".
@@ -469,8 +474,9 @@ export default function EventPage() {
         );
     }
 
-    async function submitComment(parentId?: string) {
-        const text = parentId ? replyText : commentText;
+    async function submitComment() {
+        const parentId = replyingTo ?? undefined;
+        const text = commentText;
         if (!text.trim() || commentLoading) return;
         setCommentLoading(true);
         try {
@@ -482,19 +488,50 @@ export default function EventPage() {
                 setComments((prev) => prev.map((cm) =>
                     cm.id === parentId ? { ...cm, replies: [...(cm.replies ?? []), c] } : cm
                 ));
-                setReplyText("");
-                setReplyingTo(null);
                 // Auto-expand so the new reply is visible
                 setExpandedReplies((prev) => new Set(prev).add(parentId));
             } else {
                 setComments((prev) => [{ ...c, replies: [] }, ...prev]);
-                setCommentText("");
             }
+            setCommentText("");
+            setReplyingTo(null);
             Keyboard.dismiss();
         } catch {
             Alert.alert(t.errorTitle, t.commentPostError);
         } finally {
             setCommentLoading(false);
+        }
+    }
+
+    async function openScanner() {
+        if (!cameraPermission?.granted) {
+            const result = await requestCameraPermission();
+            if (!result.granted) {
+                Alert.alert(t.cameraAccessTitle, t.cameraAccessMsg);
+                return;
+            }
+        }
+        setCheckInStatus("idle");
+        setScanning(false);
+        setScannerOpen(true);
+    }
+
+    async function handleQrScan(data: string) {
+        if (scanning) return;
+        const parts = data.split(":");
+        if (parts.length !== 3 || parts[0] !== "uevents-checkin" || parts[1] !== id) {
+            setCheckInStatus("error");
+            return;
+        }
+        setScanning(true);
+        try {
+            await authApi(`/posts/${id}/checkin`, {
+                method: "POST",
+                body: JSON.stringify({ token: parts[2] }),
+            });
+            setCheckInStatus("success");
+        } catch (e: any) {
+            setCheckInStatus(e?.message?.includes("409") ? "already" : "error");
         }
     }
 
@@ -859,6 +896,13 @@ export default function EventPage() {
                         </View>
                     )}
                     <View style={styles.ctaSection}>
+                        {/* Check in — anyone (RSVP'd or walk-in) scans the club's QR to confirm attendance */}
+                        {!isPostOwner && !isExpired && !isPast && (
+                            <Pressable style={styles.checkInBtn} onPress={openScanner} accessibilityRole="button" accessibilityLabel={t.checkInBtn}>
+                                <Ionicons name="qr-code-outline" size={16} color="#fff" />
+                                <Text style={styles.checkInBtnText}>{t.checkInBtn}</Text>
+                            </Pressable>
+                        )}
                         {/* RSVP button — adapts to closed/approval/waitlist states */}
                         {rsvpBlocked && !isRsvped(id!) ? (
                             <View style={[styles.rsvpBtn, styles.rsvpBtnClosed]}>
@@ -1230,9 +1274,9 @@ export default function EventPage() {
                                             <Text style={styles.commentText}>{c.content}</Text>
                                             {/* Reply / expand row */}
                                             <View style={styles.replyActionRow}>
-                                                <Pressable onPress={() => setReplyingTo(replyingTo === c.id ? null : c.id)}>
-                                                    <Text style={styles.replyBtn}>
-                                                        {replyingTo === c.id ? t.cancel : t.reply}
+                                                <Pressable onPress={() => { setReplyingTo(c.id); requestAnimationFrame(() => commentInputRef.current?.focus()); }}>
+                                                    <Text style={[styles.replyBtn, replyingTo === c.id && styles.replyBtnActive]}>
+                                                        {t.reply}
                                                     </Text>
                                                 </Pressable>
                                                 {(c.replies ?? []).length > 0 && (
@@ -1249,30 +1293,6 @@ export default function EventPage() {
                                                     </Pressable>
                                                 )}
                                             </View>
-
-                                            {/* Inline reply input */}
-                                            {replyingTo === c.id && (
-                                                <View style={styles.replyInputRow}>
-                                                    <TextInput
-                                                        style={styles.replyInput}
-                                                        placeholder={t.replyTo(name)}
-                                                        placeholderTextColor="#9CA3AF"
-                                                        value={replyText}
-                                                        onChangeText={setReplyText}
-                                                        autoFocus
-                                                        maxLength={500}
-                                                    />
-                                                    <Pressable
-                                                        style={[styles.commentSend, !replyText.trim() && { opacity: 0.4 }]}
-                                                        onPress={() => submitComment(c.id)}
-                                                        disabled={!replyText.trim() || commentLoading}
-                                                        accessibilityLabel="Send reply"
-                                                        accessibilityRole="button"
-                                                    >
-                                                        <Ionicons name="send" size={13} color="#fff" />
-                                                    </Pressable>
-                                                </View>
-                                            )}
 
                                             {/* Replies — collapsed by default */}
                                             {expandedReplies.has(c.id) && (c.replies ?? []).map((r: any) => {
@@ -1321,32 +1341,102 @@ export default function EventPage() {
 
             </ScrollView>
 
-            {/* ── Comment input bar ── */}
-            <View style={styles.commentBar}>
-                <TextInput
-                    ref={commentInputRef}
-                    style={styles.commentInput}
-                    placeholder={t.addCommentPlaceholder}
-                    placeholderTextColor="#9CA3AF"
-                    value={commentText}
-                    onChangeText={setCommentText}
-                    onFocus={() => scrollRef.current?.scrollToEnd({ animated: true })}
-                    multiline
-                    maxLength={500}
-                />
-                <Pressable
-                    style={[styles.commentSend, !commentText.trim() && { opacity: 0.4 }]}
-                    onPress={() => submitComment()}
-                    disabled={!commentText.trim() || commentLoading}
-                    accessibilityLabel="Send comment"
-                    accessibilityRole="button"
-                >
-                    {commentLoading
-                        ? <ActivityIndicator size="small" color="#fff" />
-                        : <Ionicons name="send" size={15} color="#fff" />}
-                </Pressable>
+            {/* ── Comment composer (single bar; shows a banner when replying) ── */}
+            <View>
+                {replyingTo && (() => {
+                    const rc = comments.find((cm) => cm.id === replyingTo);
+                    const rcName = rc
+                        ? (rc.user?.type === "CLUB"
+                            ? rc.user.clubName
+                            : [rc.user?.firstName, rc.user?.lastName].filter(Boolean).join(" ") || "Student")
+                        : "";
+                    return (
+                        <View style={styles.replyingBanner}>
+                            <Text style={styles.replyingBannerText} numberOfLines={1}>{t.replyingTo(rcName)}</Text>
+                            <Pressable onPress={() => setReplyingTo(null)} hitSlop={10} accessibilityLabel={t.cancel} accessibilityRole="button">
+                                <Ionicons name="close" size={18} color={C.textFaint} />
+                            </Pressable>
+                        </View>
+                    );
+                })()}
+                <View style={styles.commentBar}>
+                    <TextInput
+                        ref={commentInputRef}
+                        style={styles.commentInput}
+                        placeholder={t.addCommentPlaceholder}
+                        placeholderTextColor="#9CA3AF"
+                        value={commentText}
+                        onChangeText={setCommentText}
+                        onFocus={() => scrollRef.current?.scrollToEnd({ animated: true })}
+                        multiline
+                        maxLength={500}
+                        autoCorrect
+                        spellCheck
+                        autoCapitalize="sentences"
+                    />
+                    <Pressable
+                        style={[styles.commentSend, !commentText.trim() && { opacity: 0.4 }]}
+                        onPress={() => submitComment()}
+                        disabled={!commentText.trim() || commentLoading}
+                        accessibilityLabel={replyingTo ? "Send reply" : "Send comment"}
+                        accessibilityRole="button"
+                    >
+                        {commentLoading
+                            ? <ActivityIndicator size="small" color="#fff" />
+                            : <Ionicons name="send" size={15} color="#fff" />}
+                    </Pressable>
+                </View>
             </View>
             </KeyboardAvoidingView>
+
+            {/* ── Attendance check-in scanner ── */}
+            <Modal visible={scannerOpen} animationType="slide" onRequestClose={() => setScannerOpen(false)}>
+                <SafeAreaView style={styles.scannerSafe} edges={["top"]}>
+                    <View style={styles.scannerTopBar}>
+                        <Pressable onPress={() => setScannerOpen(false)} style={styles.scannerClose} hitSlop={8} accessibilityLabel={t.closeScannerLabel} accessibilityRole="button">
+                            <Ionicons name="close" size={22} color="#fff" />
+                        </Pressable>
+                        <Text style={styles.scannerTitle}>{t.scanCheckInCode}</Text>
+                        <View style={{ width: 36 }} />
+                    </View>
+
+                    {checkInStatus === "idle" || checkInStatus === "error" ? (
+                        <CameraView
+                            style={styles.scanner}
+                            facing="back"
+                            onBarcodeScanned={scanning ? undefined : ({ data }) => handleQrScan(data)}
+                        >
+                            <View style={styles.scannerOverlay}>
+                                <View style={styles.scannerFrame} />
+                                <Text style={styles.scannerHint}>
+                                    {checkInStatus === "error"
+                                        ? "Invalid code — make sure you're scanning the right event"
+                                        : "Point your camera at the club's check-in QR code"}
+                                </Text>
+                            </View>
+                        </CameraView>
+                    ) : (
+                        <View style={styles.scannerResult}>
+                            <Ionicons
+                                name={checkInStatus === "success" ? "checkmark-circle" : "information-circle"}
+                                size={72}
+                                color={checkInStatus === "success" ? "#16A34A" : C.textLight}
+                            />
+                            <Text style={styles.scannerResultTitle}>
+                                {checkInStatus === "success" ? "CHECKED IN!" : "ALREADY CHECKED IN"}
+                            </Text>
+                            <Text style={styles.scannerResultSub}>
+                                {checkInStatus === "success"
+                                    ? "You're officially on the attendance list."
+                                    : "You already checked in to this event."}
+                            </Text>
+                            <Pressable style={styles.scannerDoneBtn} onPress={() => setScannerOpen(false)}>
+                                <Text style={styles.scannerDoneBtnText}>{t.done}</Text>
+                            </Pressable>
+                        </View>
+                    )}
+                </SafeAreaView>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -1358,6 +1448,29 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
     loadingWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
     scrollContent: { paddingBottom: 32, gap: 8, paddingTop: 0 },
     card: { backgroundColor: C.surface, marginLeft: 12, marginRight: 12, overflow: "hidden", borderWidth: 1, borderColor: C.borderWarm },
+
+    // Check-in button + scanner
+    checkInBtn: {
+        flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+        backgroundColor: "#1F2937", paddingVertical: 14, marginBottom: 8,
+    },
+    checkInBtnText: { fontSize: 12, fontWeight: "800", color: "#fff", letterSpacing: 1.5 },
+    scannerSafe: { flex: 1, backgroundColor: "#000" },
+    scannerTopBar: {
+        flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+        paddingHorizontal: 16, paddingVertical: 12,
+    },
+    scannerClose: { width: 36, alignItems: "flex-start" },
+    scannerTitle: { fontSize: 12, fontWeight: "800", color: "#fff", letterSpacing: 2 },
+    scanner: { flex: 1 },
+    scannerOverlay: { flex: 1, alignItems: "center", justifyContent: "center", gap: 32 },
+    scannerFrame: { width: 240, height: 240, borderWidth: 3, borderColor: "#fff", borderRadius: 4 },
+    scannerHint: { fontSize: 13, color: "rgba(255,255,255,0.7)", textAlign: "center", paddingHorizontal: 40, lineHeight: 20 },
+    scannerResult: { flex: 1, alignItems: "center", justifyContent: "center", gap: 16, paddingHorizontal: 40 },
+    scannerResultTitle: { fontSize: 24, fontWeight: "900", color: "#fff", letterSpacing: 1 },
+    scannerResultSub: { fontSize: 14, color: "rgba(255,255,255,0.6)", textAlign: "center", lineHeight: 22 },
+    scannerDoneBtn: { backgroundColor: "#fff", paddingHorizontal: 32, paddingVertical: 14, marginTop: 8 },
+    scannerDoneBtnText: { fontSize: 12, fontWeight: "800", color: "#111827", letterSpacing: 2 },
 
     // Top bar
     topBar: {
@@ -1765,17 +1878,16 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
     replyBtn: {
         fontSize: 9, fontWeight: "800", color: C.textMuted, letterSpacing: 1,
     },
+    replyBtnActive: { color: C.primary },
     replyToggle: {
         fontSize: 9, fontWeight: "800", color: C.primary, letterSpacing: 1,
     },
-    replyInputRow: {
-        flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8,
+    replyingBanner: {
+        flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+        paddingHorizontal: 16, paddingVertical: 8,
+        backgroundColor: C.surfaceAlt, borderTopWidth: 1, borderTopColor: C.borderWarm,
     },
-    replyInput: {
-        flex: 1, backgroundColor: C.surfaceAlt, borderRadius: 16,
-        paddingHorizontal: 12, paddingVertical: 7,
-        fontSize: 13, color: C.text,
-    },
+    replyingBannerText: { flex: 1, fontSize: 12, color: C.textMuted, marginRight: 8 },
     replyRow: {
         flexDirection: "row", gap: 8, marginTop: 10,
         paddingLeft: 4,

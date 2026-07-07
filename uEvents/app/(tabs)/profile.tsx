@@ -291,6 +291,7 @@ export default function ProfileScreen() {
             imageUrl: loc.imageUrl,
             likes: p._count.likes,
             comments: p._count.comments,
+            isLiked: (p as any).isLiked ?? false,
         };
     });
 

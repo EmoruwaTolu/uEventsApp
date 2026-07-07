@@ -501,6 +501,12 @@ export default function PostDetailScreen() {
         setFetchError(false);
         authApi<ApiPost>(`/posts/${id}`)
             .then((data) => {
+                // An event always belongs on the richer event screen — redirect so any
+                // /post/[id] link (media grid, deep links, old references) resolves there.
+                if (data.type === "EVENT") {
+                    router.replace({ pathname: "/event/[id]", params: { id: String(id) } });
+                    return;
+                }
                 setPost(data);
                 setRsvpCount(data._count?.rsvps ?? 0);
                 setPollOptions(data.pollOptions ?? []);
@@ -1278,6 +1284,9 @@ export default function PostDetailScreen() {
                                     placeholder={replyingTo ? `Reply to ${replyingTo.name}...` : "Add a comment..."}
                                     placeholderTextColor={C.textLight}
                                     multiline
+                                    autoCorrect
+                                    spellCheck
+                                    autoCapitalize="sentences"
                                 />
                                 <Pressable
                                     style={[

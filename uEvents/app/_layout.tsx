@@ -17,6 +17,11 @@ const FONT_SCALE_CAP = 1.4;
 ((TextInput as unknown) as { defaultProps?: Record<string, unknown> }).defaultProps = {
     ...(((TextInput as unknown) as { defaultProps?: Record<string, unknown> }).defaultProps ?? {}),
     maxFontSizeMultiplier: FONT_SCALE_CAP,
+    // On the New Architecture (Fabric) these default off; turn them back on so prose
+    // fields (comments, posts, feedback) get iOS autocorrect + spellcheck. Fields that
+    // want it off (search, email, handles) still override this explicitly.
+    autoCorrect: true,
+    spellCheck: true,
 };
 import { AuthProvider, useAuth } from "../auth/AuthContext";
 import { RsvpProvider } from "../lib/RsvpContext";

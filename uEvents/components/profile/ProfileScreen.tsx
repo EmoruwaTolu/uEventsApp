@@ -1,8 +1,12 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { useApi } from "../../lib/useApi";
 import { useAuth } from "../../auth/AuthContext";
 import { useT, useLang } from "../../lib/LangContext";
 import { translateCategory } from "../../lib/categories";
+import { useLikes } from "../../lib/LikeContext";
+import { useBookmarks } from "../../lib/BookmarkContext";
+import { useReduceMotion } from "../../lib/useReduceMotion";
+import * as Haptics from "expo-haptics";
 import {
     View,
     Text,
@@ -10,6 +14,7 @@ import {
     Pressable,
     StyleSheet,
     Image,
+    Animated,
     TextInput,
     ActivityIndicator,
     RefreshControl,
@@ -68,6 +73,7 @@ type SavedPost = {
     imageUrl?: string;
     likes: number;
     comments: number;
+    isLiked?: boolean;
 };
 
 type ActivityPost = {
@@ -950,29 +956,75 @@ function RSVPCard({ event, onPress }: { event: RSVPEvent; onPress: () => void })
 function SavedCard({ post, onPress }: { post: SavedPost; onPress: () => void }) {
     const { colors: C } = useTheme();
     const s = useMemo(() => makeStyles(C), [C]);
+    const router = useRouter();
+    const reduceMotion = useReduceMotion();
+    const { resolve: resolveLike, toggleLike } = useLikes();
+    const { resolve: resolveBookmark, toggleBookmark } = useBookmarks();
+
+    // Live like/bookmark state (context overrides win over the server snapshot),
+    // so these stay in sync with the rest of the app.
+    const like = resolveLike(post.id, { liked: post.isLiked ?? false, count: post.likes });
+    const saved = resolveBookmark(post.id, true);
+
+    const lastTap = useRef(0);
+    const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const heartAnim = useRef(new Animated.Value(0)).current;
+
+    const doLike = () => {
+        toggleLike(post.id, like);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    };
+    const popHeart = () => {
+        if (reduceMotion) return;
+        heartAnim.setValue(1);
+        Animated.timing(heartAnim, { toValue: 0, duration: 600, delay: 400, useNativeDriver: true }).start();
+    };
+    // Single tap navigates (deferred so a double tap can cancel it); double tap likes.
+    const handleTap = () => {
+        const now = Date.now();
+        if (now - lastTap.current < 300) {
+            if (tapTimer.current) { clearTimeout(tapTimer.current); tapTimer.current = null; }
+            if (!like.liked) doLike();
+            popHeart();
+        } else {
+            tapTimer.current = setTimeout(() => { tapTimer.current = null; onPress(); }, 280);
+        }
+        lastTap.current = now;
+    };
+    const goComments = () => router.push((post.type === "event"
+        ? { pathname: "/event/[id]", params: { id: post.id, focusComment: "1" } }
+        : { pathname: "/post/[id]", params: { id: post.id, focusComment: "1" } }) as any);
+
     return (
-        <Pressable style={s.feedCard} onPress={onPress} accessibilityRole="button">
+        <Pressable style={s.feedCard} onPress={handleTap} accessibilityRole="button">
             <View style={s.feedCardHeader}>
                 <ClubInitials name={post.clubName} size={36} />
                 <View style={{ flex: 1, gap: 2 }}>
                     <Text style={s.feedCardClub}>{post.clubName}</Text>
                     <Text style={s.feedCardMeta}>{post.type.toUpperCase()} · {post.timestamp}</Text>
                 </View>
-                <Ionicons name="bookmark" size={14} color={C.primary} />
+                <Pressable onPress={() => toggleBookmark(post.id, saved)} hitSlop={10} accessibilityRole="button" accessibilityLabel={saved ? "Remove from saved" : "Save"}>
+                    <Ionicons name={saved ? "bookmark" : "bookmark-outline"} size={16} color={saved ? C.primary : C.textMuted} />
+                </Pressable>
             </View>
             {post.imageUrl && (
-                <Image source={{ uri: post.imageUrl }} style={s.feedCardImage} resizeMode="cover" />
+                <View>
+                    <Image source={{ uri: post.imageUrl }} style={s.feedCardImage} resizeMode="cover" />
+                    <Animated.View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", opacity: heartAnim }}>
+                        <Ionicons name="heart" size={64} color="rgba(255,255,255,0.92)" />
+                    </Animated.View>
+                </View>
             )}
             <Text style={s.feedCardBody} numberOfLines={3}>{post.content}</Text>
             <View style={s.feedCardFooter}>
-                <View style={s.feedStat}>
-                    <Ionicons name="heart-outline" size={14} color={C.textMuted} />
-                    <Text style={s.feedStatText}>{post.likes}</Text>
-                </View>
-                <View style={s.feedStat}>
-                    <Ionicons name="chatbubble-outline" size={14} color={C.textMuted} />
+                <Pressable style={s.feedStat} onPress={doLike} hitSlop={8} accessibilityRole="button" accessibilityLabel={like.liked ? "Unlike" : "Like"}>
+                    <Ionicons name={like.liked ? "heart" : "heart-outline"} size={16} color={like.liked ? C.primary : C.textMuted} />
+                    <Text style={[s.feedStatText, like.liked && { color: C.primary }]}>{like.count}</Text>
+                </Pressable>
+                <Pressable style={s.feedStat} onPress={goComments} hitSlop={8} accessibilityRole="button" accessibilityLabel="View comments">
+                    <Ionicons name="chatbubble-outline" size={15} color={C.textMuted} />
                     <Text style={s.feedStatText}>{post.comments}</Text>
-                </View>
+                </Pressable>
             </View>
         </Pressable>
     );

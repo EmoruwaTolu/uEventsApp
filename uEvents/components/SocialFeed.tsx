@@ -26,6 +26,34 @@ function SafeImage({ uri, style, resizeMode, label }: { uri: string; style: Styl
     return <ExpoImage source={{ uri }} style={style} contentFit={resizeMode ?? "cover"} transition={200} onError={() => setErrored(true)} accessibilityLabel={label} accessibilityRole="image" />;
 }
 
+// Feed-width image whose height is auto-scaled from the image's natural aspect ratio.
+// Tall/portrait images are capped so they can't exceed ~1.25x the width (slight crop).
+function AutoHeightImage({ uri, label }: { uri: string; label?: string }) {
+    const { colors: C } = useTheme();
+    const [ratio, setRatio] = useState<number | null>(null);
+    const [errored, setErrored] = useState(false);
+    const style = { width: "100%" as const, aspectRatio: ratio ?? 16 / 10, backgroundColor: C.skeleton };
+    if (errored) {
+        return <View style={[style, { alignItems: "center", justifyContent: "center" }]}><Ionicons name="image-outline" size={24} color={C.textFaint} /></View>;
+    }
+    return (
+        <ExpoImage
+            source={{ uri }}
+            style={style}
+            contentFit="cover"
+            transition={200}
+            onLoad={(e) => {
+                const w = (e as any)?.source?.width;
+                const h = (e as any)?.source?.height;
+                if (w && h) setRatio(Math.max(0.8, w / h));
+            }}
+            onError={() => setErrored(true)}
+            accessibilityLabel={label}
+            accessibilityRole="image"
+        />
+    );
+}
+
 type PostType = "event" | "announcement" | "update" | "poll";
 
 type PollOption = {
@@ -611,7 +639,7 @@ function AnnouncementCard({
                 {/* Image — full width */}
                 {!!post.imageUrl && (
                     <View style={s.fcImageWrap}>
-                        <SafeImage uri={post.imageUrl} style={[s.fcImage, s.fcImageBanner]} resizeMode="cover" label={`${post.clubName} ${pillLabel.toLowerCase()} image`} />
+                        <AutoHeightImage uri={post.imageUrl} label={`${post.clubName} ${pillLabel.toLowerCase()} image`} />
                     </View>
                 )}
 
@@ -734,7 +762,7 @@ function TextArticleCard({
             />
             {!!post.imageUrl && (
                 <View style={s.fcImageWrap}>
-                    <SafeImage uri={post.imageUrl} style={[s.fcImage, s.fcImageBanner]} resizeMode="cover" label={`${post.clubName} post image`} />
+                    <AutoHeightImage uri={post.imageUrl} label={`${post.clubName} post image`} />
                     {post.images && post.images.length > 1 && (
                         <View style={s.multiImgPill}>
                             <Ionicons name="copy-outline" size={10} color="#fff" />
@@ -1186,7 +1214,7 @@ function EventFeedCard({
                 {/* Banner image with badges */}
                 <View style={s.fcImageWrap}>
                     {bannerUri ? (
-                        <SafeImage uri={bannerUri} style={[s.fcImage, s.fcImageEvent]} resizeMode="cover" label={post.eventTitle ? `${post.eventTitle} event banner` : `${post.clubName} event banner`} />
+                        <AutoHeightImage uri={bannerUri} label={post.eventTitle ? `${post.eventTitle} event banner` : `${post.clubName} event banner`} />
                     ) : (
                         <View style={[s.fcImage, s.fcImageEvent]} />
                     )}
@@ -1403,7 +1431,7 @@ function ImageArticleCard({
                 onClubPress={onClubPress}
             />
             <View style={s.fcImageWrap}>
-                <SafeImage uri={post.imageUrl ?? ""} style={[s.fcImage, s.fcImageEvent]} resizeMode="cover" label={`${post.clubName} post image`} />
+                <AutoHeightImage uri={post.imageUrl ?? ""} label={`${post.clubName} post image`} />
                 <Animated.View pointerEvents="none" style={[s.doubleTapHeart, { opacity: heartAnim }]}>
                     <Ionicons name="heart" size={72} color="rgba(255,255,255,0.9)" />
                 </Animated.View>
@@ -1445,6 +1473,7 @@ function PollCard({
     onPollRefresh,
     onEditPress,
     onDeletePress,
+    onPress,
 }: {
     post: FeedPost;
     onLikePress?: (id: string) => void;
@@ -1456,6 +1485,7 @@ function PollCard({
     onPollRefresh?: (postId: string) => void;
     onEditPress?: (id: string) => void;
     onDeletePress?: (id: string) => void;
+    onPress?: () => void;
 }) {
     const { colors: C } = useTheme();
     const t = useT();
@@ -1479,6 +1509,7 @@ function PollCard({
         : "";
 
     const lastTap = useRef<number>(0);
+    const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const heartAnim = useRef(new Animated.Value(0)).current;
 
     const handleLike = useCallback(() => {
@@ -1486,15 +1517,21 @@ function PollCard({
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }, [post.id, onLikePress]);
 
+    // Single tap on the card opens the poll detail; a second tap within 300ms cancels
+    // that and likes instead. Taps on the vote options / action buttons are nested
+    // Pressables, so they never reach here — voting or liking won't navigate.
     const handleDoubleTap = useCallback(() => {
         const now = Date.now();
         if (now - lastTap.current < 300) {
+            if (tapTimer.current) { clearTimeout(tapTimer.current); tapTimer.current = null; }
             if (!post.isLiked) handleLike();
             heartAnim.setValue(1);
             Animated.timing(heartAnim, { toValue: 0, duration: 600, delay: 400, useNativeDriver: true }).start();
+        } else {
+            tapTimer.current = setTimeout(() => { tapTimer.current = null; onPress?.(); }, 280);
         }
-        lastTap.current = now; // no navigation to delay for polls
-    }, [post.isLiked, handleLike, heartAnim]);
+        lastTap.current = now;
+    }, [post.isLiked, handleLike, heartAnim, onPress]);
 
     const handleBookmark = useCallback(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1535,7 +1572,7 @@ function PollCard({
             {/* Image */}
             {!!post.imageUrl && (
                 <View style={s.fcImageWrap}>
-                    <SafeImage uri={post.imageUrl} style={[s.fcImage, s.fcImageBanner]} resizeMode="cover" label={`${post.clubName} poll image`} />
+                    <AutoHeightImage uri={post.imageUrl} label={`${post.clubName} poll image`} />
                 </View>
             )}
 
@@ -1705,16 +1742,23 @@ export default function SocialFeed({
 
     useEffect(() => {
         setPosts(interleavePosts(initialPosts));
+    }, [initialPosts]);
+
+    // Record a view only when a post actually scrolls into the viewport (≥50% visible),
+    // not merely because it was fetched — so the "seen" signal reflects real attention.
+    // Refs keep these stable (RN forbids changing them between renders). api() is used
+    // directly so a 401 never triggers signOut() and a navigation loop.
+    const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
+    const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: Array<{ item?: FeedPost }> }) => {
         const token = tokenRef.current;
         if (!token) return;
-        // Fire view events for unseen posts using api() directly so a 401
-        // never triggers signOut() and causes a navigation loop.
-        const unseen = initialPosts.filter((p) => !viewedPostIds.has(p.id));
-        unseen.forEach((p) => {
+        for (const v of viewableItems) {
+            const p = v.item;
+            if (!p || viewedPostIds.has(p.id)) continue;
             viewedPostIds.add(p.id);
             api(`/posts/${p.id}/view`, { method: "POST" }, token).catch(() => {});
-        });
-    }, [initialPosts]);
+        }
+    }).current;
 
     const unfollowedClubIds = new Set(
         posts.filter((p) => !p.isFollowing).map((p) => p.clubId)
@@ -1767,7 +1811,7 @@ export default function SocialFeed({
 
         let card: React.ReactNode;
         if (post.type === "poll" && post.poll) {
-            card = <PollCard post={post} onLikePress={onLikePress} onCommentPress={onCommentPress} onClubPress={onClubPress} onFollowToggle={handleFollowToggle} showFollow={showFollow} onPollVote={handlePollVote} onPollRefresh={refreshPoll} onEditPress={onEditPress} onDeletePress={onEditPress ? handleDeletePost : undefined} />;
+            card = <PollCard post={post} onPress={() => onPostPress?.(post)} onLikePress={onLikePress} onCommentPress={onCommentPress} onClubPress={onClubPress} onFollowToggle={handleFollowToggle} showFollow={showFollow} onPollVote={handlePollVote} onPollRefresh={refreshPoll} onEditPress={onEditPress} onDeletePress={onEditPress ? handleDeletePost : undefined} />;
         } else if (post.type === "event") {
             card = index === heroIdx
                 ? <HeroCard post={post} onPress={() => onPostPress?.(post)} onClubPress={onClubPress} onLikePress={onLikePress} isOwner={isOwner} />
@@ -1821,6 +1865,8 @@ export default function SocialFeed({
             ListEmptyComponent={ListEmptyComponent}
             onEndReached={onEndReached}
             onEndReachedThreshold={onEndReachedThreshold ?? 0.4}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={viewabilityConfig}
             refreshControl={refreshControl}
         />
     );

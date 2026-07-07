@@ -80,7 +80,9 @@ function mapPost(p: ApiFeedPost, lang: "en" | "fr"): FeedPost {
         clubId: p.clubId,
         clubName: p.clubName,
         clubAvatar: p.clubAvatar,
-        type: p.type.toLowerCase() as FeedPost["type"],
+        // "Update" is a legacy type clubs can no longer create — fold it into
+        // "announcement" so the feed shows a single, consistent post kind.
+        type: (p.type.toLowerCase() === "update" ? "announcement" : p.type.toLowerCase()) as FeedPost["type"],
         timestamp: timeAgo(p.createdAt, lang),
         content: locale.body ?? "",
         imageUrl: (locale as any).posterUrl ?? undefined,

@@ -3,7 +3,7 @@ import { useReduceMotion } from "../lib/useReduceMotion";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
     View, Text, ScrollView, Pressable, StyleSheet, Alert,
-    ActivityIndicator, Animated, useWindowDimensions, Modal, Share, RefreshControl,
+    ActivityIndicator, Animated, useWindowDimensions, Modal, Share, RefreshControl, PanResponder,
 } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { useRouter } from "expo-router";
@@ -62,7 +62,9 @@ function formatMembers(n: number): string {
 }
 
 function toFeedPost(p: ApiPost, club: Club, lang: string): FeedPost {
-    const rawType = p.type.toLowerCase() as FeedPost["type"];
+    // Fold the legacy "update" type into "announcement" (see index.tsx mapPost).
+    const lowered = p.type.toLowerCase();
+    const rawType = (lowered === "update" ? "announcement" : lowered) as FeedPost["type"];
     const loc = pickLocale(p.locales, lang as any);
     const title = loc.title ?? "";
     const body = loc.body ?? "";
@@ -180,11 +182,46 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
         });
     }
 
+    const slideX = useRef(new Animated.Value(0)).current;
+    const screenWidthRef = useRef(screenWidth);
+    screenWidthRef.current = screenWidth;
+    const reduceMotionRef = useRef(reduceMotion);
+    reduceMotionRef.current = reduceMotion;
+
+    // Animated horizontal slide between tabs (mirrors the For You <-> Following feed transition).
     function switchTab(newTab: PostTab) {
-        if (newTab === tab) return;
-        setTab(newTab);
-        setDisplayTab(newTab);
+        if (newTab === tabRef.current) return;
+        const from = TABS.findIndex((tb) => tb.key === tabRef.current);
+        const to = TABS.findIndex((tb) => tb.key === newTab);
+        const dir = to > from ? 1 : -1;   // moving to a right-hand tab slides content left
+        const w = screenWidthRef.current;
+        tabRef.current = newTab;
+        setTab(newTab);                    // highlight the target tab immediately
+        if (reduceMotionRef.current) { setDisplayTab(newTab); return; }
+        slideX.stopAnimation();
+        Animated.timing(slideX, { toValue: -dir * w, duration: 160, useNativeDriver: true }).start(({ finished }) => {
+            if (!finished) return;
+            setDisplayTab(newTab);          // swap content while it's off-screen
+            slideX.setValue(dir * w);
+            Animated.timing(slideX, { toValue: 0, duration: 200, useNativeDriver: true }).start();
+        });
     }
+
+    // Horizontal swipe to move between the profile tabs (history → events → polls → media).
+    // Only claims clearly-horizontal gestures so vertical scrolling is unaffected.
+    const tabRef = useRef<PostTab>("history");
+    tabRef.current = tab;
+    const swipeResponder = useRef(
+        PanResponder.create({
+            onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > Math.abs(g.dy) && Math.abs(g.dx) > 20,
+            onPanResponderRelease: (_, g) => {
+                if (Math.abs(g.dx) < 45) return;
+                const idx = TABS.findIndex((t) => t.key === tabRef.current);
+                const next = g.dx < 0 ? idx + 1 : idx - 1;
+                if (next >= 0 && next < TABS.length) switchTab(TABS[next].key);
+            },
+        }),
+    ).current;
 
     const PAGE_SIZE = 20;
 
@@ -532,14 +569,16 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                     <Text style={s.emptyText}>{t.noPostsHere}</Text>
                 </View>
             ) : (() => {
-                const cellSize = (screenWidth - 2) / 3;
+                // Each cell adds 1px of horizontal margin (0.5 each side); subtract the
+                // 3px total so exactly three columns fit instead of the third wrapping.
+                const cellSize = Math.floor((screenWidth - 3) / 3);
                 return (
                     <View style={s.photoGrid}>
                         {visible.map((post) => (
                             <Pressable
                                 key={post.id}
                                 style={{ width: cellSize, height: cellSize, margin: 0.5 }}
-                                onPress={() => router.push(`/post/${post.id}` as any)}
+                                onPress={() => router.push((post.type === "event" ? `/event/${post.eventId ?? post.id}` : `/post/${post.id}`) as any)}
                             >
                                 <ExpoImage source={{ uri: post.imageUrl ?? "" }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={200} />
                                 {post.images && post.images.length > 1 && (
@@ -632,7 +671,9 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                 </View>
             )}
 
-            {content}
+            <Animated.View style={{ flex: 1, transform: [{ translateX: slideX }] }} {...swipeResponder.panHandlers}>
+                {content}
+            </Animated.View>
 
             {/* Notification pref modal */}
             <Modal visible={notifModalOpen} animationType="none" transparent>
