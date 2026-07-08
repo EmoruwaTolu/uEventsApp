@@ -1640,6 +1640,8 @@ type SocialFeedProps = {
     onEndReached?: () => void;
     onEndReachedThreshold?: number;
     refreshControl?: React.ReactElement<RefreshControlProps>;
+    onScroll?: (e: any) => void;
+    scrollEventThrottle?: number;
     style?: ViewStyle;
 };
 
@@ -1681,6 +1683,8 @@ export default function SocialFeed({
     onEndReached,
     onEndReachedThreshold,
     refreshControl,
+    onScroll,
+    scrollEventThrottle,
     style,
 }: SocialFeedProps) {
     const { colors: C } = useTheme();
@@ -1868,6 +1872,8 @@ export default function SocialFeed({
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
             refreshControl={refreshControl}
+            onScroll={onScroll}
+            scrollEventThrottle={scrollEventThrottle ?? 16}
         />
     );
 }

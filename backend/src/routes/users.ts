@@ -770,16 +770,22 @@ router.delete("/me", requireAuth, async (req, res, next) => {
             if (user.type === "CLUB") {
                 // Delete all posts the club owns (cascades to likes/comments/rsvps/bookmarks/views/checkIns)
                 await tx.post.deleteMany({ where: { clubId: userId } });
+                // Event series reference the club with RESTRICT — remove after posts.
+                await tx.eventSeries.deleteMany({ where: { clubId: userId } });
                 // Delete all follows of this club
                 await tx.follow.deleteMany({ where: { clubId: userId } });
             }
 
-            // Remove student engagement data
+            // Remove student engagement data (all RESTRICT-linked to User, so must be
+            // cleared before deleting the user row).
             await tx.like.deleteMany({ where: { userId } });
             await tx.bookmark.deleteMany({ where: { userId } });
             await tx.rsvp.deleteMany({ where: { userId } });
             await tx.follow.deleteMany({ where: { userId } });
             await tx.checkIn.deleteMany({ where: { userId } });
+            await tx.postView.deleteMany({ where: { userId } });
+            await tx.eventPhoto.deleteMany({ where: { userId } });
+            await tx.eventRating.deleteMany({ where: { userId } });
             await tx.notification.deleteMany({ where: { userId } });
             await tx.feedback.updateMany({ where: { userId }, data: { userId: null } });
             await tx.blockedUser.deleteMany({ where: { OR: [{ blockerId: userId }, { blockedId: userId }] } });

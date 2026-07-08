@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import {
     View, Text, ScrollView, Pressable, StyleSheet, Alert,
     ActivityIndicator, Animated, useWindowDimensions, Modal, Share, RefreshControl, PanResponder,
+    type LayoutChangeEvent,
 } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { useRouter } from "expo-router";
@@ -173,7 +174,11 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
     // Inline edit modals
     const [tab, setTab] = useState<PostTab>("history");
     const [displayTab, setDisplayTab] = useState<PostTab>("history");
+    const [showStickyTabs, setShowStickyTabs] = useState(false);
+    const [tabsY, setTabsY] = useState(0);
     const { width: screenWidth } = useWindowDimensions();
+    const tabsYRef = useRef(0); tabsYRef.current = tabsY;
+    const showStickyRef = useRef(false); showStickyRef.current = showStickyTabs;
 
     function handleShare() {
         Share.share({
@@ -182,46 +187,70 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
         });
     }
 
-    const slideX = useRef(new Animated.Value(0)).current;
-    const screenWidthRef = useRef(screenWidth);
-    screenWidthRef.current = screenWidth;
+    const fade = useRef(new Animated.Value(1)).current;
     const reduceMotionRef = useRef(reduceMotion);
     reduceMotionRef.current = reduceMotion;
-
-    // Animated horizontal slide between tabs (mirrors the For You <-> Following feed transition).
-    function switchTab(newTab: PostTab) {
-        if (newTab === tabRef.current) return;
-        const from = TABS.findIndex((tb) => tb.key === tabRef.current);
-        const to = TABS.findIndex((tb) => tb.key === newTab);
-        const dir = to > from ? 1 : -1;   // moving to a right-hand tab slides content left
-        const w = screenWidthRef.current;
-        tabRef.current = newTab;
-        setTab(newTab);                    // highlight the target tab immediately
-        if (reduceMotionRef.current) { setDisplayTab(newTab); return; }
-        slideX.stopAnimation();
-        Animated.timing(slideX, { toValue: -dir * w, duration: 160, useNativeDriver: true }).start(({ finished }) => {
-            if (!finished) return;
-            setDisplayTab(newTab);          // swap content while it's off-screen
-            slideX.setValue(dir * w);
-            Animated.timing(slideX, { toValue: 0, duration: 200, useNativeDriver: true }).start();
-        });
-    }
-
-    // Horizontal swipe to move between the profile tabs (history → events → polls → media).
-    // Only claims clearly-horizontal gestures so vertical scrolling is unaffected.
     const tabRef = useRef<PostTab>("history");
     tabRef.current = tab;
+    const isProfileTabRef = useRef(isProfileTab);
+    isProfileTabRef.current = isProfileTab;
+    const routerRef = useRef(router);
+    routerRef.current = router;
+
+    // Instant tab swap with a short cross-fade. (A translateX slide felt
+    // disconnected from the finger and lost scroll position, so we keep the
+    // swap immediate and just fade the incoming tab in.)
+    function switchTab(newTab: PostTab) {
+        if (newTab === tabRef.current) return;
+        tabRef.current = newTab;
+        setTab(newTab);
+        setDisplayTab(newTab);
+        setShowStickyTabs(false);   // each tab starts scrolled to the top
+        if (reduceMotionRef.current) return;
+        fade.setValue(0.35);
+        Animated.timing(fade, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    }
+
+    // Horizontal swipe pages between tabs. Swipe left → next tab; swipe right →
+    // previous tab, and past the first tab it leaves the club page (mirrors iOS
+    // back). The native back-gesture is disabled on this route (see club/[id]) so
+    // a mid-screen swipe no longer exits the page — it just changes tabs.
     const swipeResponder = useRef(
         PanResponder.create({
-            onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > Math.abs(g.dy) && Math.abs(g.dx) > 20,
+            onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > Math.abs(g.dy) * 1.4 && Math.abs(g.dx) > 24,
             onPanResponderRelease: (_, g) => {
-                if (Math.abs(g.dx) < 45) return;
+                if (Math.abs(g.dx) < 50 && Math.abs(g.vx) < 0.3) return;
                 const idx = TABS.findIndex((t) => t.key === tabRef.current);
-                const next = g.dx < 0 ? idx + 1 : idx - 1;
-                if (next >= 0 && next < TABS.length) switchTab(TABS[next].key);
+                if (g.dx < 0) {
+                    if (idx < TABS.length - 1) switchTab(TABS[idx + 1].key);
+                } else if (idx > 0) {
+                    switchTab(TABS[idx - 1].key);
+                } else if (!isProfileTabRef.current && routerRef.current.canGoBack()) {
+                    routerRef.current.back();
+                }
             },
         }),
     ).current;
+
+    // Reveal the sticky tab bar overlay once the content scrolls past the in-flow tabs.
+    const handleContentScroll = (e: { nativeEvent: { contentOffset: { y: number } } }) => {
+        const y = e.nativeEvent.contentOffset.y;
+        const should = tabsYRef.current > 0 && y >= tabsYRef.current;
+        if (should !== showStickyRef.current) setShowStickyTabs(should);
+    };
+
+    const renderTabBar = (onLayout?: (e: LayoutChangeEvent) => void) => (
+        <View style={s.tabBar} onLayout={onLayout}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.tabRow}>
+                {TABS.map(({ key }) => (
+                    <Pressable key={key} onPress={() => switchTab(key)} style={s.tabItem} accessibilityRole="tab" accessibilityState={{ selected: tab === key }}>
+                        <Text style={[s.tabLabel, tab === key && s.tabLabelActive]}>{TAB_LABELS(t)[key]}</Text>
+                        {tab === key && <View style={s.tabUnderline} />}
+                    </Pressable>
+                ))}
+            </ScrollView>
+        </View>
+    );
 
     const PAGE_SIZE = 20;
 
@@ -528,17 +557,8 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                 )
             )}
 
-            {/* Tabs */}
-            <View style={s.tabBar}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.tabRow}>
-                    {TABS.map(({ key }) => (
-                        <Pressable key={key} onPress={() => switchTab(key)} style={s.tabItem} accessibilityRole="tab" accessibilityState={{ selected: tab === key }}>
-                            <Text style={[s.tabLabel, tab === key && s.tabLabelActive]}>{TAB_LABELS(t)[key]}</Text>
-                            {tab === key && <View style={s.tabUnderline} />}
-                        </Pressable>
-                    ))}
-                </ScrollView>
-            </View>
+            {/* Tabs (in-flow; a sticky copy appears once scrolled past) */}
+            {renderTabBar((e) => setTabsY(e.nativeEvent.layout.y))}
         </>
     );
 
@@ -561,7 +581,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
 
     const content = displayTab === "media" ? (
         // Media tab: photo grid — no FlatList, safe to use ScrollView
-        <ScrollView showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
+        <ScrollView showsVerticalScrollIndicator={false} refreshControl={refreshControl} onScroll={handleContentScroll} scrollEventThrottle={16}>
             {headerNode}
             {visible.length === 0 ? (
                 <View style={s.emptyState}>
@@ -594,8 +614,11 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
             {footerNode}
         </ScrollView>
     ) : (
-        // All other tabs: SocialFeed (FlatList) is the root scroller — no nesting
+        // All other tabs: SocialFeed (FlatList) is the root scroller — no nesting.
+        // Key by tab so each starts fresh at the top instead of inheriting the
+        // previous tab's scroll offset.
         <SocialFeed
+            key={displayTab}
             posts={visible}
             onPostPress={(post) => router.push((post.type === "event" ? `/event/${post.eventId ?? post.id}` : `/post/${post.id}`) as any)}
             onCommentPress={(postId, type, opts) => router.push(
@@ -617,6 +640,8 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
             }
             ListFooterComponent={footerNode}
             refreshControl={refreshControl}
+            onScroll={handleContentScroll}
+            scrollEventThrottle={16}
         />
     );
 
@@ -671,8 +696,13 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                 </View>
             )}
 
-            <Animated.View style={{ flex: 1, transform: [{ translateX: slideX }] }} {...swipeResponder.panHandlers}>
+            <Animated.View style={{ flex: 1, opacity: fade }} {...swipeResponder.panHandlers}>
                 {content}
+                {showStickyTabs && (
+                    <View style={s.stickyTabs}>
+                        {renderTabBar()}
+                    </View>
+                )}
             </Animated.View>
 
             {/* Notification pref modal */}
@@ -794,6 +824,11 @@ const makeClubStyles = (C: AppColors) => StyleSheet.create({
     pinnedEventEditBtn: { flex: 1, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
     tabBar: { backgroundColor: C.surface, marginTop: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderWarm },
     tabRow: { flexDirection: "row", paddingHorizontal: 20 },
+    stickyTabs: {
+        position: "absolute", top: 0, left: 0, right: 0, zIndex: 20,
+        backgroundColor: C.bg,
+        shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 4,
+    },
     tabItem: { paddingRight: 24, paddingVertical: 14, position: "relative" },
     tabLabel: { fontSize: 10, fontWeight: "800", color: C.textLight, letterSpacing: 1 },
     tabLabelActive: { color: C.text },
