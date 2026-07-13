@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { createHmac } from "crypto";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
@@ -208,6 +208,110 @@ async function notifyRsvpd(
         data: { postId, postType: "EVENT" },
         sound: "default" as const,
     })));
+}
+
+// ── Comment / reply notification helper ─────────────────────────────────────
+// Notifies the post owner when someone comments, and the parent-comment author
+// when someone replies. Deduped (a reply to the owner's own comment sends one
+// REPLY, not REPLY + COMMENT), never notifies the actor about their own comment,
+// and only pushes to users who left push on — the in-app row is always created.
+async function notifyOnComment(
+    postId: string,
+    actorId: string,
+    commentId: string,
+    content: string,
+    parentAuthorId: string | null,
+) {
+    const [post, actor] = await Promise.all([
+        prisma.post.findUnique({
+            where: { id: postId },
+            select: { clubId: true, type: true, locales: true },
+        }),
+        prisma.user.findUnique({
+            where: { id: actorId },
+            select: { type: true, firstName: true, lastName: true, clubName: true },
+        }),
+    ]);
+    if (!post) return;
+
+    const actorName = actor?.type === "CLUB"
+        ? (actor.clubName ?? "A club")
+        : [actor?.firstName, actor?.lastName].filter(Boolean).join(" ") || "Someone";
+    const loc = (post.locales as any) ?? {};
+    const postTitle = loc.en?.title ?? loc.fr?.title ?? "your post";
+    const snippet = content.trim().replace(/\s+/g, " ").slice(0, 120);
+
+    // userId -> payload. A reply beats a comment when the same user would get
+    // both (replying to the post owner's own comment is one REPLY, not two rows).
+    const targets = new Map<string, { type: "REPLY" | "COMMENT"; title: string }>();
+    if (parentAuthorId && parentAuthorId !== actorId) {
+        targets.set(parentAuthorId, { type: "REPLY", title: `${actorName} replied to your comment` });
+    }
+    if (post.clubId !== actorId && !targets.has(post.clubId)) {
+        targets.set(post.clubId, { type: "COMMENT", title: `${actorName} commented on ${postTitle}` });
+    }
+    if (targets.size === 0) return;
+
+    const ids = [...targets.keys()];
+    const users = await prisma.user.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, pushToken: true, pushNotifs: true },
+    });
+    const meta = { postId, postType: post.type, commentId };
+
+    await prisma.notification.createMany({
+        data: ids.map((uid) => ({
+            userId: uid,
+            type: targets.get(uid)!.type,
+            title: targets.get(uid)!.title,
+            body: snippet,
+            metadata: meta,
+        })),
+        skipDuplicates: true,
+    });
+
+    const pushes = users
+        .filter((u) => u.pushNotifs && u.pushToken)
+        .map((u) => ({
+            to: u.pushToken!,
+            title: targets.get(u.id)!.title,
+            body: snippet,
+            data: meta,
+            sound: "default" as const,
+        }));
+    if (pushes.length) sendExpoPush(pushes);
+}
+
+// Users the viewer has blocked or been blocked by. Blocking is bidirectional —
+// the two users disappear from each other's comment threads (App Store UGC
+// requirement, Guideline 1.2).
+async function blockedUserIds(viewerId: string): Promise<string[]> {
+    const rows = await prisma.blockedUser.findMany({
+        where: { OR: [{ blockerId: viewerId }, { blockedId: viewerId }] },
+        select: { blockerId: true, blockedId: true },
+    });
+    return rows.map((r) => (r.blockerId === viewerId ? r.blockedId : r.blockerId));
+}
+
+// Guards read/interaction routes on a single post: a hidden (moderated) or draft
+// (unpublished/scheduled) post 404s for everyone except its owning club, which
+// can still preview and manage it. Removal routes (unlike/unbookmark/un-RSVP)
+// intentionally skip this so a user is never trapped once a post is pulled.
+async function requireVisiblePost(req: Request, res: Response, next: NextFunction) {
+    try {
+        const post = await prisma.post.findUnique({
+            where: { id: req.params.id },
+            select: { hidden: true, isDraft: true, clubId: true },
+        });
+        if (!post) return res.status(404).json({ error: "Post not found" });
+        const isOwner = post.clubId === req.user?.userId;
+        if ((post.hidden || post.isDraft) && !isOwner) {
+            return res.status(404).json({ error: "Post not found" });
+        }
+        next();
+    } catch (err) {
+        next(err);
+    }
 }
 
 // POST /posts — create (club only)
@@ -1327,8 +1431,11 @@ router.get("/:id", optionalAuth, async (req, res, next) => {
             },
         });
         if (!post) return res.status(404).json({ error: "Post not found" });
-        // Hidden (moderated) posts are only visible to their owning club.
-        if (post.hidden && post.clubId !== userId) return res.status(404).json({ error: "Post not found" });
+        // Hidden (moderated) and draft (unpublished/scheduled) posts are only
+        // visible to their owning club.
+        if ((post.hidden || post.isDraft) && post.clubId !== userId) {
+            return res.status(404).json({ error: "Post not found" });
+        }
 
         const rsvpPreview = await prisma.rsvp.findMany({
             where: { postId: post.id },
@@ -1482,7 +1589,7 @@ router.delete("/:id", requireAuth, requireClub, async (req, res, next) => {
 });
 
 // POST /posts/:id/view — record a view (one per user per post, idempotent)
-router.post("/:id/view", requireAuth, async (req, res, next) => {
+router.post("/:id/view", requireAuth, requireVisiblePost, async (req, res, next) => {
     try {
         await prisma.postView.upsert({
             where: { userId_postId: { userId: req.user!.userId, postId: req.params.id } },
@@ -1496,7 +1603,7 @@ router.post("/:id/view", requireAuth, async (req, res, next) => {
 });
 
 // POST /posts/:id/like
-router.post("/:id/like", requireAuth, async (req, res, next) => {
+router.post("/:id/like", requireAuth, requireVisiblePost, async (req, res, next) => {
     try {
         await prisma.like.upsert({
             where: { userId_postId: { userId: req.user!.userId, postId: req.params.id } },
@@ -1522,7 +1629,7 @@ router.delete("/:id/like", requireAuth, async (req, res, next) => {
 });
 
 // POST /posts/:id/bookmark
-router.post("/:id/bookmark", requireAuth, async (req, res, next) => {
+router.post("/:id/bookmark", requireAuth, requireVisiblePost, async (req, res, next) => {
     try {
         await prisma.bookmark.upsert({
             where: { userId_postId: { userId: req.user!.userId, postId: req.params.id } },
@@ -1548,19 +1655,25 @@ router.delete("/:id/bookmark", requireAuth, async (req, res, next) => {
 });
 
 // GET /posts/:id/comments
-router.get("/:id/comments", async (req, res, next) => {
+router.get("/:id/comments", optionalAuth, requireVisiblePost, async (req, res, next) => {
     try {
         const userSelect = {
             id: true, type: true,
             firstName: true, lastName: true, avatarUrl: true,
             clubName: true, logoUrl: true,
         };
+
+        // Blocked users are removed from the thread in both directions.
+        const viewerId = req.user?.userId;
+        const blockedIds = viewerId ? await blockedUserIds(viewerId) : [];
+        const notBlocked = blockedIds.length ? { userId: { notIn: blockedIds } } : {};
+
         const comments = await prisma.comment.findMany({
-            where: { postId: req.params.id, parentId: null, hidden: false },
+            where: { postId: req.params.id, parentId: null, hidden: false, ...notBlocked },
             include: {
                 user: { select: userSelect },
                 replies: {
-                    where: { hidden: false },
+                    where: { hidden: false, ...notBlocked },
                     include: { user: { select: userSelect } },
                     orderBy: { createdAt: "asc" },
                 },
@@ -1574,17 +1687,19 @@ router.get("/:id/comments", async (req, res, next) => {
 });
 
 // POST /posts/:id/comments
-router.post("/:id/comments", requireAuth, validate(commentSchema), async (req, res, next) => {
+router.post("/:id/comments", requireAuth, requireVisiblePost, validate(commentSchema), async (req, res, next) => {
     try {
         const { content, parentId } = req.body;
         if (!content?.trim()) {
             return res.status(400).json({ error: "Comment content required" });
         }
+        let parentAuthorId: string | null = null;
         if (parentId) {
             const parent = await prisma.comment.findUnique({ where: { id: parentId } });
             if (!parent || parent.postId !== req.params.id || parent.parentId !== null) {
                 return res.status(400).json({ error: "Invalid parentId" });
             }
+            parentAuthorId = parent.userId;
         }
         const userSelect = {
             id: true, type: true,
@@ -1601,6 +1716,10 @@ router.post("/:id/comments", requireAuth, validate(commentSchema), async (req, r
             include: { user: { select: userSelect }, replies: true },
         });
         res.status(201).json(comment);
+
+        // Fire-and-forget: notify the post owner (and the parent author on a reply).
+        notifyOnComment(req.params.id, req.user!.userId, comment.id, comment.content, parentAuthorId)
+            .catch((e) => console.error("notifyOnComment failed", e));
     } catch (err) {
         next(err);
     }
@@ -1667,7 +1786,7 @@ router.post("/:id/comments/:commentId/upvote", requireAuth, async (req, res, nex
 });
 
 // POST /posts/:id/vote — poll vote
-router.post("/:id/vote", requireAuth, async (req, res, next) => {
+router.post("/:id/vote", requireAuth, requireVisiblePost, async (req, res, next) => {
     try {
         const { optionId } = req.body;
         if (!optionId) return res.status(400).json({ error: "optionId required" });
@@ -1715,7 +1834,7 @@ router.post("/:id/vote", requireAuth, async (req, res, next) => {
 });
 
 // POST /posts/:id/rsvp
-router.post("/:id/rsvp", requireAuth, async (req, res, next) => {
+router.post("/:id/rsvp", requireAuth, requireVisiblePost, async (req, res, next) => {
     try {
         const postId = req.params.id;
         const userId = req.user!.userId;
@@ -1860,15 +1979,31 @@ router.get("/:id/checkin-qr", requireAuth, async (req, res, next) => {
 });
 
 // POST /posts/:id/checkin — student submits scanned token
-router.post("/:id/checkin", requireAuth, async (req, res, next) => {
+router.post("/:id/checkin", requireAuth, requireVisiblePost, async (req, res, next) => {
     try {
         const { token } = req.body as { token: string };
         const expected = checkinToken(req.params.id);
         if (token !== expected) return res.status(400).json({ error: "Invalid check-in token" });
 
-        const post = await prisma.post.findUnique({ where: { id: req.params.id }, select: { type: true, isDraft: true } });
+        const post = await prisma.post.findUnique({
+            where: { id: req.params.id },
+            select: { type: true, isDraft: true, startAt: true, endAt: true },
+        });
         if (!post || post.isDraft || post.type !== "EVENT") {
             return res.status(404).json({ error: "Event not found" });
+        }
+
+        // The QR token is a static HMAC of the post id, so a screenshot never
+        // expires on its own. Bound check-ins to the event window (start − 30 min
+        // → end + 2 h) so a leaked code can't be replayed from home. Falls back to
+        // a 3 h default duration when the event has no explicit end time.
+        if (post.startAt) {
+            const now = Date.now();
+            const opensAt = post.startAt.getTime() - 30 * 60 * 1000;
+            const endBase = post.endAt?.getTime() ?? post.startAt.getTime() + 3 * 60 * 60 * 1000;
+            const closesAt = endBase + 2 * 60 * 60 * 1000;
+            if (now < opensAt) return res.status(403).json({ error: "Check-in isn't open yet" });
+            if (now > closesAt) return res.status(403).json({ error: "Check-in has closed for this event" });
         }
 
         await prisma.checkIn.upsert({

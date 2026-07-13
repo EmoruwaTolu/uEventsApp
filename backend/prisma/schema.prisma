@@ -301,6 +301,8 @@ enum NotifType {
   FOLLOW
   WAITLIST_PROMOTED
   DIGEST
+  COMMENT
+  REPLY
 }
 
 model PasswordReset {

@@ -474,6 +474,44 @@ export default function EventPage() {
         );
     }
 
+    function commentAuthorName(c: any) {
+        return c.user?.type === "CLUB"
+            ? (c.user.clubName ?? "Club")
+            : [c.user?.firstName, c.user?.lastName].filter(Boolean).join(" ") || "Student";
+    }
+
+    // Overflow menu on a comment: report always, block when it isn't your own.
+    function moderateComment(c: any) {
+        const name = commentAuthorName(c);
+        const buttons: any[] = [{ text: t.moderateReport, onPress: () => reportComment(c.id) }];
+        if (c.user?.id && c.user.id !== session?.userId) {
+            buttons.push({ text: t.blockUser, style: "destructive", onPress: () => blockUser(c.user.id, name) });
+        }
+        buttons.push({ text: t.cancelBtn, style: "cancel" });
+        Alert.alert(name, undefined, buttons);
+    }
+
+    function blockUser(userId: string, name: string) {
+        Alert.alert(t.blockConfirmTitle(name), t.blockConfirmMsg, [
+            { text: t.cancelBtn, style: "cancel" },
+            {
+                text: t.blockBtn,
+                style: "destructive",
+                onPress: async () => {
+                    try {
+                        await authApi(`/users/${userId}/block`, { method: "POST" });
+                        setComments((prev) => prev
+                            .filter((c) => c.user?.id !== userId)
+                            .map((c) => ({ ...c, replies: (c.replies ?? []).filter((r: any) => r.user?.id !== userId) })));
+                        showToast(t.blockedToast(name));
+                    } catch {
+                        showToast(t.blockError, "error");
+                    }
+                },
+            },
+        ]);
+    }
+
     async function submitComment() {
         const parentId = replyingTo ?? undefined;
         const text = commentText;
@@ -1259,9 +1297,9 @@ export default function EventPage() {
                                                 <Text style={styles.commentTime}>{timeAgo(c.createdAt, lang)}</Text>
                                                 <View style={{ flexDirection: "row", gap: 10, marginLeft: "auto" }}>
                                                     {!isPostOwner && (
-                                                        <Pressable onPress={() => reportComment(c.id)} hitSlop={8}
-                                                            accessibilityRole="button" accessibilityLabel="Report comment">
-                                                            <Ionicons name="flag-outline" size={13} color="#9CA3AF" />
+                                                        <Pressable onPress={() => moderateComment(c)} hitSlop={8}
+                                                            accessibilityRole="button" accessibilityLabel="Comment options">
+                                                            <Ionicons name="ellipsis-horizontal" size={13} color="#9CA3AF" />
                                                         </Pressable>
                                                     )}
                                                     {isPostOwner && (
@@ -1315,9 +1353,9 @@ export default function EventPage() {
                                                                 <Text style={styles.commentTime}>{timeAgo(r.createdAt, lang)}</Text>
                                                                 <View style={{ flexDirection: "row", gap: 10, marginLeft: "auto" }}>
                                                                     {!isPostOwner && (
-                                                                        <Pressable onPress={() => reportComment(r.id)} hitSlop={8}
-                                                                            accessibilityRole="button" accessibilityLabel="Report reply">
-                                                                            <Ionicons name="flag-outline" size={12} color="#9CA3AF" />
+                                                                        <Pressable onPress={() => moderateComment(r)} hitSlop={8}
+                                                                            accessibilityRole="button" accessibilityLabel="Reply options">
+                                                                            <Ionicons name="ellipsis-horizontal" size={12} color="#9CA3AF" />
                                                                         </Pressable>
                                                                     )}
                                                                     {isPostOwner && (

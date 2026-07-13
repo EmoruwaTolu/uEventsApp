@@ -18,7 +18,7 @@ type ApiNotif = {
     body: string;
     isRead: boolean;
     createdAt: string;
-    metadata?: { postId?: string; postType?: string } | null;
+    metadata?: { postId?: string; postType?: string; commentId?: string } | null;
 };
 
 function typeIcon(type: string): string {
@@ -27,6 +27,8 @@ function typeIcon(type: string): string {
     if (type === "LIKE")     return "heart-outline";
     if (type === "FOLLOW")   return "people-outline";
     if (type === "REMINDER") return "alarm-outline";
+    if (type === "COMMENT")  return "chatbubble-outline";
+    if (type === "REPLY")    return "arrow-undo-outline";
     return "notifications-outline";
 }
 
@@ -35,6 +37,7 @@ function typeColor(type: string): { bg: string; icon: string } {
     if (type === "FOLLOW")   return { bg: "#DBEAFE", icon: "#1D4ED8" };
     if (type === "REMINDER") return { bg: "#FEF3C7", icon: "#D97706" };
     if (type === "POST")     return { bg: "#E5E7EB", icon: "#374151" };
+    if (type === "COMMENT" || type === "REPLY") return { bg: "#DCFCE7", icon: "#15803D" };
     return { bg: "#FEE2E2", icon: "#8C0327" };
 }
 
@@ -139,10 +142,14 @@ export default function NotificationsScreen() {
         markRead(n.id);
         const postId = n.metadata?.postId;
         if (!postId) return;
+        // Comment/reply notifications deep-link to the comment thread.
+        const commentParams = n.metadata?.commentId
+            ? { highlightComment: n.metadata.commentId, focusComment: "1" }
+            : {};
         if (n.type === "EVENT" || n.metadata?.postType === "EVENT") {
-            router.push({ pathname: "/event/[id]", params: { id: postId } });
+            router.push({ pathname: "/event/[id]", params: { id: postId, ...commentParams } });
         } else {
-            router.push({ pathname: "/post/[id]", params: { id: postId } });
+            router.push({ pathname: "/post/[id]", params: { id: postId, ...commentParams } });
         }
     }
 

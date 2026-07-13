@@ -521,6 +521,23 @@ export default function SettingsScreen() {
                     </View>
                 </View>
 
+                {/* ── Privacy card ── */}
+                <Text style={s.sectionLabel}>{t.settingsPrivacySection}</Text>
+                <View style={s.card}>
+                    <Pressable
+                        onPress={() => router.push("/blocked-users" as any)}
+                        style={({ pressed }) => [s.row, pressed && s.rowPressed]}
+                        accessibilityRole="button"
+                        accessibilityLabel={t.blockedUsers}
+                    >
+                        <View style={s.rowIcon}>
+                            <Ionicons name="ban-outline" size={18} color={C.primary} />
+                        </View>
+                        <Text style={s.rowLabel}>{t.blockedUsers}</Text>
+                        <Ionicons name="chevron-forward" size={16} color={C.textLight} />
+                    </Pressable>
+                </View>
+
                 {/* ── Calendar subscription ── */}
                 <Text style={s.sectionLabel}>{t.settingsCalendar}</Text>
                 <View style={s.card}>

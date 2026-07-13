@@ -733,6 +733,44 @@ export default function PostDetailScreen() {
         );
     }
 
+    function commentAuthorName(c: Comment) {
+        return c.user.type === "CLUB"
+            ? (c.user.clubName ?? "Club")
+            : [c.user.firstName, c.user.lastName].filter(Boolean).join(" ") || "User";
+    }
+
+    // Overflow menu on someone else's comment: report or block the author.
+    function moderateComment(c: Comment) {
+        const name = commentAuthorName(c);
+        Alert.alert(name, undefined, [
+            { text: t.moderateReport, onPress: () => reportComment(c.id) },
+            { text: t.blockUser, style: "destructive", onPress: () => blockUser(c.user.id, name) },
+            { text: t.cancelBtn, style: "cancel" },
+        ]);
+    }
+
+    function blockUser(userId: string, name: string) {
+        Alert.alert(t.blockConfirmTitle(name), t.blockConfirmMsg, [
+            { text: t.cancelBtn, style: "cancel" },
+            {
+                text: t.blockBtn,
+                style: "destructive",
+                onPress: async () => {
+                    try {
+                        await authApi(`/users/${userId}/block`, { method: "POST" });
+                        // Drop the blocked user's comments (and replies) locally.
+                        setComments((prev) => prev
+                            .filter((c) => c.user.id !== userId)
+                            .map((c) => ({ ...c, replies: c.replies?.filter((r) => r.user.id !== userId) })));
+                        showToast(t.blockedToast(name));
+                    } catch {
+                        showToast(t.blockError, "error");
+                    }
+                },
+            },
+        ]);
+    }
+
     async function openScanner() {
         if (!cameraPermission?.granted) {
             const result = await requestCameraPermission();
@@ -1203,8 +1241,8 @@ export default function PostDetailScreen() {
                                                             </Pressable>
                                                         )}
                                                         {!canDelete && (
-                                                            <Pressable onPress={() => reportComment(c.id)} hitSlop={8} accessibilityLabel={t.reportCommentLabel} accessibilityRole="button">
-                                                                <Ionicons name="flag-outline" size={13} color={C.textFaint} />
+                                                            <Pressable onPress={() => moderateComment(c)} hitSlop={8} accessibilityLabel={t.reportCommentLabel} accessibilityRole="button">
+                                                                <Ionicons name="ellipsis-horizontal" size={13} color={C.textFaint} />
                                                             </Pressable>
                                                         )}
                                                         {canDelete && (

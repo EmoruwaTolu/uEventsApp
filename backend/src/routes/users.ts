@@ -641,14 +641,36 @@ router.delete("/:id/block", requireAuth, async (req, res, next) => {
     }
 });
 
-// GET /users/me/blocks — list of user IDs the current user has blocked
+// GET /users/me/blocks — users the current user has blocked, with display info
+// for the Settings "Blocked users" list (most recently blocked first).
 router.get("/me/blocks", requireAuth, async (req, res, next) => {
     try {
         const blocks = await prisma.blockedUser.findMany({
             where: { blockerId: req.user!.userId },
-            select: { blockedId: true },
+            orderBy: { createdAt: "desc" },
+            select: {
+                blockedId: true,
+                blocked: {
+                    select: {
+                        id: true, type: true,
+                        firstName: true, lastName: true, avatarUrl: true,
+                        clubName: true, logoUrl: true,
+                    },
+                },
+            },
         });
-        res.json(blocks.map((b) => b.blockedId));
+        res.json(blocks.map((b) => {
+            const u = b.blocked;
+            const name = u.type === "CLUB"
+                ? (u.clubName ?? "Club")
+                : [u.firstName, u.lastName].filter(Boolean).join(" ") || "User";
+            return {
+                id: b.blockedId,
+                name,
+                avatarUrl: u.type === "CLUB" ? u.logoUrl : u.avatarUrl,
+                type: u.type,
+            };
+        }));
     } catch (err) {
         next(err);
     }

@@ -128,6 +128,7 @@ function Gate() {
             <Stack.Screen name="analytics" />
             <Stack.Screen name="notifications" options={{ animation: "slide_from_bottom", gestureDirection: "vertical" }} />
             <Stack.Screen name="settings" options={{ animation: "slide_from_bottom", gestureDirection: "vertical" }} />
+            <Stack.Screen name="blocked-users" />
             <Stack.Screen name="feedback" options={{ animation: "slide_from_bottom", gestureDirection: "vertical" }} />
             <Stack.Screen name="search-modal" options={{ animation: "slide_from_bottom", gestureDirection: "vertical" }} />
             <Stack.Screen name="all-events-modal" options={{ animation: "slide_from_bottom", gestureDirection: "vertical" }} />
