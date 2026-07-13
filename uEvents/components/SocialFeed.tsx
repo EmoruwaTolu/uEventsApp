@@ -93,6 +93,7 @@ export type FeedPost = {
     isRecurring?: boolean;
     freeFood?: boolean;
     rsvpCount?: number;
+    rsvpPreview?: { name: string; avatarUrl?: string | null }[];
     capacity?: number | null;
     likes?: number;
     comments?: number;
@@ -1252,11 +1253,32 @@ function EventFeedCard({
                     <Text style={s.fcTitle} numberOfLines={2}>{post.eventTitle}</Text>
                 )}
 
-                {/* Meta line — date · time · location · going count */}
+                {/* Meta line — date · time · location */}
                 {(() => {
                     const parts = [post.eventDate, post.eventTime, post.eventLocation].filter(Boolean) as string[];
-                    if ((post.rsvpCount ?? 0) > 0) parts.push(`${post.rsvpCount} going`);
                     return parts.length > 0 ? <Text style={s.fcMeta} numberOfLines={1}>{parts.join(" · ")}</Text> : null;
+                })()}
+
+                {/* Who's going — attendee avatar stack + "Maya, Jordan +N going" */}
+                {!isPast && (post.rsvpCount ?? 0) > 0 && (() => {
+                    const preview = post.rsvpPreview ?? [];
+                    const names = preview.slice(0, 2).map((a) => a.name);
+                    return (
+                        <View style={s.fcGoingRow}>
+                            {preview.length > 0 && (
+                                <View style={{ flexDirection: "row" }}>
+                                    {preview.slice(0, 3).map((a, i) => (
+                                        <View key={i} style={[s.fcGoingAvatar, { marginLeft: i === 0 ? 0 : -7 }]}>
+                                            {a.avatarUrl
+                                                ? <ExpoImage source={{ uri: a.avatarUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={150} />
+                                                : <Text style={s.fcGoingAvatarInit}>{a.name.slice(0, 1).toUpperCase()}</Text>}
+                                        </View>
+                                    ))}
+                                </View>
+                            )}
+                            <Text style={s.fcGoingText} numberOfLines={1}>{t.goingSummary(names, post.rsvpCount ?? 0)}</Text>
+                        </View>
+                    );
                 })()}
 
                 {/* Description */}
@@ -1642,6 +1664,8 @@ type SocialFeedProps = {
     refreshControl?: React.ReactElement<RefreshControlProps>;
     onScroll?: (e: any) => void;
     scrollEventThrottle?: number;
+    scrollRef?: React.Ref<any>;
+    contentContainerStyle?: ViewStyle;
     style?: ViewStyle;
 };
 
@@ -1685,6 +1709,8 @@ export default function SocialFeed({
     refreshControl,
     onScroll,
     scrollEventThrottle,
+    scrollRef,
+    contentContainerStyle,
     style,
 }: SocialFeedProps) {
     const { colors: C } = useTheme();
@@ -1857,12 +1883,13 @@ export default function SocialFeed({
 
     return (
         <FlatList
+            ref={scrollRef}
             data={posts}
             keyExtractor={(item) => item.id}
             renderItem={renderPost}
             extraData={posts}
             style={style}
-            contentContainerStyle={s.feed}
+            contentContainerStyle={[s.feed, contentContainerStyle]}
             showsVerticalScrollIndicator={false}
             ListHeaderComponent={ListHeaderComponent}
             ListFooterComponent={ListFooterComponent}

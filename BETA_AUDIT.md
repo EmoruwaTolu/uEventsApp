@@ -14,10 +14,12 @@ ordered by how much they affect beta testers.
 >
 > **Before shipping Batch 2:** run `prisma migrate deploy` (new migration
 > `20260712000000_add_comment_notifs` adds the `COMMENT`/`REPLY` enum values) and regenerate
-> the Prisma client. Until then, backend `tsc` shows stale-client errors (including the
-> `notifyOnComment` enum one) — all clear after regen. The app typechecks clean. Batch 2
-> touches native modules (new screen, notification enum) so it needs a **new TestFlight
-> build**, not just OTA; Batch 1 was OTA-eligible.
+> the Prisma client. Batch 2 touches native modules (new screen, notification enum) so it
+> needs a **new TestFlight build**, not just OTA; Batch 1 was OTA-eligible.
+>
+> **Batch 3 (in the working tree, uncommitted):** C (going-with) + D (feed pagination). Both
+> the app and backend typecheck clean (0 errors). Ships in the same new TestFlight build as
+> Batch 2 — no extra migration needed.
 
 ---
 
@@ -117,13 +119,19 @@ B. ✅ **Blocking: endpoints exist, feature doesn't.** No block UI anywhere in t
    Privacy → Blocked users** screen (`app/blocked-users.tsx`) lists and unblocks them. This
    closes the UGC compliance gap._
 
-C. **Friends-lite "going with"** (already P1 in TODOS). `rsvpPreview` already exists on the
-   detail endpoint — surfacing "Maya + 2 others you follow clubs with are going" on feed
-   cards is mostly presentation work. Highest-value social feature per effort.
+C. ✅ **Friends-lite "going with"** (already P1 in TODOS). `rsvpPreview` already exists on the
+   detail endpoint — surfacing "Maya + 2 others are going" on feed cards is mostly
+   presentation work. _Done: both `/feed` and `/for-you` now include an `rsvpPreview` (first
+   3 attendees) for events; feed event cards render an attendee avatar-stack + a
+   "Maya, Jordan +N going" line (`goingSummary`, en/fr). On For You the preview reuses the
+   existing attendee include and `isRsvped` is derived from a separate query._
 
-D. **Feed pagination.** For You caps at 25, Following at 60, no cursor anywhere.
+D. ✅ **Feed pagination.** For You caps at 25, Following at 60, no cursor anywhere.
    `SocialFeed` already accepts `onEndReached` — the client is ready, the backend isn't.
-   Fine for beta scale; will visibly truncate feeds as clubs onboard.
+   _Done: `/feed` honours `limit`/`offset` (chronological, stable window). `/for-you` scores
+   a fixed 150-candidate pool and slices `[offset, offset+limit]` so the ranking is coherent
+   across pages. The For You tab is now wired to `onEndReached` (`loadMoreForYou`), both feeds
+   dedupe on append and track a server-count offset so paging can't stall._
 
 E. **Search depth.** `/search` loads the latest 200 posts and filters in memory, and only
    matches the `en` locale (first-locale fallback) — older and French-first events become
@@ -177,7 +185,7 @@ and 14. All small, contained changes; changes are in the working tree, not yet c
 QR window). Closed the engagement gap and the App Store UGC gap in one pass. Ships as a new
 TestFlight build (native surface changed); run `prisma migrate deploy` + regen first.
 
-**Then:** C (going-with) and D (pagination) as the headline improvements of the next
-TestFlight build; 9, 11, 15 as background hardening.
+**Then:** ✅ done — C (going-with) and D (pagination), the headline improvements for the next
+TestFlight build. 9, 11, 15 remain as background hardening.
 
 **Ongoing:** uptime ping + Sentry now; weekly feedback/reports/FeedSignal review.

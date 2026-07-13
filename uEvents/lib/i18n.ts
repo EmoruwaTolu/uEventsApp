@@ -106,6 +106,12 @@ const translations = {
         eventBriefing: "EVENT BRIEFING",
         rsvpNow: "RSVP NOW",
         youreGoing: "YOU'RE GOING",
+        // "Maya, Jordan +5 going" attendee summary on feed event cards.
+        goingSummary: (names: string[], total: number) => {
+            if (!names.length) return `${total} going`;
+            const rem = Math.max(0, total - names.length);
+            return rem > 0 ? `${names.join(", ")} +${rem} going` : `${names.join(" & ")} going`;
+        },
         joinWaitlist: "JOIN WAITLIST",
         waitlisted: "WAITLISTED",
         addToCalendar: "ADD TO CALENDAR",
@@ -914,6 +920,12 @@ const translations = {
         eventBriefing: "RÉSUMÉ DE L'ÉVÉNEMENT",
         rsvpNow: "S'INSCRIRE",
         youreGoing: "INSCRIT",
+        // Résumé des participants « Maya, Jordan +5 » sur les cartes d'événement.
+        goingSummary: (names: string[], total: number) => {
+            if (!names.length) return `${total} participant${total === 1 ? "" : "s"}`;
+            const rem = Math.max(0, total - names.length);
+            return rem > 0 ? `${names.join(", ")} +${rem}` : names.join(" & ");
+        },
         joinWaitlist: "LISTE D'ATTENTE",
         waitlisted: "EN ATTENTE",
         addToCalendar: "AJOUTER AU CALENDRIER",

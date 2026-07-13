@@ -171,14 +171,10 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
         Animated.timing(anim, { toValue: 600, duration: 220, useNativeDriver: true }).start(cb);
     }
 
-    // Inline edit modals
     const [tab, setTab] = useState<PostTab>("history");
-    const [displayTab, setDisplayTab] = useState<PostTab>("history");
-    const [showStickyTabs, setShowStickyTabs] = useState(false);
-    const [tabsY, setTabsY] = useState(0);
     const { width: screenWidth } = useWindowDimensions();
-    const tabsYRef = useRef(0); tabsYRef.current = tabsY;
-    const showStickyRef = useRef(false); showStickyRef.current = showStickyTabs;
+    const [headerH, setHeaderH] = useState(0);
+    const [tabH, setTabH] = useState(44);
 
     function handleShare() {
         Share.share({
@@ -187,56 +183,87 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
         });
     }
 
-    const fade = useRef(new Animated.Value(1)).current;
-    const reduceMotionRef = useRef(reduceMotion);
-    reduceMotionRef.current = reduceMotion;
-    const tabRef = useRef<PostTab>("history");
-    tabRef.current = tab;
-    const isProfileTabRef = useRef(isProfileTab);
-    isProfileTabRef.current = isProfileTab;
-    const routerRef = useRef(router);
-    routerRef.current = router;
+    const reduceMotionRef = useRef(reduceMotion); reduceMotionRef.current = reduceMotion;
+    const isProfileTabRef = useRef(isProfileTab); isProfileTabRef.current = isProfileTab;
+    const routerRef = useRef(router); routerRef.current = router;
+    const screenWidthRef = useRef(screenWidth); screenWidthRef.current = screenWidth;
+    const headerHRef = useRef(0); headerHRef.current = headerH;
+    const tabRef = useRef<PostTab>("history"); tabRef.current = tab;
 
-    // Instant tab swap with a short cross-fade. (A translateX slide felt
-    // disconnected from the finger and lost scroll position, so we keep the
-    // swap immediate and just fade the incoming tab in.)
-    function switchTab(newTab: PostTab) {
-        if (newTab === tabRef.current) return;
-        tabRef.current = newTab;
-        setTab(newTab);
-        setDisplayTab(newTab);
-        setShowStickyTabs(false);   // each tab starts scrolled to the top
-        if (reduceMotionRef.current) return;
-        fade.setValue(0.35);
-        Animated.timing(fade, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    // Collapsing-header tab pager (mirrors the feed's finger-tracked For You / Following).
+    const slideX = useRef(new Animated.Value(0)).current;   // horizontal pager offset
+    const scrollY = useRef(new Animated.Value(0)).current;  // shared vertical → header collapse
+    const activeIndexRef = useRef(0);
+    const paneRefs = useRef<Array<any>>([]);
+    const paneScroll = useRef<number[]>(TABS.map(() => 0));
+
+    // Header slides up as the active tab scrolls; the tab bar pins once collapsed.
+    const headerTranslate = scrollY.interpolate({
+        inputRange: [0, Math.max(1, headerH)],
+        outputRange: [0, -Math.max(1, headerH)],
+        extrapolate: "clamp",
+    });
+
+    function goToIndex(i: number) {
+        const W = screenWidthRef.current;
+        i = Math.max(0, Math.min(TABS.length - 1, i));
+        activeIndexRef.current = i;
+        setTab(TABS[i].key);
+        if (reduceMotionRef.current) slideX.setValue(-i * W);
+        else Animated.timing(slideX, { toValue: -i * W, duration: 240, useNativeDriver: true }).start();
+        // Keep the collapsing header consistent with the tab we land on.
+        scrollY.setValue(Math.min(paneScroll.current[i] ?? 0, headerHRef.current));
     }
+    function switchTab(key: PostTab) { goToIndex(TABS.findIndex((tb) => tb.key === key)); }
 
-    // Horizontal swipe pages between tabs. Swipe left → next tab; swipe right →
-    // previous tab, and past the first tab it leaves the club page (mirrors iOS
-    // back). The native back-gesture is disabled on this route (see club/[id]) so
-    // a mid-screen swipe no longer exits the page — it just changes tabs.
-    const swipeResponder = useRef(
+    // Finger-tracked horizontal paging. A right-swipe past the first tab leaves
+    // the club page (the native back-gesture is disabled on this route).
+    const panResponder = useRef(
         PanResponder.create({
-            onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > Math.abs(g.dy) * 1.4 && Math.abs(g.dx) > 24,
+            onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > Math.abs(g.dy) * 1.2 && Math.abs(g.dx) > 12,
+            onPanResponderGrant: () => {
+                slideX.stopAnimation();
+                slideX.extractOffset();
+                // Align every other pane to the current header-collapse so the tab
+                // peeking in under the finger lines up with the pinned header.
+                const shared = Math.min(paneScroll.current[activeIndexRef.current] ?? 0, headerHRef.current);
+                paneRefs.current.forEach((r, idx) => {
+                    if (idx === activeIndexRef.current || !r) return;
+                    try {
+                        if (typeof r.scrollToOffset === "function") r.scrollToOffset({ offset: shared, animated: false });
+                        else if (typeof r.scrollTo === "function") r.scrollTo({ y: shared, animated: false });
+                        paneScroll.current[idx] = shared;
+                    } catch { /* noop */ }
+                });
+            },
+            onPanResponderMove: (_, g) => {
+                const i = activeIndexRef.current;
+                let dx = g.dx;
+                if ((i === 0 && dx > 0) || (i === TABS.length - 1 && dx < 0)) dx *= 0.35; // resist at ends
+                slideX.setValue(dx);
+            },
             onPanResponderRelease: (_, g) => {
-                if (Math.abs(g.dx) < 50 && Math.abs(g.vx) < 0.3) return;
-                const idx = TABS.findIndex((t) => t.key === tabRef.current);
-                if (g.dx < 0) {
-                    if (idx < TABS.length - 1) switchTab(TABS[idx + 1].key);
-                } else if (idx > 0) {
-                    switchTab(TABS[idx - 1].key);
-                } else if (!isProfileTabRef.current && routerRef.current.canGoBack()) {
-                    routerRef.current.back();
-                }
+                slideX.flattenOffset();
+                const W = screenWidthRef.current;
+                const i = activeIndexRef.current;
+                const goNext = g.dx < -W / 4 || g.vx < -0.4;
+                const goPrev = g.dx > W / 4 || g.vx > 0.4;
+                if (goPrev && i === 0) {
+                    if (!isProfileTabRef.current && routerRef.current.canGoBack()) { routerRef.current.back(); return; }
+                    goToIndex(0);
+                } else if (goNext) goToIndex(i + 1);
+                else if (goPrev) goToIndex(i - 1);
+                else goToIndex(i);
             },
         }),
     ).current;
 
-    // Reveal the sticky tab bar overlay once the content scrolls past the in-flow tabs.
-    const handleContentScroll = (e: { nativeEvent: { contentOffset: { y: number } } }) => {
+    // The active pane drives the shared header collapse; each pane's offset is
+    // remembered so switching keeps the header where it should be.
+    const makeScrollHandler = (i: number) => (e: { nativeEvent: { contentOffset: { y: number } } }) => {
         const y = e.nativeEvent.contentOffset.y;
-        const should = tabsYRef.current > 0 && y >= tabsYRef.current;
-        if (should !== showStickyRef.current) setShowStickyTabs(should);
+        paneScroll.current[i] = y;
+        if (i === activeIndexRef.current) scrollY.setValue(y);
     };
 
     const renderTabBar = (onLayout?: (e: LayoutChangeEvent) => void) => (
@@ -332,8 +359,6 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
         } catch { showToast("Could not submit vote.", "error"); }
     }
 
-    const visible = filterPosts(posts, displayTab);
-
     if (loading) {
         return (
             <View style={{ flex: 1, backgroundColor: "#F7F3EE" }}>
@@ -357,7 +382,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
         <RefreshControl refreshing={refreshing} onRefresh={() => loadClub(true)} tintColor="#8C0327" />
     );
 
-    const headerNode = (
+    const clubHeader = (
         <>
             {/* Club header card */}
             <View style={s.headerCard}>
@@ -557,14 +582,12 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                 )
             )}
 
-            {/* Tabs (in-flow; a sticky copy appears once scrolled past) */}
-            {renderTabBar((e) => setTabsY(e.nativeEvent.layout.y))}
         </>
     );
 
-    const footerNode = (
+    const footerFor = (list: FeedPost[]) => (
         <>
-            {hasMore && visible.length > 0 && (
+            {hasMore && list.length > 0 && (
                 <Pressable style={s.loadArchive} onPress={loadMore} disabled={loadingMore} accessibilityRole="button" accessibilityLabel="Load more posts">
                     {loadingMore
                         ? <ActivityIndicator color={BURGUNDY} size="small" />
@@ -579,71 +602,82 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
         </>
     );
 
-    const content = displayTab === "media" ? (
-        // Media tab: photo grid — no FlatList, safe to use ScrollView
-        <ScrollView showsVerticalScrollIndicator={false} refreshControl={refreshControl} onScroll={handleContentScroll} scrollEventThrottle={16}>
-            {headerNode}
-            {visible.length === 0 ? (
-                <View style={s.emptyState}>
-                    <Ionicons name="document-outline" size={32} color="#D1CBC3" />
-                    <Text style={s.emptyText}>{t.noPostsHere}</Text>
-                </View>
-            ) : (() => {
-                // Each cell adds 1px of horizontal margin (0.5 each side); subtract the
-                // 3px total so exactly three columns fit instead of the third wrapping.
-                const cellSize = Math.floor((screenWidth - 3) / 3);
-                return (
-                    <View style={s.photoGrid}>
-                        {visible.map((post) => (
-                            <Pressable
-                                key={post.id}
-                                style={{ width: cellSize, height: cellSize, margin: 0.5 }}
-                                onPress={() => router.push((post.type === "event" ? `/event/${post.eventId ?? post.id}` : `/post/${post.id}`) as any)}
-                            >
-                                <ExpoImage source={{ uri: post.imageUrl ?? "" }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={200} />
-                                {post.images && post.images.length > 1 && (
-                                    <View style={s.gridMultiIcon}>
-                                        <Ionicons name="copy-outline" size={12} color="#fff" />
-                                    </View>
-                                )}
-                            </Pressable>
-                        ))}
-                    </View>
-                );
-            })()}
-            {footerNode}
-        </ScrollView>
-    ) : (
-        // All other tabs: SocialFeed (FlatList) is the root scroller — no nesting.
-        // Key by tab so each starts fresh at the top instead of inheriting the
-        // previous tab's scroll offset.
-        <SocialFeed
-            key={displayTab}
-            posts={visible}
-            onPostPress={(post) => router.push((post.type === "event" ? `/event/${post.eventId ?? post.id}` : `/post/${post.id}`) as any)}
-            onCommentPress={(postId, type, opts) => router.push(
-                type === "event"
-                    ? { pathname: "/event/[id]", params: { id: postId, ...(opts?.commentId ? { highlightComment: opts.commentId } : {}), ...(opts?.focus ? { focusComment: "1" } : {}) } } as any
-                    : { pathname: "/post/[id]", params: { id: postId, ...(opts?.commentId ? { highlightComment: opts.commentId } : {}), ...(opts?.focus ? { focusComment: "1" } : {}) } } as any
-            )}
-            onLikePress={handleLike}
-            onViewRecapPhotos={(postId) => router.push({ pathname: "/event/[id]", params: { id: postId, focusPhotos: "1" } } as any)}
-            onPollVote={handlePollVote}
-            onEditPress={isOwner ? (postId) => router.push({ pathname: "/edit/[id]", params: { id: postId } } as any) : undefined}
-            onDeletePress={isOwner ? (postId) => setPosts((cur) => cur.filter((p) => p.id !== postId)) : undefined}
-            ListHeaderComponent={headerNode}
-            ListEmptyComponent={
-                <View style={s.emptyState}>
-                    <Ionicons name="document-outline" size={32} color="#D1CBC3" />
-                    <Text style={s.emptyText}>{t.noPostsHere}</Text>
-                </View>
-            }
-            ListFooterComponent={footerNode}
-            refreshControl={refreshControl}
-            onScroll={handleContentScroll}
-            scrollEventThrottle={16}
-        />
+    const emptyNode = (
+        <View style={s.emptyState}>
+            <Ionicons name="document-outline" size={32} color="#D1CBC3" />
+            <Text style={s.emptyText}>{t.noPostsHere}</Text>
+        </View>
     );
+
+    const paneTopPad = headerH + tabH;
+
+    // One pane per tab — all mounted side-by-side so they finger-track/peek.
+    function renderPane(tabKey: PostTab, i: number) {
+        const list = filterPosts(posts, tabKey);
+        // Every pane keeps its own refresh control. (Toggling it on/off per active
+        // tab makes RN recreate the scroll view, which caused a white flash on swipe.)
+        const refresh = <RefreshControl refreshing={refreshing} onRefresh={() => loadClub(true)} tintColor="#8C0327" progressViewOffset={paneTopPad} />;
+        if (tabKey === "media") {
+            const cellSize = Math.floor((screenWidth - 3) / 3);
+            return (
+                <ScrollView
+                    key={tabKey}
+                    ref={(r) => { paneRefs.current[i] = r; }}
+                    style={{ width: screenWidth, flex: 1 }}
+                    showsVerticalScrollIndicator={false}
+                    refreshControl={refresh}
+                    onScroll={makeScrollHandler(i)}
+                    scrollEventThrottle={16}
+                    contentContainerStyle={{ paddingTop: paneTopPad }}
+                >
+                    {list.length === 0 ? emptyNode : (
+                        <View style={s.photoGrid}>
+                            {list.map((post) => (
+                                <Pressable
+                                    key={post.id}
+                                    style={{ width: cellSize, height: cellSize, margin: 0.5 }}
+                                    onPress={() => router.push((post.type === "event" ? `/event/${post.eventId ?? post.id}` : `/post/${post.id}`) as any)}
+                                >
+                                    <ExpoImage source={{ uri: post.imageUrl ?? "" }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={200} />
+                                    {post.images && post.images.length > 1 && (
+                                        <View style={s.gridMultiIcon}>
+                                            <Ionicons name="copy-outline" size={12} color="#fff" />
+                                        </View>
+                                    )}
+                                </Pressable>
+                            ))}
+                        </View>
+                    )}
+                    {footerFor(list)}
+                </ScrollView>
+            );
+        }
+        return (
+            <SocialFeed
+                key={tabKey}
+                scrollRef={(r: any) => { paneRefs.current[i] = r; }}
+                style={{ width: screenWidth, flex: 1 }}
+                contentContainerStyle={{ paddingTop: paneTopPad }}
+                posts={list}
+                onPostPress={(post) => router.push((post.type === "event" ? `/event/${post.eventId ?? post.id}` : `/post/${post.id}`) as any)}
+                onCommentPress={(postId, type, opts) => router.push(
+                    type === "event"
+                        ? { pathname: "/event/[id]", params: { id: postId, ...(opts?.commentId ? { highlightComment: opts.commentId } : {}), ...(opts?.focus ? { focusComment: "1" } : {}) } } as any
+                        : { pathname: "/post/[id]", params: { id: postId, ...(opts?.commentId ? { highlightComment: opts.commentId } : {}), ...(opts?.focus ? { focusComment: "1" } : {}) } } as any
+                )}
+                onLikePress={handleLike}
+                onViewRecapPhotos={(postId) => router.push({ pathname: "/event/[id]", params: { id: postId, focusPhotos: "1" } } as any)}
+                onPollVote={handlePollVote}
+                onEditPress={isOwner ? (postId) => router.push({ pathname: "/edit/[id]", params: { id: postId } } as any) : undefined}
+                onDeletePress={isOwner ? (postId) => setPosts((cur) => cur.filter((p) => p.id !== postId)) : undefined}
+                ListEmptyComponent={emptyNode}
+                ListFooterComponent={footerFor(list)}
+                refreshControl={refresh}
+                onScroll={makeScrollHandler(i)}
+                scrollEventThrottle={16}
+            />
+        );
+    }
 
     return (
         <SafeAreaView style={s.safe} edges={["top"]}>
@@ -696,14 +730,32 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                 </View>
             )}
 
-            <Animated.View style={{ flex: 1, opacity: fade }} {...swipeResponder.panHandlers}>
-                {content}
-                {showStickyTabs && (
-                    <View style={s.stickyTabs}>
-                        {renderTabBar()}
-                    </View>
-                )}
-            </Animated.View>
+            <View style={{ flex: 1, overflow: "hidden" }}>
+                {/* Finger-tracked tab panes */}
+                <Animated.View
+                    style={{ flex: 1, flexDirection: "row", width: screenWidth * TABS.length, transform: [{ translateX: slideX }] }}
+                    {...panResponder.panHandlers}
+                >
+                    {TABS.map((tb, i) => renderPane(tb.key, i))}
+                </Animated.View>
+
+                {/* Collapsing club header (shared, slides up as you scroll) */}
+                <Animated.View
+                    pointerEvents="box-none"
+                    onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}
+                    style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 5, transform: [{ translateY: headerTranslate }] }}
+                >
+                    {clubHeader}
+                </Animated.View>
+
+                {/* Sticky tab bar — pins to the top once the header collapses */}
+                <Animated.View
+                    onLayout={(e) => setTabH(e.nativeEvent.layout.height)}
+                    style={{ position: "absolute", top: headerH, left: 0, right: 0, zIndex: 6, transform: [{ translateY: headerTranslate }] }}
+                >
+                    {renderTabBar()}
+                </Animated.View>
+            </View>
 
             {/* Notification pref modal */}
             <Modal visible={notifModalOpen} animationType="none" transparent>
@@ -822,7 +874,7 @@ const makeClubStyles = (C: AppColors) => StyleSheet.create({
     pinnedEventCta: { flex: 3, backgroundColor: C.primary, paddingVertical: 14, alignItems: "center", justifyContent: "center" },
     pinnedEventCtaText: { fontSize: 12, fontWeight: "800", color: "#fff", letterSpacing: 2 },
     pinnedEventEditBtn: { flex: 1, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
-    tabBar: { backgroundColor: C.surface, marginTop: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderWarm },
+    tabBar: { backgroundColor: C.surface, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderWarm },
     tabRow: { flexDirection: "row", paddingHorizontal: 20 },
     stickyTabs: {
         position: "absolute", top: 0, left: 0, right: 0, zIndex: 20,

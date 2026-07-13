@@ -1011,6 +1011,11 @@ router.get("/for-you", requireAuth, async (req, res, next) => {
     try {
         const userId = req.user!.userId;
         const now = new Date();
+        // For You is a ranked feed, so pagination slices the scored list. The
+        // candidate pool is a fixed size (independent of offset) so the sort order
+        // is identical across page requests and the offset window stays coherent.
+        const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? "25"), 10) || 25, 1), 30);
+        const offset = Math.max(parseInt(String(req.query.offset ?? "0"), 10) || 0, 0);
 
         const [follows, topics, signals, views] = await Promise.all([
             prisma.follow.findMany({ where: { userId }, select: { clubId: true } }),
@@ -1056,14 +1061,16 @@ router.get("/for-you", requireAuth, async (req, res, next) => {
                 ],
             },
             orderBy: { createdAt: "desc" },
-            take: 120,
+            take: 150,
             include: {
                 club: { select: { id: true, clubName: true, logoUrl: true } },
                 pollOptions: { include: { _count: { select: { votes: true } } } },
                 _count: { select: { likes: true, comments: true, rsvps: true, recapPhotos: true, checkIns: true } },
                 likes: { where: { userId }, select: { userId: true } },
                 bookmarks: { where: { userId }, select: { userId: true } },
-                rsvps: { where: { userId }, select: { userId: true } },
+                // First few attendees for the "Maya, Jordan + N going" row (isRsvped
+                // is derived separately below so this preview can show anyone).
+                rsvps: { take: 3, orderBy: { createdAt: "asc" }, select: { user: { select: { id: true, firstName: true, avatarUrl: true } } } },
                 checkIns: { where: { userId }, select: { userId: true } },
                 recapPhotos: {
                     take: 12, orderBy: { createdAt: "desc" },
@@ -1092,6 +1099,14 @@ router.get("/for-you", requireAuth, async (req, res, next) => {
             : [];
         const voteMap: Record<string, string> = {};
         for (const v of userVotes) voteMap[v.option.postId] = v.optionId;
+
+        // Which of these posts the current user has RSVP'd (the rsvps include now
+        // holds the attendee preview, so this is fetched separately).
+        const myRsvps = await prisma.rsvp.findMany({
+            where: { userId, postId: { in: posts.map((p) => p.id) } },
+            select: { postId: true },
+        });
+        const rsvpedSet = new Set(myRsvps.map((r) => r.postId));
 
         const scored = posts.filter((p) => !mutedPosts.has(p.id)).map((p) => {
             const isEvent = p.type === "EVENT";
@@ -1141,7 +1156,7 @@ router.get("/for-you", requireAuth, async (req, res, next) => {
 
         scored.sort((a, b) => b.score - a.score);
 
-        res.json(scored.slice(0, 25).map(({ p, reason }) => {
+        res.json(scored.slice(offset, offset + limit).map(({ p, reason }) => {
             const totalVotes = p.pollOptions.reduce((sum, o) => sum + o._count.votes, 0);
 
             // Recap / rating summary (past events with attendee contributions)
@@ -1199,10 +1214,13 @@ router.get("/for-you", requireAuth, async (req, res, next) => {
                 likes: p._count.likes,
                 comments: p._count.comments,
                 rsvpCount: p._count.rsvps,
+                rsvpPreview: p.type === "EVENT"
+                    ? p.rsvps.map((r) => ({ name: r.user.firstName ?? "Student", avatarUrl: r.user.avatarUrl ?? null }))
+                    : undefined,
                 capacity: p.capacity,
                 isLiked: p.likes.length > 0,
                 isBookmarked: p.bookmarks.length > 0,
-                isRsvped: p.rsvps.length > 0,
+                isRsvped: rsvpedSet.has(p.id),
                 isFollowing: followedIds.has(p.club.id),
                 reason,
                 // For You enrichments
@@ -1302,6 +1320,10 @@ router.get("/discover", requireAuth, async (req, res, next) => {
 router.get("/feed", requireAuth, async (req, res, next) => {
     try {
         const userId = req.user!.userId;
+        // Cursor-less pagination: the Following feed is a stable chronological list,
+        // so a simple limit/offset window is correct and lets the client page in.
+        const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? "20"), 10) || 20, 1), 50);
+        const offset = Math.max(parseInt(String(req.query.offset ?? "0"), 10) || 0, 0);
 
         const follows = await prisma.follow.findMany({ where: { userId }, select: { clubId: true } });
         const followedIds = new Set(follows.map((f) => f.clubId));
@@ -1324,7 +1346,8 @@ router.get("/feed", requireAuth, async (req, res, next) => {
                 ],
             },
             orderBy: { createdAt: "desc" },
-            take: 60,
+            skip: offset,
+            take: limit,
             include: {
                 club: { select: { id: true, clubName: true, logoUrl: true } },
                 pollOptions: {
@@ -1333,6 +1356,8 @@ router.get("/feed", requireAuth, async (req, res, next) => {
                 _count: { select: { likes: true, comments: true, rsvps: true } },
                 likes: { where: { userId }, select: { userId: true } },
                 bookmarks: { where: { userId }, select: { userId: true } },
+                // First few attendees for the "Maya, Jordan + N going" row on event cards.
+                rsvps: { take: 3, orderBy: { createdAt: "asc" }, select: { user: { select: { id: true, firstName: true, avatarUrl: true } } } },
                 comments: {
                     where: { parentId: null, hidden: false },
                     orderBy: [{ upvotes: "desc" }, { createdAt: "desc" }],
@@ -1395,6 +1420,9 @@ router.get("/feed", requireAuth, async (req, res, next) => {
                 likes: p._count.likes,
                 comments: p._count.comments,
                 rsvpCount: p._count.rsvps,
+                rsvpPreview: p.type === "EVENT"
+                    ? p.rsvps.map((r) => ({ name: r.user.firstName ?? "Student", avatarUrl: r.user.avatarUrl ?? null }))
+                    : undefined,
                 capacity: p.capacity,
                 isLiked: p.likes.length > 0,
                 isBookmarked: p.bookmarks.length > 0,

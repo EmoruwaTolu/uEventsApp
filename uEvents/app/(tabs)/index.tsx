@@ -39,6 +39,7 @@ type ApiFeedPost = {
     freeFood?: boolean;
     likes: number;
     rsvpCount?: number;
+    rsvpPreview?: { name: string; avatarUrl?: string | null }[];
     capacity?: number | null;
     comments: number;
     isLiked: boolean;
@@ -98,6 +99,7 @@ function mapPost(p: ApiFeedPost, lang: "en" | "fr"): FeedPost {
         isRecurring: p.type.toLowerCase() === "event" ? !!p.isRecurring : undefined,
         freeFood: p.type.toLowerCase() === "event" ? !!p.freeFood : undefined,
         rsvpCount: p.type.toLowerCase() === "event" ? (p.rsvpCount ?? 0) : undefined,
+        rsvpPreview: p.type.toLowerCase() === "event" ? (p.rsvpPreview ?? []) : undefined,
         capacity: p.type.toLowerCase() === "event" ? (p.capacity ?? null) : undefined,
         likes: p.likes,
         comments: p.comments,
@@ -146,6 +148,7 @@ export default function HomeScreen() {
     const [feedPosts, setFeedPosts] = useState<FeedPost[]>([]);
     const feedPostsLengthRef = useRef(0);
     const [discoverPosts, setDiscoverPosts] = useState<FeedPost[]>([]);
+    const discoverPostsLengthRef = useRef(0);
     const [followedAccounts, setFollowedAccounts] = useState<Account[]>([]);
     const [followedTopicsCount, setFollowedTopicsCount] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -153,7 +156,10 @@ export default function HomeScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [feedLoadingMore, setFeedLoadingMore] = useState(false);
     const [feedHasMore, setFeedHasMore] = useState(true);
+    const [forYouLoadingMore, setForYouLoadingMore] = useState(false);
+    const [forYouHasMore, setForYouHasMore] = useState(true);
     const FEED_PAGE = 20;
+    const FORYOU_PAGE = 15;
     const [activeTab, setActiveTab] = useState<"following" | "for-you">("following");
     // Lazy-mount the For-You pane: it only renders its FlatList once the user
     // first swipes toward it or taps the tab, halving initial feed memory.
@@ -310,7 +316,7 @@ export default function HomeScreen() {
         Promise.all([
             authApi<ApiFeedPost[]>(`/posts/feed?limit=${FEED_PAGE}&offset=0`),
             authApi<ApiFollow[]>("/users/me/follows"),
-            authApi<ApiFeedPost[]>("/posts/for-you"),
+            authApi<ApiFeedPost[]>(`/posts/for-you?limit=${FORYOU_PAGE}&offset=0`),
         ])
             .then(([posts, clubs, forYou]) => {
                 const mapped = posts.map((p) => mapPost(p, lang));
@@ -318,7 +324,10 @@ export default function HomeScreen() {
                 setFeedPosts(mapped);
                 setFeedHasMore(posts.length === FEED_PAGE);
                 setFollowedAccounts(clubs.map((c) => ({ id: c.id, name: c.clubName, avatarUri: c.logoUrl })));
-                setDiscoverPosts(forYou.map((p) => mapPost(p, lang)));
+                const mappedForYou = forYou.map((p) => mapPost(p, lang));
+                discoverPostsLengthRef.current = mappedForYou.length;
+                setDiscoverPosts(mappedForYou);
+                setForYouHasMore(forYou.length === FORYOU_PAGE);
                 // Show onboarding for new users with no follows
                 if (clubs.length === 0 && !isRefresh && !onboardingShownRef.current) {
                     onboardingShownRef.current = true;
@@ -342,15 +351,35 @@ export default function HomeScreen() {
         try {
             const more = await authApi<ApiFeedPost[]>(`/posts/feed?limit=${FEED_PAGE}&offset=${feedPostsLengthRef.current}`);
             const mapped = more.map((p) => mapPost(p, lang));
+            // Offset tracks how many rows the server has handed back (not the
+            // deduped display count) so paging can't stall when dedupe drops rows.
+            feedPostsLengthRef.current += more.length;
             setFeedPosts((prev) => {
-                const next = [...prev, ...mapped];
-                feedPostsLengthRef.current = next.length;
-                return next;
+                const seen = new Set(prev.map((p) => p.id));
+                return [...prev, ...mapped.filter((p) => !seen.has(p.id))];
             });
             setFeedHasMore(more.length === FEED_PAGE);
         } catch { /* silent */ }
         setFeedLoadingMore(false);
     }, [feedLoadingMore, feedHasMore, session?.token, lang]);
+
+    const loadMoreForYou = useCallback(async () => {
+        if (forYouLoadingMore || !forYouHasMore || !session?.token) return;
+        setForYouLoadingMore(true);
+        try {
+            const more = await authApi<ApiFeedPost[]>(`/posts/for-you?limit=${FORYOU_PAGE}&offset=${discoverPostsLengthRef.current}`);
+            const mapped = more.map((p) => mapPost(p, lang));
+            // Server-count offset (see loadMoreFeed) — For You is ranked, so a
+            // re-scored page can overlap the last; dedupe drops the repeats.
+            discoverPostsLengthRef.current += more.length;
+            setDiscoverPosts((prev) => {
+                const seen = new Set(prev.map((p) => p.id));
+                return [...prev, ...mapped.filter((p) => !seen.has(p.id))];
+            });
+            setForYouHasMore(more.length === FORYOU_PAGE);
+        } catch { /* silent */ }
+        setForYouLoadingMore(false);
+    }, [forYouLoadingMore, forYouHasMore, session?.token, lang]);
 
     useFocusEffect(useCallback(() => {
         if (isGuest) fetchGuestFeed();
@@ -695,6 +724,8 @@ export default function HomeScreen() {
                         refreshControl={
                             <RefreshControl refreshing={refreshing} onRefresh={() => fetchFeed(true)} tintColor={C.primary} />
                         }
+                        onEndReached={loadMoreForYou}
+                        onEndReachedThreshold={0.4}
                         onPostPress={handlePostPress}
                         onClubPress={(clubId) => router.push(`/club/${clubId}`)}
                         onLikePress={handleLike}
@@ -751,11 +782,15 @@ export default function HomeScreen() {
                         }
                         ListFooterComponent={
                             !loading && !feedError && discoverPosts.length > 0 ? (
-                                <View style={styles.caughtUp}>
-                                    <View style={styles.caughtUpLine} />
-                                    <Text style={styles.caughtUpText}>{t.allCaughtUp}</Text>
-                                    <View style={styles.caughtUpLine} />
-                                </View>
+                                forYouLoadingMore ? (
+                                    <ActivityIndicator color={C.primary} style={{ marginVertical: 20 }} />
+                                ) : !forYouHasMore ? (
+                                    <View style={styles.caughtUp}>
+                                        <View style={styles.caughtUpLine} />
+                                        <Text style={styles.caughtUpText}>{t.allCaughtUp}</Text>
+                                        <View style={styles.caughtUpLine} />
+                                    </View>
+                                ) : <View style={{ height: 60 }} />
                             ) : <View style={{ height: 60 }} />
                         }
                     />
