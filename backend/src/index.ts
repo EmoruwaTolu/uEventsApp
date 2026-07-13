@@ -16,11 +16,19 @@ setInterval(() => { runScheduledPublish().catch(console.error); }, 60 * 1000);
 setInterval(() => { runSeriesTopUp().catch(console.error); }, 60 * 60 * 1000);
 runSeriesTopUp().catch(console.error); // also run once at startup
 
-// Weekly digest — checked hourly, fires Sunday evening (server local time).
+// Weekly digest — checked hourly, fires Sunday 18:00 in Ottawa (America/Toronto),
+// not the server's UTC clock (on Render, getHours() === 18 would land at 2pm local).
 // runWeeklyDigest is idempotent (6-day per-user guard) so the hourly check is safe.
 setInterval(() => {
-    const now = new Date();
-    if (now.getDay() === 0 && now.getHours() === 18) {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Toronto",
+        weekday: "short",
+        hour: "2-digit",
+        hour12: false,
+    }).formatToParts(new Date());
+    const weekday = parts.find((p) => p.type === "weekday")?.value;
+    const hour = parseInt(parts.find((p) => p.type === "hour")?.value ?? "-1", 10);
+    if (weekday === "Sun" && hour === 18) {
         runWeeklyDigest().catch(console.error);
     }
 }, 60 * 60 * 1000);

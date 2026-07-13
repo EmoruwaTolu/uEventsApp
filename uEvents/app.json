@@ -34,8 +34,7 @@
       "permissions": [
         "android.permission.READ_CALENDAR",
         "android.permission.WRITE_CALENDAR",
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.CAMERA"
       ]
     },
     "web": {
@@ -60,7 +59,8 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow uEvents to use the camera to scan event check-in QR codes."
+          "cameraPermission": "Allow uEvents to use the camera to scan event check-in QR codes.",
+          "recordAudioAndroid": false
         }
       ],
       [

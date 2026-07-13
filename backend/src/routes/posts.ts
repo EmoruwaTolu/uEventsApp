@@ -48,6 +48,17 @@ const createPostSchema = z.object({
     })).max(6).optional(),
 });
 
+// PATCH /posts/:id: every field optional (only what's sent is changed). `type`
+// and poll options can't change on edit. capacity is coerced so a garbage string
+// is a 400 (not a NaN → Prisma 500), and an explicit null clears the field —
+// distinct from an absent field, which leaves it untouched.
+const editPostSchema = createPostSchema
+    .omit({ type: true, pollOptions: true })
+    .partial()
+    .extend({
+        capacity: z.union([z.coerce.number().int().min(1).max(100000), z.null()]).optional(),
+    });
+
 const createSeriesSchema = z.object({
     locales:      z.record(z.string(), localeContentSchema),
     startAt:      z.string().datetime(),
@@ -1456,6 +1467,9 @@ router.get("/:id", optionalAuth, async (req, res, next) => {
                 club: { select: { id: true, clubName: true, slug: true, logoUrl: true } },
                 pollOptions: { include: { _count: { select: { votes: true } } } },
                 _count: { select: { likes: true, comments: true, rsvps: true } },
+                // Recurrence rule (present only for series occurrences) so the client
+                // can add the whole series to the calendar as one repeating event.
+                series: { select: { id: true, freq: true, interval: true, byWeekday: true, startDate: true, endDate: true, count: true } },
             },
         });
         if (!post) return res.status(404).json({ error: "Post not found" });
@@ -1503,6 +1517,15 @@ router.get("/:id", optionalAuth, async (req, res, next) => {
             ...post,
             isLiked, isBookmarked, isRsvped, pendingRsvp, waitlistPosition, canEdit, userVote,
             rsvpPreview: rsvpPreview.map((r) => r.user),
+            recurrence: post.series ? {
+                seriesId:  post.series.id,
+                freq:      post.series.freq,
+                interval:  post.series.interval,
+                byWeekday: post.series.byWeekday,
+                startDate: post.series.startDate,
+                endDate:   post.series.endDate,
+                count:     post.series.count,
+            } : null,
         });
     } catch (err) {
         next(err);
@@ -1510,7 +1533,7 @@ router.get("/:id", optionalAuth, async (req, res, next) => {
 });
 
 // PATCH /posts/:id — update (club, own posts only)
-router.patch("/:id", requireAuth, requireClub, async (req, res, next) => {
+router.patch("/:id", requireAuth, requireClub, validate(editPostSchema), async (req, res, next) => {
     try {
         const post = await prisma.post.findUnique({
             where: { id: req.params.id },
@@ -1549,22 +1572,27 @@ router.patch("/:id", requireAuth, requireClub, async (req, res, next) => {
             ? null                                          // unpublish clears schedule
             : publishAt ? new Date(publishAt) : undefined; // schedule or leave unchanged
 
+        // Nullable fields: undefined = leave unchanged, null = clear, value = set.
+        // (zod already validated the shapes, so no NaN / Invalid Date can reach here.)
+        const dateField = (v: string | null | undefined) =>
+            v === undefined ? undefined : (v === null ? null : new Date(v));
+
         const updated = await prisma.post.update({
             where: { id: req.params.id },
             data: {
                 locales:      finalLocales  ?? undefined,
                 isDraft:      effectiveIsDraft ?? undefined,
                 publishAt:    effectivePublishAt,
-                startAt:      startAt      ? new Date(startAt) : undefined,
-                endAt:        endAt        ? new Date(endAt)   : undefined,
+                startAt:      dateField(startAt),
+                endAt:        dateField(endAt),
                 locationName: locationName ?? undefined,
                 address:      address      ?? undefined,
                 categories:   categories   ?? undefined,
                 images:       Array.isArray(images) ? images : undefined,
-                capacity:     capacity != null ? parseInt(capacity) : undefined,
+                capacity:     capacity === undefined ? undefined : capacity, // number | null
                 freeFood:     typeof freeFood === "boolean" ? freeFood : undefined,
                 recapPrivate: typeof recapPrivate === "boolean" ? recapPrivate : undefined,
-                pollExpiresAt:     pollExpiresAt     ? new Date(pollExpiresAt) : undefined,
+                pollExpiresAt:     dateField(pollExpiresAt),
                 pollAllowMultiple: pollAllowMultiple ?? undefined,
             },
         });

@@ -6,8 +6,13 @@ export function errorHandler(
     res: Response,
     _next: NextFunction
 ) {
-    console.error(err);
     const status = err.status ?? 500;
-    const message = err.message ?? "Internal server error";
+    // Always log the real error server-side.
+    console.error(err);
+    // 4xx errors carry intentional, client-safe messages. For 5xx, never echo the
+    // raw message — Prisma and other internals would leak schema/query details.
+    const message = status >= 500
+        ? "Internal server error"
+        : (err.message ?? "Request failed");
     res.status(status).json({ error: message });
 }

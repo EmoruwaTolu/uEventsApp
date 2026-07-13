@@ -13,7 +13,7 @@ router.use((_req, res, next) => {
 });
 
 const UPDATED = "July 4, 2026";
-const CONTACT = process.env.LEGAL_CONTACT_EMAIL ?? "uevents.support@uottawa.ca";
+const CONTACT = process.env.LEGAL_CONTACT_EMAIL ?? "support.uevents@gmail.com";
 
 function page(title: string, bodyHtml: string): string {
     return `<!DOCTYPE html>
@@ -176,13 +176,46 @@ const TERMS = page("Terms of Service", `
   Please have it reviewed by a qualified professional before launch.</div>
 `);
 
+const SUPPORT = page("Support", `
+  <p>Need a hand with uEvents? We're happy to help. The fastest way to reach us is by email —
+  we read every message and reply as quickly as we can (usually within a few days during the
+  beta).</p>
+
+  <div class="note">Email us at <a href="mailto:${CONTACT}">${CONTACT}</a></div>
+
+  <h2>Common things we can help with</h2>
+  <ul>
+    <li><strong>Account help</strong> — trouble signing in, verifying your email, or resetting
+    your password.</li>
+    <li><strong>Clubs</strong> — getting a club account approved, or questions about posting
+    events, announcements, and polls.</li>
+    <li><strong>Reporting content or users</strong> — you can report posts, comments, and users
+    right in the app (use the ⋯ / flag on any item, or "Block user"); email us if something
+    needs urgent attention.</li>
+    <li><strong>Deleting your account</strong> — you can remove your account and its data at any
+    time in <strong>Settings → Delete Account</strong>.</li>
+    <li><strong>Feedback &amp; bugs</strong> — send suggestions from <strong>Settings → Send
+    Feedback</strong>, or just email us.</li>
+  </ul>
+
+  <h2>When you email us</h2>
+  <p>To help us respond faster, please include the email address on your account and a short
+  description of what happened (a screenshot helps too, if it's a bug).</p>
+
+  <hr class="divider" />
+  <p>See also our <a href="/legal/privacy">Privacy Policy</a> and
+  <a href="/legal/terms">Terms of Service</a>.</p>
+`);
+
 router.get(["/privacy", "/privacy.html"], (_req, res) => res.type("html").send(PRIVACY));
 router.get(["/terms", "/terms.html"], (_req, res) => res.type("html").send(TERMS));
+router.get(["/support", "/support.html"], (_req, res) => res.type("html").send(SUPPORT));
 
 // A tiny index so /legal resolves to something useful.
 router.get("/", (_req, res) =>
     res.type("html").send(page("Legal", `
       <ul>
+        <li><a href="/legal/support">Support</a></li>
         <li><a href="/legal/privacy">Privacy Policy</a></li>
         <li><a href="/legal/terms">Terms of Service</a></li>
       </ul>`)),

@@ -40,6 +40,15 @@ type ApiEvent = {
     address?: string;
     categories?: string[];
     seriesId?: string | null;
+    recurrence?: {
+        seriesId: string;
+        freq: "WEEKLY" | "BIWEEKLY" | "MONTHLY";
+        interval: number;
+        byWeekday: number[];      // 0=Sun..6=Sat
+        startDate: string;
+        endDate?: string | null;
+        count?: number | null;
+    } | null;
     freeFood?: boolean;
     capacity?: number;
     club?: { id: string; clubName?: string; slug?: string; logoUrl?: string };
@@ -121,12 +130,41 @@ type CalEntry = { calId: string; startAt: string };
 // Adds the event to the device calendar, or updates the existing entry if one
 // was created earlier (so a changed start time stays in sync rather than stale).
 // Stores the created calendar event id keyed by post id so we can update later.
+type SeriesRecurrence = {
+    seriesId: string;
+    freq: "WEEKLY" | "BIWEEKLY" | "MONTHLY";
+    interval: number;
+    byWeekday: number[];      // 0=Sun..6=Sat
+    startDate: string;
+    endDate?: string | null;
+    count?: number | null;
+};
+
+// Map our stored recurrence rule to an expo-calendar RecurrenceRule.
+function toCalendarRule(r: SeriesRecurrence): Calendar.RecurrenceRule {
+    const weekly = r.freq === "WEEKLY" || r.freq === "BIWEEKLY";
+    const rule: Calendar.RecurrenceRule = {
+        frequency: weekly ? Calendar.Frequency.WEEKLY : Calendar.Frequency.MONTHLY,
+        // BIWEEKLY = every 2 weeks, times the series interval.
+        interval: Math.max(1, (r.freq === "BIWEEKLY" ? 2 : 1) * (r.interval || 1)),
+    };
+    if (weekly && r.byWeekday?.length) {
+        // byWeekday is 0=Sun..6=Sat; expo's DayOfTheWeek is Sunday=1..Saturday=7 (iOS).
+        rule.daysOfTheWeek = r.byWeekday.map((d) => ({ dayOfTheWeek: (d + 1) as Calendar.DayOfTheWeek }));
+    }
+    // endDate wins over occurrence; neither set => open-ended repeat.
+    if (r.endDate) rule.endDate = new Date(r.endDate);
+    else if (r.count && r.count > 0) rule.occurrence = r.count;
+    return rule;
+}
+
 async function syncToCalendar(
     postId: string,
     startAt?: string, endAt?: string, title?: string, location?: string,
     existingCalId?: string | null,
     onSuccess?: (msg: string) => void,
     t?: any,
+    recurrence?: SeriesRecurrence | null,
 ): Promise<CalEntry | null> {
     if (!startAt) return null;
     const { status } = await Calendar.requestCalendarPermissionsAsync();
@@ -134,14 +172,21 @@ async function syncToCalendar(
         Alert.alert(t.calendarPermTitle, t.calendarPermMsg);
         return null;
     }
-    const start = new Date(startAt);
-    const end = endAt ? new Date(endAt) : new Date(start.getTime() + 2 * 3600000);
+    const occStart = new Date(startAt);
+    const occEnd = endAt ? new Date(endAt) : new Date(occStart.getTime() + 2 * 3600000);
+    // A recurring series becomes one repeating entry anchored at the series' first
+    // occurrence, carrying this occurrence's duration; a single event stays as-is.
+    const durationMs = occEnd.getTime() - occStart.getTime();
+    const start = recurrence ? new Date(recurrence.startDate) : occStart;
+    const end = recurrence ? new Date(start.getTime() + durationMs) : occEnd;
+    const anchorStartAt = start.toISOString();
     const details = {
         title: title ?? "Event",
         startDate: start,
         endDate: end,
         location: location ?? undefined,
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        ...(recurrence ? { recurrenceRule: toCalendarRule(recurrence) } : {}),
     };
     try {
         if (existingCalId) {
@@ -149,7 +194,7 @@ async function syncToCalendar(
             // calendar, updateEventAsync throws — fall through to re-create.
             try {
                 await Calendar.updateEventAsync(existingCalId, details);
-                const entry = { calId: existingCalId, startAt };
+                const entry = { calId: existingCalId, startAt: anchorStartAt };
                 await AsyncStorage.setItem(calKey(postId), JSON.stringify(entry));
                 onSuccess?.(t.updatedInCalendarNamed(title ?? ""));
                 return entry;
@@ -164,7 +209,7 @@ async function syncToCalendar(
             return null;
         }
         const newId = await Calendar.createEventAsync(defaultCal.id, details);
-        const entry = { calId: newId, startAt };
+        const entry = { calId: newId, startAt: anchorStartAt };
         await AsyncStorage.setItem(calKey(postId), JSON.stringify(entry));
         onSuccess?.(t.addedToCalendarNamed(title ?? ""));
         return entry;
@@ -226,22 +271,29 @@ export default function EventPage() {
     const [scanning, setScanning] = useState(false);
     const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
-    // Load any previously-saved calendar entry for this event so we can tell
-    // whether to offer "Add", "Update" (start time changed), or "In calendar".
+    // A recurring series shares one calendar entry keyed by series id (so adding
+    // it again from another occurrence updates rather than duplicates); single
+    // events key by post id. The anchor is what a "start changed" check compares.
+    const calStoreKey = event?.recurrence?.seriesId ? `series:${event.recurrence.seriesId}` : id;
+    const calAnchor = event?.recurrence ? event.recurrence.startDate : event?.startAt;
+
+    // Load any previously-saved calendar entry so we can tell whether to offer
+    // "Add", "Update" (start time changed), or "In calendar".
     useEffect(() => {
-        if (!id) return;
-        AsyncStorage.getItem(calKey(id))
+        if (!calStoreKey) return;
+        AsyncStorage.getItem(calKey(calStoreKey))
             .then((raw) => setCalEntry(raw ? (JSON.parse(raw) as CalEntry) : null))
             .catch(() => {});
-    }, [id]);
+    }, [calStoreKey]);
 
-    const calNeedsUpdate = !!calEntry && !!event?.startAt && calEntry.startAt !== event.startAt;
+    const calNeedsUpdate = !!calEntry && !!calAnchor && calEntry.startAt !== calAnchor;
 
     async function handleCalendarPress() {
         if (calEntry && !calNeedsUpdate) { showToast(t.inCalendar); return; }
         const entry = await syncToCalendar(
-            id, event?.startAt, event?.endAt, title, event?.locationName,
+            calStoreKey, event?.startAt, event?.endAt, title, event?.locationName,
             calNeedsUpdate ? calEntry?.calId : null, showToast, t,
+            event?.recurrence ?? null,
         );
         if (entry) setCalEntry(entry);
     }
