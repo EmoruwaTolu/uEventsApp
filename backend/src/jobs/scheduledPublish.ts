@@ -9,24 +9,29 @@ async function notifyFollowers(
     postId: string,
     categories: string[] = [],
 ) {
-    const recipients = new Map<string, string | null>(); // userId -> pushToken
+    // pushNotifs gates the push only — in-app notifications are always created.
+    const recipients = new Map<string, string | null>(); // userId -> pushToken (null = no push)
 
     const follows = await prisma.follow.findMany({
         where: {
             clubId,
             notifPref: postType === "EVENT" ? { in: ["ALL", "EVENTS"] } : "ALL",
         },
-        select: { userId: true, user: { select: { pushToken: true } } },
+        select: { userId: true, user: { select: { pushToken: true, pushNotifs: true } } },
     });
-    for (const f of follows) recipients.set(f.userId, f.user.pushToken ?? null);
+    for (const f of follows) {
+        recipients.set(f.userId, f.user.pushNotifs ? f.user.pushToken ?? null : null);
+    }
 
     if (categories.length > 0) {
         const topicFollows = await prisma.interestFollow.findMany({
             where: { category: { in: categories } },
-            select: { userId: true, user: { select: { pushToken: true } } },
+            select: { userId: true, user: { select: { pushToken: true, pushNotifs: true } } },
         });
         for (const tf of topicFollows) {
-            if (!recipients.has(tf.userId)) recipients.set(tf.userId, tf.user.pushToken ?? null);
+            if (!recipients.has(tf.userId)) {
+                recipients.set(tf.userId, tf.user.pushNotifs ? tf.user.pushToken ?? null : null);
+            }
         }
     }
 
@@ -69,6 +74,7 @@ export async function runScheduledPublish() {
     const due = await prisma.post.findMany({
         where: {
             isDraft: true,
+            hidden: false, // never auto-publish (or announce) moderated posts
             publishAt: { lte: now },
         },
         include: { club: { select: { clubName: true } } },

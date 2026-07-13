@@ -19,6 +19,10 @@ import legalRouter        from "./routes/legal";
 
 const app = express();
 
+// Render terminates TLS at a proxy; trust one hop so req.ip is the real
+// client IP (rate limiters key on it) instead of the proxy's.
+app.set("trust proxy", 1);
+
 app.use(helmet());
 
 const allowedOrigins = process.env.CORS_ORIGINS

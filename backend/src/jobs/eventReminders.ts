@@ -15,12 +15,13 @@ export async function runEventReminders() {
         where: {
             type: "EVENT",
             isDraft: false,
+            hidden: false, // moderated events must not send "starting soon"
             startAt: { gte: windowStart, lte: windowEnd },
         },
         include: {
             rsvps: {
                 include: {
-                    user: { select: { id: true, pushToken: true } },
+                    user: { select: { id: true, pushToken: true, pushNotifs: true } },
                 },
             },
             club: { select: { clubName: true } },
@@ -60,8 +61,12 @@ export async function runEventReminders() {
             skipDuplicates: true,
         });
 
-        // Send Expo push notifications
-        const pushTokens = toNotify.map((u) => u.pushToken).filter(Boolean) as string[];
+        // Send Expo push notifications (respecting the user's push setting;
+        // the in-app notification above is always created)
+        const pushTokens = toNotify
+            .filter((u) => u.pushNotifs)
+            .map((u) => u.pushToken)
+            .filter(Boolean) as string[];
         sendExpoPush(pushTokens.map((token) => ({
             to: token,
             title: notifTitle,

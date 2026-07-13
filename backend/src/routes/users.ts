@@ -47,8 +47,14 @@ async function sendVerificationEmail(userId: string, email: string): Promise<voi
     });
 }
 
+// Account emails are case-insensitive: normalize at every entry point so
+// Jane@uOttawa.ca and jane@uottawa.ca are the same account. validate()
+// assigns the parsed result back to req.body, so handlers see the
+// normalized value.
+const normalizedEmail = z.string().trim().toLowerCase().email().max(254);
+
 const registerSchema = z.object({
-    email:      z.string().email().max(254),
+    email:      normalizedEmail,
     password:   z.string().min(8, "Password must be at least 8 characters").max(128),
     firstName:  z.string().max(60).optional(),
     lastName:   z.string().max(60).optional(),
@@ -60,12 +66,12 @@ const registerSchema = z.object({
 });
 
 const loginSchema = z.object({
-    email:    z.string().email().max(254),
+    email:    normalizedEmail,
     password: z.string().min(1).max(128),
 });
 
 const forgotPasswordSchema = z.object({
-    email: z.string().email().max(254),
+    email: normalizedEmail,
 });
 
 const resetPasswordSchema = z.object({
@@ -781,6 +787,9 @@ router.delete("/me", requireAuth, async (req, res, next) => {
             await tx.like.deleteMany({ where: { userId } });
             await tx.bookmark.deleteMany({ where: { userId } });
             await tx.rsvp.deleteMany({ where: { userId } });
+            // PollVote has no FK to User (only userId string), so cascades don't
+            // reach it — delete explicitly or the vote stays counted after deletion.
+            await tx.pollVote.deleteMany({ where: { userId } });
             await tx.follow.deleteMany({ where: { userId } });
             await tx.checkIn.deleteMany({ where: { userId } });
             await tx.postView.deleteMany({ where: { userId } });

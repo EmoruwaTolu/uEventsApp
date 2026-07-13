@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, ScrollView, Pressable, StyleSheet, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as Notifications from "expo-notifications";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useApi } from "../lib/useApi";
@@ -118,7 +119,11 @@ export default function NotificationsScreen() {
             .finally(() => isRefresh ? setRefreshing(false) : setLoading(false));
     }
 
-    useEffect(() => { loadNotifications(); }, []);
+    useEffect(() => {
+        loadNotifications();
+        // Opening this screen counts as "seen" — clear the iOS app-icon badge.
+        Notifications.setBadgeCountAsync(0).catch(() => {});
+    }, []);
 
     async function markAllRead() {
         await authApi("/notifications/read-all", { method: "PATCH" }).catch(console.error);

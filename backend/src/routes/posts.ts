@@ -107,24 +107,29 @@ async function notifyFollowers(
 ) {
     // Recipients = club followers (respecting notifPref) ∪ users who follow a
     // matching topic. Deduped by userId; the posting club never notifies itself.
-    const recipients = new Map<string, string | null>(); // userId -> pushToken
+    // pushNotifs gates the push only — in-app notifications are always created.
+    const recipients = new Map<string, string | null>(); // userId -> pushToken (null = no push)
 
     const follows = await prisma.follow.findMany({
         where: {
             clubId,
             notifPref: postType === "EVENT" ? { in: ["ALL", "EVENTS"] } : "ALL",
         },
-        select: { userId: true, user: { select: { pushToken: true } } },
+        select: { userId: true, user: { select: { pushToken: true, pushNotifs: true } } },
     });
-    for (const f of follows) recipients.set(f.userId, f.user.pushToken ?? null);
+    for (const f of follows) {
+        recipients.set(f.userId, f.user.pushNotifs ? f.user.pushToken ?? null : null);
+    }
 
     if (categories.length > 0) {
         const topicFollows = await prisma.interestFollow.findMany({
             where: { category: { in: categories } },
-            select: { userId: true, user: { select: { pushToken: true } } },
+            select: { userId: true, user: { select: { pushToken: true, pushNotifs: true } } },
         });
         for (const tf of topicFollows) {
-            if (!recipients.has(tf.userId)) recipients.set(tf.userId, tf.user.pushToken ?? null);
+            if (!recipients.has(tf.userId)) {
+                recipients.set(tf.userId, tf.user.pushNotifs ? tf.user.pushToken ?? null : null);
+            }
         }
     }
 
@@ -174,7 +179,7 @@ async function notifyRsvpd(
 ) {
     const rsvps = await prisma.rsvp.findMany({
         where: { postId },
-        select: { userId: true, user: { select: { pushToken: true } } },
+        select: { userId: true, user: { select: { pushToken: true, pushNotifs: true } } },
     });
     if (!rsvps.length) return;
 
@@ -192,7 +197,10 @@ async function notifyRsvpd(
         skipDuplicates: true,
     });
 
-    const pushTokens = rsvps.map((r) => r.user.pushToken).filter(Boolean) as string[];
+    const pushTokens = rsvps
+        .filter((r) => r.user.pushNotifs)
+        .map((r) => r.user.pushToken)
+        .filter(Boolean) as string[];
     sendExpoPush(pushTokens.map((token) => ({
         to: token,
         title: notifTitle,
@@ -467,7 +475,7 @@ router.patch("/series/:id", requireAuth, requireClub, validate(editSeriesSchema)
             const club = await prisma.user.findUnique({ where: { id: series.clubId }, select: { clubName: true } });
             const futureChanged = await prisma.post.findMany({
                 where: { id: { in: changedTimePostIds }, startAt: { gte: now } },
-                select: { id: true, locales: true, rsvps: { select: { userId: true, user: { select: { pushToken: true } } } } },
+                select: { id: true, locales: true, rsvps: { select: { userId: true, user: { select: { pushToken: true, pushNotifs: true } } } } },
             });
             const notifications: any[] = [];
             const pushes: any[] = [];
@@ -481,7 +489,7 @@ router.patch("/series/:id", requireAuth, requireClub, validate(editSeriesSchema)
                         body: `${title} from ${club?.clubName ?? "a club"} has a new time. Tap to review — your RSVP is still saved.`,
                         metadata: { postId: p.id, postType: "EVENT" },
                     });
-                    if (r.user.pushToken) {
+                    if (r.user.pushNotifs && r.user.pushToken) {
                         pushes.push({ to: r.user.pushToken, title: "Event time changed", body: `${title} has a new time. Your RSVP is still saved.`, data: { postId: p.id, postType: "EVENT" }, sound: "default" });
                     }
                 }
@@ -1670,6 +1678,12 @@ router.post("/:id/vote", requireAuth, async (req, res, next) => {
         });
         if (!post || post.type !== "POLL") return res.status(404).json({ error: "Poll not found" });
 
+        // Poll expiry is enforced here, not just in the UI — a closed poll
+        // must reject late votes regardless of client state.
+        if (post.pollExpiresAt && post.pollExpiresAt.getTime() <= Date.now()) {
+            return res.status(409).json({ error: "This poll has closed" });
+        }
+
         const validOption = post.pollOptions.find((o) => o.id === optionId);
         if (!validOption) return res.status(400).json({ error: "Invalid option" });
 
@@ -1781,23 +1795,46 @@ router.delete("/:id/rsvp", requireAuth, async (req, res, next) => {
         if (existingWaitlist) {
             await prisma.waitlist.delete({ where: { userId_postId: { userId, postId } } });
         } else if (existingRsvp) {
-            await prisma.$transaction(async (tx) => {
+            const promotedUserId = await prisma.$transaction(async (tx) => {
                 await tx.rsvp.delete({ where: { userId_postId: { userId, postId } } });
                 const next = await tx.waitlist.findFirst({ where: { postId }, orderBy: { createdAt: "asc" } });
-                if (next) {
-                    await tx.rsvp.create({ data: { userId: next.userId, postId } });
-                    await tx.waitlist.delete({ where: { id: next.id } });
-                    await tx.notification.create({
-                        data: {
-                            userId: next.userId,
-                            type: "WAITLIST_PROMOTED",
-                            title: "You're in!",
-                            body: "A spot opened up — you've been moved off the waitlist.",
-                            metadata: { postId },
-                        },
-                    });
-                }
+                if (!next) return null;
+                await tx.rsvp.create({ data: { userId: next.userId, postId } });
+                await tx.waitlist.delete({ where: { id: next.id } });
+                await tx.notification.create({
+                    data: {
+                        userId: next.userId,
+                        type: "WAITLIST_PROMOTED",
+                        title: "You're in!",
+                        body: "A spot opened up — you've been moved off the waitlist.",
+                        metadata: { postId },
+                    },
+                });
+                return next.userId;
             });
+
+            // Push after the transaction commits — this is the most
+            // time-sensitive notification in the app.
+            if (promotedUserId) {
+                const [promoted, post] = await Promise.all([
+                    prisma.user.findUnique({
+                        where: { id: promotedUserId },
+                        select: { pushToken: true, pushNotifs: true },
+                    }),
+                    prisma.post.findUnique({ where: { id: postId }, select: { locales: true } }),
+                ]);
+                if (promoted?.pushNotifs && promoted.pushToken) {
+                    const loc = (post?.locales as any) ?? {};
+                    const eventTitle = loc.en?.title ?? loc.fr?.title ?? "an event";
+                    sendExpoPush([{
+                        to: promoted.pushToken,
+                        title: "You're in!",
+                        body: `A spot opened up for ${eventTitle} — you're off the waitlist.`,
+                        data: { postId, postType: "EVENT" },
+                        sound: "default" as const,
+                    }]);
+                }
+            }
         }
 
         res.json({ rsvped: false, waitlisted: false });
