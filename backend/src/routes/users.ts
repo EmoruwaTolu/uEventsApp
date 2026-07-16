@@ -237,7 +237,8 @@ router.patch("/me", requireAuth, validate(patchMeSchema), async (req, res, next)
         } = req.body;
 
         // Empty-string French fields clear the value (back to English fallback).
-        const nullable = (v: unknown) => (v === "" ? null : v);
+        const nullable = (v: string | undefined): string | null | undefined =>
+            v === "" ? null : v;
 
         const user = await prisma.user.update({
             where: { id: req.user!.userId },
