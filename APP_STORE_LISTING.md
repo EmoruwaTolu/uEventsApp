@@ -16,7 +16,8 @@ audience is uOttawa.
 | Secondary category | Social Networking |
 | Privacy Policy URL | `https://ueventsapp.onrender.com/legal/privacy` |
 | Terms of Use (EULA) URL | `https://ueventsapp.onrender.com/legal/terms` |
-| Support URL | `https://ueventsapp.onrender.com/legal` *(or a support email/page)* |
+| Support URL | `https://ueventsapp.onrender.com/legal/support` |
+| Support email | `support.uevents@gmail.com` |
 | Marketing URL *(optional)* | leave blank for now |
 | Age rating | likely **12+** (user-generated content, moderated) — confirm via the questionnaire |
 | Export compliance | already answered in `app.json` (`ITSAppUsesNonExemptEncryption: false`) |
@@ -134,7 +135,7 @@ analytics. Feedback on discovery, RSVP flow, and anything confusing is most help
 ```
 
 ### Feedback email
-`uevents.support@uottawa.ca`  *(or your real support address)*
+`support.uevents@gmail.com`
 
 ### "What to Test" (test notes for this build) [4000]
 ```

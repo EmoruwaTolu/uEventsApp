@@ -6,7 +6,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import PatternBackground from "../components/PatternBackground";
 import { useAuth } from "../auth/AuthContext";
 import { useApi } from "../lib/useApi";
 import { useTheme } from "../lib/ThemeContext";
@@ -250,7 +249,6 @@ export default function ClubOnboarding() {
             behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
             <View style={s.container}>
-                <PatternBackground bgColor={C.bg} dotColor={C.borderWarm} />
                 <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
                     {/* Header */}
                     <View style={s.header}>
