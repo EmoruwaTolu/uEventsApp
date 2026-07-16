@@ -45,3 +45,13 @@ export function pickLocale(locales: Record<string, any> | undefined | null, lang
     if (!locales) return {};
     return locales[lang] ?? locales["en"] ?? Object.values(locales)[0] ?? {};
 }
+
+// Pick a bilingual field (e.g. club name/description): use the French value in
+// French when it exists, otherwise fall back to the English/primary value.
+export function pickText(
+    en: string | null | undefined,
+    fr: string | null | undefined,
+    lang: Lang,
+): string {
+    return (lang === "fr" && fr) ? fr : (en ?? "");
+}

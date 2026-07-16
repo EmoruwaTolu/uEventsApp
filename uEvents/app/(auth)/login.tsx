@@ -198,7 +198,6 @@ export default function LoginScreen() {
     const [firstName, setFirst] = useState("");
     const [lastName, setLast] = useState("");
     const [clubName, setClubName] = useState("");
-    const [category, setCategory] = useState("");
     const [inviteCode, setInviteCode] = useState("");
     const [loading, setLoading] = useState(false);
 
@@ -310,7 +309,7 @@ export default function LoginScreen() {
         setErrors({});
         setLoading(true);
         try {
-            await registerClub(clubName.trim(), email.trim(), password, inviteCode.trim(), category.trim() || undefined);
+            await registerClub(clubName.trim(), email.trim(), password, inviteCode.trim(), undefined);
         } catch (e: any) {
             Alert.alert(t.signUpFailed, e?.message ?? t.genericTryAgain);
         } finally {
@@ -534,13 +533,7 @@ export default function LoginScreen() {
                                     textContentType="emailAddress"
                                 />
                                 {errors.email ? <Text style={s.fieldError}>{errors.email}</Text> : null}
-                                <LoginInput
-                                    label={t.authCategoryOptionalLabel}
-                                    placeholder={t.authCategoryPlaceholder}
-                                    value={category}
-                                    onChangeText={setCategory}
-                                    autoCapitalize="words"
-                                />
+                                {/* Category moved to the "Set Up Your Club" step so it isn't asked twice. */}
                                 <LoginInput
                                     label={t.authInviteCodeLabel}
                                     placeholder={t.authInvitePlaceholder}

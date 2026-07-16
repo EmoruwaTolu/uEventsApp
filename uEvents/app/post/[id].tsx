@@ -14,7 +14,7 @@ import { useToast } from "../../lib/ToastContext";
 import { useRsvp } from "../../lib/RsvpContext";
 import { useLikes } from "../../lib/LikeContext";
 import { useBookmarks } from "../../lib/BookmarkContext";
-import { useLang, pickLocale, useT } from "../../lib/LangContext";
+import { useLang, pickLocale, pickText, useT } from "../../lib/LangContext";
 import { useAuth } from "../../auth/AuthContext";
 import { PostDetailSkeleton } from "../../components/SkeletonLoader";
 import { useTheme } from "../../lib/ThemeContext";
@@ -38,7 +38,7 @@ type ApiPost = {
     images?: string[];
     pollOptions?: PollOption[];
     pollExpiresAt?: string | null;
-    club?: { id: string; clubName?: string; logoUrl?: string };
+    club?: { id: string; clubName?: string; clubNameFr?: string; logoUrl?: string };
     _count?: { likes: number; comments: number; rsvps: number };
     capacity?: number | null;
     createdAt: string;
@@ -855,7 +855,7 @@ export default function PostDetailScreen() {
     const title = locale.title ?? "";
     const body = locale.body ?? "";
     const imageUrl = locale.posterUrl ?? locale.imageUrl;
-    const clubName = post.club?.clubName?.toUpperCase() ?? "";
+    const clubName = pickText(post.club?.clubName, post.club?.clubNameFr, lang).toUpperCase();
     const totalVotes = pollOptions.reduce((sum, o) => sum + o._count.votes, 0);
     const pollExpired = !!post.pollExpiresAt && new Date(post.pollExpiresAt) <= new Date();
     const postExpired = !!post.expiresAt && new Date(post.expiresAt) <= new Date();

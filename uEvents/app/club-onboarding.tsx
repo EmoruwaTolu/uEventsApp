@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
     View, Text, ScrollView, Pressable, TextInput,
     StyleSheet, ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
@@ -16,7 +16,7 @@ import type { AppColors } from "../styles/theme";
 type Step = 1 | 2 | 3;
 
 const makeStyles = (C: AppColors) => StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#D0D0D0" },
+    container: { flex: 1, backgroundColor: C.bg },
     header: {
         paddingHorizontal: 24,
         paddingTop: 24,
@@ -185,8 +185,24 @@ export default function ClubOnboarding() {
 
     // Step 1: identity
     const [clubName, setClubName] = useState("");
+    const [clubNameFr, setClubNameFr] = useState("");
     const [category, setCategory] = useState("");
     const [description, setDescription] = useState("");
+    const [descriptionFr, setDescriptionFr] = useState("");
+
+    // Pre-fill from the account so we never re-ask what signup already captured
+    // (the club name), and so an existing club editing later sees its values.
+    useEffect(() => {
+        authApi<{ clubName?: string; clubNameFr?: string; category?: string; description?: string; descriptionFr?: string }>("/users/me")
+            .then((u) => {
+                if (u.clubName) setClubName(u.clubName);
+                if (u.clubNameFr) setClubNameFr(u.clubNameFr);
+                if (u.category) setCategory(u.category);
+                if (u.description) setDescription(u.description);
+                if (u.descriptionFr) setDescriptionFr(u.descriptionFr);
+            })
+            .catch(() => {});
+    }, []);
 
     // Step 2: visuals & contact
     const [logoUrl, setLogoUrl] = useState("");
@@ -202,10 +218,12 @@ export default function ClubOnboarding() {
             await authApi("/users/me", {
                 method: "PATCH",
                 body: JSON.stringify({
-                    clubName:     clubName.trim()     || undefined,
-                    category:     category.trim()     || undefined,
-                    description:  description.trim()  || undefined,
-                    logoUrl:      logoUrl.trim()      || undefined,
+                    clubName:      clubName.trim()      || undefined,
+                    clubNameFr:    clubNameFr.trim(),
+                    category:      category.trim()      || undefined,
+                    description:   description.trim()   || undefined,
+                    descriptionFr: descriptionFr.trim(),
+                    logoUrl:       logoUrl.trim()       || undefined,
                     contactEmail: contactEmail.trim() || undefined,
                     instagram:    instagram.trim()    || undefined,
                     twitter:      twitter.trim()      || undefined,
@@ -232,7 +250,7 @@ export default function ClubOnboarding() {
             behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
             <View style={s.container}>
-                <PatternBackground />
+                <PatternBackground bgColor={C.bg} dotColor={C.borderWarm} />
                 <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
                     {/* Header */}
                     <View style={s.header}>
@@ -275,6 +293,15 @@ export default function ClubOnboarding() {
                                     placeholderTextColor={C.textLight}
                                 />
 
+                                <Text style={s.label}>{t.obClubNameFr}</Text>
+                                <TextInput
+                                    style={s.input}
+                                    value={clubNameFr}
+                                    onChangeText={setClubNameFr}
+                                    placeholder={t.phClubNameFr}
+                                    placeholderTextColor={C.textLight}
+                                />
+
                                 <Text style={s.label}>{t.obCategory}</Text>
                                 <TextInput
                                     style={s.input}
@@ -289,7 +316,18 @@ export default function ClubOnboarding() {
                                     style={[s.input, s.multiline]}
                                     value={description}
                                     onChangeText={setDescription}
-                                    placeholder="Tell students what your club is about, what you do, who can join..."
+                                    placeholder={t.phDescription}
+                                    placeholderTextColor={C.textLight}
+                                    multiline
+                                    textAlignVertical="top"
+                                />
+
+                                <Text style={s.label}>{t.obDescriptionFr}</Text>
+                                <TextInput
+                                    style={[s.input, s.multiline]}
+                                    value={descriptionFr}
+                                    onChangeText={setDescriptionFr}
+                                    placeholder={t.phDescriptionFr}
                                     placeholderTextColor={C.textLight}
                                     multiline
                                     textAlignVertical="top"

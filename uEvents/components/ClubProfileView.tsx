@@ -11,7 +11,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useApi } from "../lib/useApi";
 import { useAuth } from "../auth/AuthContext";
-import { useLang, pickLocale } from "../lib/LangContext";
+import { useLang, pickLocale, pickText } from "../lib/LangContext";
 import { useToast } from "../lib/ToastContext";
 import { ProfileSkeleton, ErrorRetry } from "./SkeletonLoader";
 import { useTheme } from "../lib/ThemeContext";
@@ -29,6 +29,7 @@ type PostTab = "history" | "events" | "polls" | "media";
 type Club = {
     id: string;
     clubName: string;
+    clubNameFr?: string;
     logoUrl?: string;
     description?: string;
     descriptionFr?: string;
@@ -90,7 +91,7 @@ function toFeedPost(p: ApiPost, club: Club, lang: string): FeedPost {
     return {
         id: p.id,
         clubId: club.id,
-        clubName: club.clubName,
+        clubName: pickText(club.clubName, club.clubNameFr, lang as any),
         clubAvatar: club.logoUrl,
         isFollowing: true,
         type: rawType,
@@ -177,9 +178,10 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
     const [tabH, setTabH] = useState(44);
 
     function handleShare() {
+        const shareName = pickText(club?.clubName, club?.clubNameFr, lang);
         Share.share({
-            title: club?.clubName ?? "Check out this club",
-            message: `Check out ${club?.clubName} on uEvents!`,
+            title: shareName || "Check out this club",
+            message: `Check out ${shareName} on uEvents!`,
         });
     }
 
@@ -430,7 +432,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                     </View>
 
                     {/* Club name & category */}
-                    <Text style={s.clubNameNew} numberOfLines={2}>{club.clubName}</Text>
+                    <Text style={s.clubNameNew} numberOfLines={2}>{pickText(club.clubName, club.clubNameFr, lang)}</Text>
                     {!!club.category && (
                         <Text style={s.categoryLabelNew}>{translateCategory(club.category!, lang).toUpperCase()}</Text>
                     )}
@@ -768,7 +770,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                                 <Ionicons name="close" size={20} color="#374151" />
                             </Pressable>
                         </View>
-                        <Text style={s.modalSubtitle}>FOR {club.clubName.toUpperCase()}</Text>
+                        <Text style={s.modalSubtitle}>FOR {pickText(club.clubName, club.clubNameFr, lang).toUpperCase()}</Text>
                         {([
                             { key: "ALL",    icon: "notifications",             label: "All",         desc: "Events, announcements & polls" },
                             { key: "EVENTS", icon: "notifications-outline",     label: "Events only", desc: "Only new events from this club" },

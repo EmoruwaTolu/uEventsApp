@@ -90,8 +90,10 @@ const patchMeSchema = z.object({
     year:         z.string().max(20).optional(),
     avatarUrl:    z.string().url().max(500).optional().or(z.literal("")),
     clubName:     z.string().max(120).optional(),
+    clubNameFr:   z.string().max(120).optional().or(z.literal("")),
     category:     z.string().max(80).optional(),
     description:  z.string().max(1000).optional(),
+    descriptionFr: z.string().max(1000).optional().or(z.literal("")),
     logoUrl:      z.string().url().max(500).optional().or(z.literal("")),
     instagram:    z.string().max(60).optional(),
     twitter:      z.string().max(60).optional(),
@@ -209,7 +211,8 @@ router.get("/me", requireAuth, async (req, res, next) => {
             select: {
                 id: true, email: true, type: true,
                 firstName: true, lastName: true, program: true, year: true, avatarUrl: true,
-                clubName: true, slug: true, category: true, description: true, logoUrl: true,
+                clubName: true, clubNameFr: true, slug: true, category: true,
+                description: true, descriptionFr: true, logoUrl: true,
                 instagram: true, twitter: true, contactEmail: true,
                 pushNotifs: true, emailDigest: true, emailVerified: true,
                 clubStatus: true, clubRejectionReason: true,
@@ -228,22 +231,28 @@ router.patch("/me", requireAuth, validate(patchMeSchema), async (req, res, next)
     try {
         const {
             firstName, lastName, program, year, avatarUrl,
-            clubName, category, description, logoUrl, instagram, twitter, contactEmail,
+            clubName, clubNameFr, category, description, descriptionFr,
+            logoUrl, instagram, twitter, contactEmail,
             pushNotifs, emailDigest,
         } = req.body;
+
+        // Empty-string French fields clear the value (back to English fallback).
+        const nullable = (v: unknown) => (v === "" ? null : v);
 
         const user = await prisma.user.update({
             where: { id: req.user!.userId },
             data: {
                 firstName, lastName, program, year, avatarUrl,
                 clubName, category, description, logoUrl, instagram, twitter, contactEmail,
+                clubNameFr:    clubNameFr    !== undefined ? nullable(clubNameFr)    : undefined,
+                descriptionFr: descriptionFr !== undefined ? nullable(descriptionFr) : undefined,
                 ...(pushNotifs !== undefined && { pushNotifs }),
                 ...(emailDigest !== undefined && { emailDigest }),
             },
             select: {
                 id: true, email: true, type: true,
                 firstName: true, lastName: true, program: true, year: true, avatarUrl: true,
-                clubName: true, slug: true, category: true,
+                clubName: true, clubNameFr: true, slug: true, category: true,
             },
         });
         res.json(user);

@@ -20,9 +20,11 @@ model User {
   year          String?
   avatarUrl     String?
   clubName      String?
+  clubNameFr    String?        // optional French club name (falls back to clubName)
   slug          String?        @unique
   category      String?
   description   String?
+  descriptionFr String?        // optional French description (falls back to description)
   logoUrl       String?
   instagram     String?
   twitter       String?

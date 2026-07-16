@@ -14,7 +14,7 @@ import { useReduceMotion } from "../../lib/useReduceMotion";
 import { useFocusEffect } from "expo-router";
 import { useGuestGuard } from "../../lib/useGuestGuard";
 import { useGuestModal } from "../../lib/GuestModalContext";
-import { useLang, useT, pickLocale } from "../../lib/LangContext";
+import { useLang, useT, pickLocale, pickText } from "../../lib/LangContext";
 import { useToast } from "../../lib/ToastContext";
 import { useLikes } from "../../lib/LikeContext";
 import { api } from "../../lib/api";
@@ -26,6 +26,7 @@ type ApiFeedPost = {
     id: string;
     clubId: string;
     clubName: string;
+    clubNameFr?: string | null;
     clubAvatar?: string;
     type: string;
     createdAt: string;
@@ -79,7 +80,7 @@ function mapPost(p: ApiFeedPost, lang: "en" | "fr"): FeedPost {
     return {
         id: p.id,
         clubId: p.clubId,
-        clubName: p.clubName,
+        clubName: pickText(p.clubName, p.clubNameFr, lang),
         clubAvatar: p.clubAvatar,
         // "Update" is a legacy type clubs can no longer create — fold it into
         // "announcement" so the feed shows a single, consistent post kind.

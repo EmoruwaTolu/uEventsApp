@@ -12,6 +12,7 @@ type PostRow = {
     createdAt: Date;
     locales: any;
     clubName: string | null;
+    clubNameFr: string | null;
 };
 
 // Pull the best display locale for a result (prefer en, then fr, then whatever
@@ -49,7 +50,7 @@ router.get("/", async (req, res, next) => {
 
         const eventQuery = Prisma.sql`
             SELECT p.id, p.type::text AS type, p."startAt", p."locationName", p."createdAt",
-                   p.locales, c."clubName" AS "clubName"
+                   p.locales, c."clubName" AS "clubName", c."clubNameFr" AS "clubNameFr"
             FROM "Post" p
             JOIN "User" c ON c.id = p."clubId"
             WHERE p."isDraft" = false AND p.hidden = false AND p.type = 'EVENT'
@@ -59,7 +60,7 @@ router.get("/", async (req, res, next) => {
 
         const postQuery = Prisma.sql`
             SELECT p.id, p.type::text AS type, p."startAt", p."locationName", p."createdAt",
-                   p.locales, c."clubName" AS "clubName"
+                   p.locales, c."clubName" AS "clubName", c."clubNameFr" AS "clubNameFr"
             FROM "Post" p
             JOIN "User" c ON c.id = p."clubId"
             WHERE p."isDraft" = false AND p.hidden = false AND p.type <> 'EVENT'
@@ -72,14 +73,16 @@ router.get("/", async (req, res, next) => {
                 where: {
                     type: "CLUB",
                     OR: [
-                        { clubName:    { contains: raw, mode: "insensitive" } },
-                        { description: { contains: raw, mode: "insensitive" } },
-                        { category:    { contains: raw, mode: "insensitive" } },
+                        { clubName:      { contains: raw, mode: "insensitive" } },
+                        { clubNameFr:    { contains: raw, mode: "insensitive" } },
+                        { description:   { contains: raw, mode: "insensitive" } },
+                        { descriptionFr: { contains: raw, mode: "insensitive" } },
+                        { category:      { contains: raw, mode: "insensitive" } },
                     ],
                 },
                 select: {
-                    id: true, clubName: true, category: true,
-                    description: true, logoUrl: true,
+                    id: true, clubName: true, clubNameFr: true, category: true,
+                    description: true, descriptionFr: true, logoUrl: true,
                     _count: { select: { followedBy: true } },
                 },
                 take: 8,
@@ -94,6 +97,7 @@ router.get("/", async (req, res, next) => {
                 id: p.id,
                 title: loc.title ?? "Untitled",
                 clubName: p.clubName ?? "",
+                clubNameFr: p.clubNameFr ?? null,
                 posterUrl: loc.posterUrl ?? null,
                 startAt: p.startAt,
                 locationName: p.locationName,
@@ -107,6 +111,7 @@ router.get("/", async (req, res, next) => {
                 type: p.type,
                 title: loc.title ?? "Untitled",
                 clubName: p.clubName ?? "",
+                clubNameFr: p.clubNameFr ?? null,
                 createdAt: p.createdAt,
             };
         });

@@ -87,8 +87,8 @@ router.get("/", optionalAuth, async (req, res, next) => {
                 } : {}),
             },
             select: {
-                id: true, clubName: true, slug: true, category: true,
-                description: true, logoUrl: true,
+                id: true, clubName: true, clubNameFr: true, slug: true, category: true,
+                description: true, descriptionFr: true, logoUrl: true,
                 _count: { select: { followedBy: true, posts: true } },
             },
             orderBy: { followedBy: { _count: "desc" } },
@@ -108,8 +108,8 @@ router.get("/:id", async (req, res, next) => {
         const club = await prisma.user.findFirst({
             where: { id: req.params.id, type: "CLUB" },
             select: {
-                id: true, clubName: true, slug: true, category: true,
-                description: true, logoUrl: true,
+                id: true, clubName: true, clubNameFr: true, slug: true, category: true,
+                description: true, descriptionFr: true, logoUrl: true,
                 instagram: true, twitter: true, contactEmail: true,
                 _count: { select: { followedBy: true, posts: true } },
             },

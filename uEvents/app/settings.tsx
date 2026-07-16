@@ -271,8 +271,10 @@ export default function SettingsScreen() {
 
     // Club profile fields
     const [clubName, setClubName] = useState("");
+    const [clubNameFr, setClubNameFr] = useState("");
     const [category, setCategory] = useState("");
     const [description, setDescription] = useState("");
+    const [descriptionFr, setDescriptionFr] = useState("");
     const [instagram, setInstagram] = useState("");
     const [twitter, setTwitter] = useState("");
     const [contactEmail, setContactEmail] = useState("");
@@ -294,15 +296,18 @@ export default function SettingsScreen() {
         if (!session?.token) return;
         authApi<{
             firstName?: string; lastName?: string; program?: string; year?: string; avatarUrl?: string;
-            clubName?: string; category?: string; description?: string; instagram?: string;
+            clubName?: string; clubNameFr?: string; category?: string;
+            description?: string; descriptionFr?: string; instagram?: string;
             twitter?: string; contactEmail?: string; logoUrl?: string;
             pushNotifs?: boolean; emailDigest?: boolean;
         }>("/users/me")
             .then((u) => {
                 if (isClub) {
                     setClubName(u.clubName ?? "");
+                    setClubNameFr(u.clubNameFr ?? "");
                     setCategory(u.category ?? "");
                     setDescription(u.description ?? "");
+                    setDescriptionFr(u.descriptionFr ?? "");
                     setInstagram(u.instagram ?? "");
                     setTwitter(u.twitter ?? "");
                     setContactEmail(u.contactEmail ?? "");
@@ -376,9 +381,11 @@ export default function SettingsScreen() {
             await authApi("/users/me", {
                 method: "PATCH",
                 body: JSON.stringify({
-                    clubName:     clubName.trim()     || undefined,
-                    category:     category.trim()     || undefined,
-                    description:  description.trim()  || undefined,
+                    clubName:      clubName.trim()      || undefined,
+                    clubNameFr:    clubNameFr.trim(),
+                    category:      category.trim()      || undefined,
+                    description:   description.trim()   || undefined,
+                    descriptionFr: descriptionFr.trim(),
                     instagram:    instagram.trim()     || undefined,
                     twitter:      twitter.trim()       || undefined,
                     contactEmail: contactEmail.trim()  || undefined,
@@ -714,6 +721,10 @@ export default function SettingsScreen() {
                                         <TextInput style={s.input} value={clubName} onChangeText={setClubName}
                                             placeholder={t.clubNamePlaceholder} placeholderTextColor={C.textLight} />
                                     </Field>
+                                    <Field label="Club Name (French)" s={s}>
+                                        <TextInput style={s.input} value={clubNameFr} onChangeText={setClubNameFr}
+                                            placeholder={t.phClubNameFr} placeholderTextColor={C.textLight} />
+                                    </Field>
                                     <Field label="Category" s={s}>
                                         <TextInput style={s.input} value={category} onChangeText={setCategory}
                                             placeholder={t.categoryPlaceholder} placeholderTextColor={C.textLight} />
@@ -722,6 +733,11 @@ export default function SettingsScreen() {
                                         <TextInput style={[s.input, s.inputMultiline]} value={description}
                                             onChangeText={setDescription} multiline
                                             placeholder={t.descriptionPlaceholder} placeholderTextColor={C.textLight} />
+                                    </Field>
+                                    <Field label="Description (French)" s={s}>
+                                        <TextInput style={[s.input, s.inputMultiline]} value={descriptionFr}
+                                            onChangeText={setDescriptionFr} multiline
+                                            placeholder={t.phDescriptionFr} placeholderTextColor={C.textLight} />
                                     </Field>
                                     <Field label="Logo URL" s={s}>
                                         <TextInput style={s.input} value={logoUrl} onChangeText={setLogoUrl}

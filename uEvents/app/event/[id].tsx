@@ -19,7 +19,7 @@ import { useLikes } from "../../lib/LikeContext";
 import { useBookmarks } from "../../lib/BookmarkContext";
 import { useAuth } from "../../auth/AuthContext";
 import { useGuestGuard } from "../../lib/useGuestGuard";
-import { useLang, pickLocale, useT } from "../../lib/LangContext";
+import { useLang, pickLocale, pickText, useT } from "../../lib/LangContext";
 import { useToast } from "../../lib/ToastContext";
 import { PostDetailSkeleton, ErrorRetry } from "../../components/SkeletonLoader";
 import { useTheme } from "../../lib/ThemeContext";
@@ -51,7 +51,7 @@ type ApiEvent = {
     } | null;
     freeFood?: boolean;
     capacity?: number;
-    club?: { id: string; clubName?: string; slug?: string; logoUrl?: string };
+    club?: { id: string; clubName?: string; clubNameFr?: string; slug?: string; logoUrl?: string };
     _count?: { rsvps: number; likes?: number };
     isRsvped?: boolean;
     isLiked?: boolean;
@@ -677,7 +677,7 @@ export default function EventPage() {
     const title = locale.title ?? "Untitled Event";
     const body = locale.body ?? "";
     const imageUrl = locale.posterUrl ?? locale.imageUrl;
-    const clubName = event?.club?.clubName?.toUpperCase() ?? "";
+    const clubName = pickText(event?.club?.clubName, event?.club?.clubNameFr, lang).toUpperCase();
     const clubId = event?.club?.id ?? "";
     const location = event?.locationName ?? "";
     const date = fmtDate(event?.startAt, lang);

@@ -956,7 +956,7 @@ router.get("/popular", optionalAuth, async (req, res, next) => {
                 ],
                 take: 20,
                 include: {
-                    club: { select: { id: true, clubName: true, logoUrl: true } },
+                    club: { select: { id: true, clubName: true, clubNameFr: true, logoUrl: true } },
                     pollOptions: { include: { _count: { select: { votes: true } } } },
                     _count: { select: { likes: true, comments: true } },
                     ...(userId ? { likes: { where: { userId }, select: { userId: true } } } : {}),
@@ -985,6 +985,7 @@ router.get("/popular", optionalAuth, async (req, res, next) => {
                 id: p.id,
                 clubId: p.club.id,
                 clubName: p.club.clubName,
+                clubNameFr: p.club.clubNameFr,
                 clubAvatar: p.club.logoUrl,
                 type: p.type.toLowerCase(),
                 createdAt: p.createdAt,
@@ -1074,7 +1075,7 @@ router.get("/for-you", requireAuth, async (req, res, next) => {
             orderBy: { createdAt: "desc" },
             take: 150,
             include: {
-                club: { select: { id: true, clubName: true, logoUrl: true } },
+                club: { select: { id: true, clubName: true, clubNameFr: true, logoUrl: true } },
                 pollOptions: { include: { _count: { select: { votes: true } } } },
                 _count: { select: { likes: true, comments: true, rsvps: true, recapPhotos: true, checkIns: true } },
                 likes: { where: { userId }, select: { userId: true } },
@@ -1211,6 +1212,7 @@ router.get("/for-you", requireAuth, async (req, res, next) => {
                 id: p.id,
                 clubId: p.club.id,
                 clubName: p.club.clubName,
+                clubNameFr: p.club.clubNameFr,
                 clubAvatar: p.club.logoUrl,
                 type: p.type.toLowerCase(),
                 createdAt: p.createdAt,
@@ -1310,7 +1312,7 @@ router.get("/discover", requireAuth, async (req, res, next) => {
             orderBy: { createdAt: "desc" },
             take: 20,
             include: {
-                club: { select: { id: true, clubName: true, logoUrl: true } },
+                club: { select: { id: true, clubName: true, clubNameFr: true, logoUrl: true } },
             },
         });
 
@@ -1360,7 +1362,7 @@ router.get("/feed", requireAuth, async (req, res, next) => {
             skip: offset,
             take: limit,
             include: {
-                club: { select: { id: true, clubName: true, logoUrl: true } },
+                club: { select: { id: true, clubName: true, clubNameFr: true, logoUrl: true } },
                 pollOptions: {
                     include: { _count: { select: { votes: true } } },
                 },
@@ -1417,6 +1419,7 @@ router.get("/feed", requireAuth, async (req, res, next) => {
                 id: p.id,
                 clubId: p.club.id,
                 clubName: p.club.clubName,
+                clubNameFr: p.club.clubNameFr,
                 clubAvatar: p.club.logoUrl,
                 type: p.type.toLowerCase(),
                 createdAt: p.createdAt,
@@ -1464,7 +1467,7 @@ router.get("/:id", optionalAuth, async (req, res, next) => {
         const post = await prisma.post.findUnique({
             where: { id: req.params.id },
             include: {
-                club: { select: { id: true, clubName: true, slug: true, logoUrl: true } },
+                club: { select: { id: true, clubName: true, clubNameFr: true, slug: true, logoUrl: true } },
                 pollOptions: { include: { _count: { select: { votes: true } } } },
                 _count: { select: { likes: true, comments: true, rsvps: true } },
                 // Recurrence rule (present only for series occurrences) so the client
