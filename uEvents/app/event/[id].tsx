@@ -57,6 +57,8 @@ type ApiEvent = {
     isLiked?: boolean;
     isBookmarked?: boolean;
     rsvpPreview?: { id: string; firstName?: string; avatarUrl?: string }[];
+    // Attendees who share a followed club with the viewer (friends-lite signal).
+    mutualGoing?: number;
     // Visibility controls
     hideRsvpCount?: boolean;
     hideLikeCount?: boolean;
@@ -970,6 +972,13 @@ export default function EventPage() {
                     )}
                     {event.hideAttendeeList && !isPostOwner && attendees > 0 && !event.hideRsvpCount && (
                         <Text style={styles.hiddenListNote}>{t.attendeeListPrivate}</Text>
+                    )}
+                    {/* Friends-lite social proof — co-followers of your clubs who RSVP'd */}
+                    {(event.mutualGoing ?? 0) > 0 && !event.hideRsvpCount && (
+                        <View style={styles.mutualGoingRow}>
+                            <Ionicons name="people" size={13} color={C.gold} />
+                            <Text style={styles.mutualGoingText}>{t.mutualGoing(event.mutualGoing!)}</Text>
+                        </View>
                     )}
                     {capacity != null && !event.hideRsvpCount && (
                         <View style={styles.capacityWrap}>
@@ -1923,6 +1932,8 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
     goingAvatarText: { fontSize: 11, fontWeight: "800", color: "#fff" },
     goingLabel: { fontSize: 13, color: C.textMuted, fontWeight: "500" },
     goingCount: { fontWeight: "800", color: C.text },
+    mutualGoingRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 },
+    mutualGoingText: { flex: 1, fontSize: 12, color: C.gold, fontWeight: "700" },
 
     // Remind Me
     remindBtn: {

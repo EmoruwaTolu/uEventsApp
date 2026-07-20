@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { Alert } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useApi } from "./useApi";
+import { analytics } from "./analytics";
 
 type RsvpContextType = {
     isRsvped: (postId: string) => boolean;
@@ -47,6 +48,7 @@ export function RsvpProvider({ children }: { children: React.ReactNode }) {
             setWaitlistIds((prev) => { const s = new Set(prev); s.delete(postId); return s; });
             try {
                 await authApi(`/posts/${postId}/rsvp`, { method: "DELETE" });
+                analytics.track("rsvp", { postId, action: "leave_waitlist" });
                 return false;
             } catch {
                 setWaitlistIds((prev) => new Set(prev).add(postId));
@@ -62,6 +64,7 @@ export function RsvpProvider({ children }: { children: React.ReactNode }) {
             setRsvpIds((prev) => { const s = new Set(prev); s.delete(postId); return s; });
             try {
                 await authApi(`/posts/${postId}/rsvp`, { method: "DELETE" });
+                analytics.track("rsvp", { postId, action: "cancel" });
                 return false;
             } catch {
                 setRsvpIds((prev) => new Set(prev).add(postId));
@@ -78,10 +81,12 @@ export function RsvpProvider({ children }: { children: React.ReactNode }) {
             );
             if (result.waitlisted) {
                 setWaitlistIds((prev) => new Set(prev).add(postId));
+                analytics.track("rsvp", { postId, action: "join_waitlist" });
                 Alert.alert("Added to waitlist", "This event is full. You'll be notified if a spot opens up.");
                 return true;
             }
             setRsvpIds((prev) => new Set(prev).add(postId));
+            analytics.track("rsvp", { postId, action: "join" });
             return true;
         } catch (err: any) {
             const msg = err?.message?.includes("capacity")

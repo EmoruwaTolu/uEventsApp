@@ -41,6 +41,7 @@ type ApiFeedPost = {
     likes: number;
     rsvpCount?: number;
     rsvpPreview?: { name: string; avatarUrl?: string | null }[];
+    mutualGoing?: number;
     capacity?: number | null;
     comments: number;
     isLiked: boolean;
@@ -101,6 +102,7 @@ function mapPost(p: ApiFeedPost, lang: "en" | "fr"): FeedPost {
         freeFood: p.type.toLowerCase() === "event" ? !!p.freeFood : undefined,
         rsvpCount: p.type.toLowerCase() === "event" ? (p.rsvpCount ?? 0) : undefined,
         rsvpPreview: p.type.toLowerCase() === "event" ? (p.rsvpPreview ?? []) : undefined,
+        mutualGoing: p.type.toLowerCase() === "event" ? (p.mutualGoing ?? 0) : undefined,
         capacity: p.type.toLowerCase() === "event" ? (p.capacity ?? null) : undefined,
         likes: p.likes,
         comments: p.comments,
@@ -124,6 +126,7 @@ function mapPost(p: ApiFeedPost, lang: "en" | "fr"): FeedPost {
                   totalVotes: p.poll.totalVotes,
                   userVote: p.poll.userVote ?? undefined,
                   endsAt,
+                  closed: p.poll.expiresAt ? new Date(p.poll.expiresAt).getTime() <= Date.now() : false,
               }
             : undefined,
     };

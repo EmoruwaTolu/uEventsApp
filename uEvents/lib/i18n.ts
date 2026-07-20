@@ -112,6 +112,10 @@ const translations = {
             const rem = Math.max(0, total - names.length);
             return rem > 0 ? `${names.join(", ")} +${rem} going` : `${names.join(" & ")} going`;
         },
+        // Friends-lite social proof: attendees who share a followed club with you.
+        mutualGoing: (n: number) => n === 1
+            ? "1 person from clubs you follow is going"
+            : `${n} people from clubs you follow are going`,
         joinWaitlist: "JOIN WAITLIST",
         waitlisted: "WAITLISTED",
         addToCalendar: "ADD TO CALENDAR",
@@ -817,6 +821,18 @@ const translations = {
         noAnnouncementsFilter: "NO ANNOUNCEMENTS YET",
         noPollsFilter: "NO POLLS YET",
         noUpdatesFilter: "NO UPDATES YET",
+
+        // ── Interest onboarding (student signup) ────────────────────────────
+        obEyebrow: "PERSONALIZE",
+        obTitle: "WHAT ARE YOU INTO?",
+        obSubtitle: "Pick at least 3 topics so your For You feed starts smart — you can change them anytime.",
+        obTopicsHeader: "TOPICS",
+        obClubsHeader: "CLUBS TO FOLLOW",
+        obClubsSub: "Popular on campus — follow a few to fill your feed.",
+        obContinue: "CONTINUE",
+        obSkip: "Skip for now",
+        obPickAtLeast: "Pick at least 3 topics to continue",
+        obSaveError: "Couldn't save all your picks — you can adjust them anytime from the Search tab.",
     },
 
     fr: {
@@ -929,6 +945,10 @@ const translations = {
             const rem = Math.max(0, total - names.length);
             return rem > 0 ? `${names.join(", ")} +${rem}` : names.join(" & ");
         },
+        // Preuve sociale : participants qui suivent les mêmes clubs que vous.
+        mutualGoing: (n: number) => n === 1
+            ? "1 personne de clubs que vous suivez y sera"
+            : `${n} personnes de clubs que vous suivez y seront`,
         joinWaitlist: "LISTE D'ATTENTE",
         waitlisted: "EN ATTENTE",
         addToCalendar: "AJOUTER AU CALENDRIER",
@@ -1634,6 +1654,18 @@ const translations = {
         noAnnouncementsFilter: "AUCUNE ANNONCE ICI",
         noPollsFilter: "AUCUN SONDAGE ICI",
         noUpdatesFilter: "AUCUNE MISE À JOUR ICI",
+
+        // ── Interest onboarding (student signup) ────────────────────────────
+        obEyebrow: "PERSONNALISER",
+        obTitle: "QU'EST-CE QUI VOUS INTÉRESSE ?",
+        obSubtitle: "Choisissez au moins 3 sujets pour un fil « Pour vous » pertinent dès le départ — modifiable en tout temps.",
+        obTopicsHeader: "SUJETS",
+        obClubsHeader: "CLUBS À SUIVRE",
+        obClubsSub: "Populaires sur le campus — suivez-en quelques-uns pour remplir votre fil.",
+        obContinue: "CONTINUER",
+        obSkip: "Ignorer pour l'instant",
+        obPickAtLeast: "Choisissez au moins 3 sujets pour continuer",
+        obSaveError: "Impossible d'enregistrer tous vos choix — ajustez-les à tout moment depuis l'onglet Recherche.",
     },
 } as const;
 

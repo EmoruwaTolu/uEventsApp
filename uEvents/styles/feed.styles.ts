@@ -50,6 +50,8 @@ export const makeFeedStyles = (C: AppColors) => StyleSheet.create({
     fcGoingAvatar: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: C.surface, overflow: "hidden", backgroundColor: C.primary, alignItems: "center", justifyContent: "center" },
     fcGoingAvatarInit: { fontSize: 8, fontWeight: "900", color: "#fff" },
     fcGoingText: { flex: 1, fontSize: 12, color: C.textMuted, fontWeight: "600" },
+    fcMutualRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+    fcMutualText: { flex: 1, fontSize: 12, color: C.gold, fontWeight: "700" },
     fcDesc: { fontSize: 14, color: C.textMuted, lineHeight: 20 },
     fcContent: { fontSize: 15, color: C.textBody, lineHeight: 22 },
     fcTagsRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 },

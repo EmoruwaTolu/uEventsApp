@@ -69,19 +69,17 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
     stepLabelActive: { color: C.primary },
 
     scroll: { paddingHorizontal: 24, paddingBottom: 40, paddingTop: 8 },
+    // Fields sit directly on the page background (like the create-event form),
+    // not inside a floating card.
     card: {
-        backgroundColor: C.surface,
-        padding: 20,
-        gap: 4,
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: C.borderWarm,
+        gap: 2,
     },
     cardTitle: {
         fontSize: 11,
         fontWeight: "800",
         color: C.primary,
-        letterSpacing: 2,
-        marginBottom: 12,
+        letterSpacing: 1.5,
+        marginBottom: 18,
     },
     cardSubtitle: {
         fontSize: 12,
@@ -91,44 +89,61 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
     },
     label: {
         fontSize: 11,
-        fontWeight: "600",
+        fontWeight: "700",
         color: C.textMuted,
         textTransform: "uppercase",
-        letterSpacing: 0.5,
-        marginTop: 10,
+        letterSpacing: 1,
+        marginTop: 22,
+        marginBottom: 8,
     },
     input: {
-        backgroundColor: C.surfaceAlt,
+        backgroundColor: C.surface,
         borderWidth: 1,
         borderColor: C.borderWarm,
-        paddingVertical: 10,
-        paddingHorizontal: 12,
-        fontSize: 14,
+        paddingVertical: 13,
+        paddingHorizontal: 16,
+        fontSize: 16,
         color: C.text,
-        marginTop: 4,
     },
-    multiline: { minHeight: 96, paddingTop: 10 },
+    inputFocused: { borderColor: C.primary },
+    multiline: { minHeight: 120, paddingTop: 13, textAlignVertical: "top" },
+
+    sectionHeaderRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 18,
+    },
+    langToggle: {
+        flexDirection: "row",
+        borderWidth: 1,
+        borderColor: C.textFaint,
+        overflow: "hidden",
+    },
+    langPill: { paddingHorizontal: 14, paddingVertical: 6, backgroundColor: "transparent" },
+    langPillActive: { backgroundColor: C.primary },
+    langPillText: { fontSize: 11, fontWeight: "700", color: C.textLight, letterSpacing: 1 },
+    langPillTextActive: { color: "#fff" },
     hint: { fontSize: 11, color: C.textLight, marginTop: 2 },
 
     prefixInput: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: C.surfaceAlt,
+        backgroundColor: C.surface,
         borderWidth: 1,
         borderColor: C.borderWarm,
-        marginTop: 4,
     },
     prefix: {
-        paddingHorizontal: 12,
-        fontSize: 14,
+        paddingHorizontal: 14,
+        fontSize: 16,
         color: C.textLight,
         fontWeight: "600",
     },
     prefixField: {
         flex: 1,
-        paddingVertical: 10,
-        paddingRight: 12,
-        fontSize: 14,
+        paddingVertical: 13,
+        paddingRight: 16,
+        fontSize: 16,
         color: C.text,
     },
 
@@ -181,6 +196,12 @@ export default function ClubOnboarding() {
 
     const [step, setStep] = useState<Step>(1);
     const [saving, setSaving] = useState(false);
+    // Which field is focused — its border highlights burgundy (like the create form).
+    const [focused, setFocused] = useState<string | null>(null);
+    const fieldProps = (key: string) => ({
+        onFocus: () => setFocused(key),
+        onBlur: () => setFocused((f) => (f === key ? null : f)),
+    });
 
     // Step 1: identity
     const [clubName, setClubName] = useState("");
@@ -188,6 +209,8 @@ export default function ClubOnboarding() {
     const [category, setCategory] = useState("");
     const [description, setDescription] = useState("");
     const [descriptionFr, setDescriptionFr] = useState("");
+    // Which language the identity fields are editing (like the create-event form).
+    const [formLang, setFormLang] = useState<"en" | "fr">("en");
 
     // Pre-fill from the account so we never re-ask what signup already captured
     // (the club name), and so an existing club editing later sees its values.
@@ -280,55 +303,53 @@ export default function ClubOnboarding() {
                         {/* ── Step 1: Identity ── */}
                         {step === 1 && (
                             <View style={s.card}>
-                                <Text style={s.cardTitle}>{t.obClubIdentity}</Text>
+                                <View style={s.sectionHeaderRow}>
+                                    <Text style={[s.cardTitle, { marginBottom: 0 }]}>{t.obClubIdentity}</Text>
+                                    <View style={s.langToggle}>
+                                        {(["en", "fr"] as const).map((l) => (
+                                            <Pressable
+                                                key={l}
+                                                onPress={() => setFormLang(l)}
+                                                style={[s.langPill, formLang === l && s.langPillActive]}
+                                                accessibilityRole="button"
+                                                accessibilityState={{ selected: formLang === l }}
+                                            >
+                                                <Text style={[s.langPillText, formLang === l && s.langPillTextActive]}>{l.toUpperCase()}</Text>
+                                            </Pressable>
+                                        ))}
+                                    </View>
+                                </View>
 
                                 <Text style={s.label}>{t.obClubName}</Text>
                                 <TextInput
-                                    style={s.input}
-                                    value={clubName}
-                                    onChangeText={setClubName}
-                                    placeholder={t.phClubName}
+                                    style={[s.input, focused === "name" && s.inputFocused]}
+                                    value={formLang === "en" ? clubName : clubNameFr}
+                                    onChangeText={formLang === "en" ? setClubName : setClubNameFr}
+                                    placeholder={formLang === "en" ? t.phClubName : t.phClubNameFr}
                                     placeholderTextColor={C.textLight}
-                                />
-
-                                <Text style={s.label}>{t.obClubNameFr}</Text>
-                                <TextInput
-                                    style={s.input}
-                                    value={clubNameFr}
-                                    onChangeText={setClubNameFr}
-                                    placeholder={t.phClubNameFr}
-                                    placeholderTextColor={C.textLight}
-                                />
-
-                                <Text style={s.label}>{t.obCategory}</Text>
-                                <TextInput
-                                    style={s.input}
-                                    value={category}
-                                    onChangeText={setCategory}
-                                    placeholder={t.phCategory}
-                                    placeholderTextColor={C.textLight}
+                                    {...fieldProps("name")}
                                 />
 
                                 <Text style={s.label}>{t.obDescription}</Text>
                                 <TextInput
-                                    style={[s.input, s.multiline]}
-                                    value={description}
-                                    onChangeText={setDescription}
-                                    placeholder={t.phDescription}
+                                    style={[s.input, s.multiline, focused === "description" && s.inputFocused]}
+                                    value={formLang === "en" ? description : descriptionFr}
+                                    onChangeText={formLang === "en" ? setDescription : setDescriptionFr}
+                                    placeholder={formLang === "en" ? t.phDescription : t.phDescriptionFr}
                                     placeholderTextColor={C.textLight}
                                     multiline
                                     textAlignVertical="top"
+                                    {...fieldProps("description")}
                                 />
 
-                                <Text style={s.label}>{t.obDescriptionFr}</Text>
+                                <Text style={s.label}>{t.obCategory}</Text>
                                 <TextInput
-                                    style={[s.input, s.multiline]}
-                                    value={descriptionFr}
-                                    onChangeText={setDescriptionFr}
-                                    placeholder={t.phDescriptionFr}
+                                    style={[s.input, focused === "category" && s.inputFocused]}
+                                    value={category}
+                                    onChangeText={setCategory}
+                                    placeholder={t.phCategory}
                                     placeholderTextColor={C.textLight}
-                                    multiline
-                                    textAlignVertical="top"
+                                    {...fieldProps("category")}
                                 />
 
                                 <View style={s.actions}>
@@ -356,25 +377,27 @@ export default function ClubOnboarding() {
 
                                 <Text style={s.label}>{t.obLogoUrl}</Text>
                                 <TextInput
-                                    style={s.input}
+                                    style={[s.input, focused === "logoUrl" && s.inputFocused]}
                                     value={logoUrl}
                                     onChangeText={setLogoUrl}
                                     placeholder="https://..."
                                     placeholderTextColor={C.textLight}
                                     autoCapitalize="none"
                                     keyboardType="url"
+                                    {...fieldProps("logoUrl")}
                                 />
                                 <Text style={s.hint}>{t.obLogoUrlHint}</Text>
 
                                 <Text style={s.label}>{t.obContactEmail}</Text>
                                 <TextInput
-                                    style={s.input}
+                                    style={[s.input, focused === "contactEmail" && s.inputFocused]}
                                     value={contactEmail}
                                     onChangeText={setContactEmail}
                                     placeholder={t.phContactEmail}
                                     placeholderTextColor={C.textLight}
                                     autoCapitalize="none"
                                     keyboardType="email-address"
+                                    {...fieldProps("contactEmail")}
                                 />
 
                                 <View style={s.actions}>
@@ -397,7 +420,7 @@ export default function ClubOnboarding() {
                                 <Text style={s.cardSubtitle}>{t.obSocialLinksHint}</Text>
 
                                 <Text style={s.label}>{t.obInstagram}</Text>
-                                <View style={s.prefixInput}>
+                                <View style={[s.prefixInput, focused === "instagram" && s.inputFocused]}>
                                     <Text style={s.prefix}>@</Text>
                                     <TextInput
                                         style={s.prefixField}
@@ -406,11 +429,12 @@ export default function ClubOnboarding() {
                                         placeholder={t.phSocialHandle}
                                         placeholderTextColor={C.textLight}
                                         autoCapitalize="none"
+                                        {...fieldProps("instagram")}
                                     />
                                 </View>
 
                                 <Text style={s.label}>{t.obTwitter}</Text>
-                                <View style={s.prefixInput}>
+                                <View style={[s.prefixInput, focused === "twitter" && s.inputFocused]}>
                                     <Text style={s.prefix}>@</Text>
                                     <TextInput
                                         style={s.prefixField}
@@ -419,6 +443,7 @@ export default function ClubOnboarding() {
                                         placeholder={t.phSocialHandle}
                                         placeholderTextColor={C.textLight}
                                         autoCapitalize="none"
+                                        {...fieldProps("twitter")}
                                     />
                                 </View>
 

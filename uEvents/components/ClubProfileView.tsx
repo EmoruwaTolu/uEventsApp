@@ -77,6 +77,16 @@ function toFeedPost(p: ApiPost, club: Club, lang: string): FeedPost {
     let poll: FeedPost["poll"] | undefined;
     if (rawType === "poll" && p.pollOptions) {
         const total = p.pollOptions.reduce((s, o) => s + (o._count?.votes ?? 0), 0);
+        const expiry = p.pollExpiresAt ? new Date(p.pollExpiresAt).getTime() : null;
+        const closed = expiry != null && expiry <= Date.now();
+        const endsAt = expiry == null
+            ? undefined
+            : closed
+                ? "Ended"
+                : (() => {
+                    const days = Math.floor((expiry - Date.now()) / 86400000);
+                    return days > 0 ? `${days}d left` : "< 1d left";
+                })();
         poll = {
             question: title,
             options: p.pollOptions.map((o) => ({
@@ -86,6 +96,8 @@ function toFeedPost(p: ApiPost, club: Club, lang: string): FeedPost {
             })),
             totalVotes: total,
             userVote: p.userVote ?? undefined,
+            endsAt,
+            closed,
         };
     }
     return {
@@ -218,6 +230,47 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
     }
     function switchTab(key: PostTab) { goToIndex(TABS.findIndex((tb) => tb.key === key)); }
 
+    // Imperatively scroll the active pane. Used when a drag starts on the overlay
+    // header / tab bar, which live outside the panes' own scroll views and so
+    // can't hand the gesture off to them natively.
+    function scrollActivePaneTo(offset: number) {
+        const r = paneRefs.current[activeIndexRef.current];
+        if (!r) return;
+        try {
+            if (typeof r.scrollToOffset === "function") r.scrollToOffset({ offset, animated: false });
+            else if (typeof r.scrollTo === "function") r.scrollTo({ y: offset, animated: false });
+        } catch { /* noop */ }
+    }
+
+    // Line every non-active pane up with the active one's header-collapse so the
+    // panes stay visually continuous while finger-paging horizontally.
+    function alignPanesForPaging() {
+        const shared = Math.min(paneScroll.current[activeIndexRef.current] ?? 0, headerHRef.current);
+        paneRefs.current.forEach((r, idx) => {
+            if (idx === activeIndexRef.current || !r) return;
+            try {
+                if (typeof r.scrollToOffset === "function") r.scrollToOffset({ offset: shared, animated: false });
+                else if (typeof r.scrollTo === "function") r.scrollTo({ y: shared, animated: false });
+                paneScroll.current[idx] = shared;
+            } catch { /* noop */ }
+        });
+    }
+
+    // Shared horizontal-swipe settle (tab change / edge back), used by both the
+    // pane pager and the header/tab-bar drag forwarder.
+    function settleHorizontalSwipe(g: { dx: number; vx: number }) {
+        const W = screenWidthRef.current;
+        const i = activeIndexRef.current;
+        const goNext = g.dx < -W / 4 || g.vx < -0.4;
+        const goPrev = g.dx > W / 4 || g.vx > 0.4;
+        if (goPrev && i === 0) {
+            if (!isProfileTabRef.current && routerRef.current.canGoBack()) { routerRef.current.back(); return; }
+            goToIndex(0);
+        } else if (goNext) goToIndex(i + 1);
+        else if (goPrev) goToIndex(i - 1);
+        else goToIndex(i);
+    }
+
     // Finger-tracked horizontal paging. A right-swipe past the first tab leaves
     // the club page (the native back-gesture is disabled on this route).
     const panResponder = useRef(
@@ -228,15 +281,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                 slideX.extractOffset();
                 // Align every other pane to the current header-collapse so the tab
                 // peeking in under the finger lines up with the pinned header.
-                const shared = Math.min(paneScroll.current[activeIndexRef.current] ?? 0, headerHRef.current);
-                paneRefs.current.forEach((r, idx) => {
-                    if (idx === activeIndexRef.current || !r) return;
-                    try {
-                        if (typeof r.scrollToOffset === "function") r.scrollToOffset({ offset: shared, animated: false });
-                        else if (typeof r.scrollTo === "function") r.scrollTo({ y: shared, animated: false });
-                        paneScroll.current[idx] = shared;
-                    } catch { /* noop */ }
-                });
+                alignPanesForPaging();
             },
             onPanResponderMove: (_, g) => {
                 const i = activeIndexRef.current;
@@ -246,16 +291,63 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
             },
             onPanResponderRelease: (_, g) => {
                 slideX.flattenOffset();
-                const W = screenWidthRef.current;
-                const i = activeIndexRef.current;
-                const goNext = g.dx < -W / 4 || g.vx < -0.4;
-                const goPrev = g.dx > W / 4 || g.vx > 0.4;
-                if (goPrev && i === 0) {
-                    if (!isProfileTabRef.current && routerRef.current.canGoBack()) { routerRef.current.back(); return; }
-                    goToIndex(0);
-                } else if (goNext) goToIndex(i + 1);
-                else if (goPrev) goToIndex(i - 1);
-                else goToIndex(i);
+                settleHorizontalSwipe(g);
+            },
+        }),
+    ).current;
+
+    // Drag forwarder for the overlay header + tab bar. These sit on top of the
+    // panes in a separate branch, so a drag that starts on them (e.g. a club's
+    // pinned post, which can fill the whole header) never reaches the pane's
+    // scroll view. This responder captures such drags on movement — leaving taps
+    // to the header's own buttons/pinned card — and routes them: vertical drags
+    // scroll the active pane (collapsing the header in sync), horizontal drags
+    // page through the tabs exactly like the feed pager.
+    const headerScrollStart = useRef(0);
+    const headerAxis = useRef<"none" | "v" | "h">("none");
+    const headerPan = useRef(
+        PanResponder.create({
+            onStartShouldSetPanResponderCapture: () => false,
+            onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dy) > 5 || Math.abs(g.dx) > 10,
+            onPanResponderGrant: () => {
+                headerAxis.current = "none";
+                headerScrollStart.current = paneScroll.current[activeIndexRef.current] ?? 0;
+                slideX.stopAnimation();
+            },
+            onPanResponderMove: (_, g) => {
+                // Lock to an axis on the first meaningful movement.
+                if (headerAxis.current === "none") {
+                    if (Math.abs(g.dx) > Math.abs(g.dy) * 1.2 && Math.abs(g.dx) > 10) {
+                        headerAxis.current = "h";
+                        slideX.extractOffset();
+                        alignPanesForPaging();
+                    } else if (Math.abs(g.dy) > 5) {
+                        headerAxis.current = "v";
+                    } else return;
+                }
+                if (headerAxis.current === "h") {
+                    const i = activeIndexRef.current;
+                    let dx = g.dx;
+                    if ((i === 0 && dx > 0) || (i === TABS.length - 1 && dx < 0)) dx *= 0.35; // resist at ends
+                    slideX.setValue(dx);
+                } else {
+                    // Vertical: drive the active pane's scroll (dragging up scrolls down).
+                    const next = Math.max(0, headerScrollStart.current - g.dy);
+                    scrollActivePaneTo(next);
+                    paneScroll.current[activeIndexRef.current] = next;
+                    scrollY.setValue(next);
+                }
+            },
+            onPanResponderRelease: (_, g) => {
+                if (headerAxis.current === "h") {
+                    slideX.flattenOffset();
+                    settleHorizontalSwipe(g);
+                }
+                headerAxis.current = "none";
+            },
+            onPanResponderTerminate: () => {
+                if (headerAxis.current === "h") slideX.flattenOffset();
+                headerAxis.current = "none";
             },
         }),
     ).current;
@@ -741,9 +833,11 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                     {TABS.map((tb, i) => renderPane(tb.key, i))}
                 </Animated.View>
 
-                {/* Collapsing club header (shared, slides up as you scroll) */}
+                {/* Collapsing club header (shared, slides up as you scroll).
+                    panHandlers forward vertical drags on the header — including
+                    over a pinned post — to the active pane so the page scrolls. */}
                 <Animated.View
-                    pointerEvents="box-none"
+                    {...headerPan.panHandlers}
                     onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}
                     style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 5, transform: [{ translateY: headerTranslate }] }}
                 >
@@ -752,6 +846,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
 
                 {/* Sticky tab bar — pins to the top once the header collapses */}
                 <Animated.View
+                    {...headerPan.panHandlers}
                     onLayout={(e) => setTabH(e.nativeEvent.layout.height)}
                     style={{ position: "absolute", top: headerH, left: 0, right: 0, zIndex: 6, transform: [{ translateY: headerTranslate }] }}
                 >

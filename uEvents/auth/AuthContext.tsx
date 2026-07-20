@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import * as SecureStore from "expo-secure-store";
 import { api } from "../lib/api";
+import { analytics } from "../lib/analytics";
 
 type Session = {
     token?: string;
@@ -9,6 +10,8 @@ type Session = {
     userType?: "STUDENT" | "CLUB";
     userId?: string;
     needsOnboarding?: boolean;
+    // Students see the interest-picker onboarding once after signup.
+    needsInterests?: boolean;
     emailVerified?: boolean;
 } | null;
 
@@ -21,6 +24,7 @@ type Ctx = {
     signOut: () => Promise<void>;
     continueAsGuest: () => Promise<void>;
     completeOnboarding: () => Promise<void>;
+    completeInterests: () => Promise<void>;
     updateToken: (token: string) => Promise<void>;
     markEmailVerified: () => Promise<void>;
 };
@@ -58,8 +62,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             token: res.token, role: "user", email: res.user.email,
             userType: res.user.type as any, userId: res.user.id,
             needsOnboarding: isClub,
+            needsInterests: !isClub,
             emailVerified: res.user.emailVerified ?? false,
         });
+        analytics.identify(res.user.id, { userType: res.user.type });
+        analytics.track("sign_up", { userType: res.user.type });
     }
 
     async function registerClub(clubName: string, email: string, password: string, inviteCode?: string, category?: string) {
@@ -73,6 +80,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             needsOnboarding: true,
             emailVerified: res.user.emailVerified ?? false,
         });
+        analytics.identify(res.user.id, { userType: res.user.type });
+        analytics.track("sign_up", { userType: res.user.type });
     }
 
     async function signIn(email: string, password: string) {
@@ -81,6 +90,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             { method: "POST", body: JSON.stringify({ email, password }) }
         );
         await saveSession({ token: res.token, role: "user", email: res.user.email, userType: res.user.type as any, userId: res.user.id, emailVerified: res.user.emailVerified ?? false });
+        analytics.identify(res.user.id, { userType: res.user.type });
+        analytics.track("sign_in", { userType: res.user.type });
     }
 
     async function markEmailVerified() {
@@ -90,6 +101,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     async function signOut() {
         await saveSession(null);
+        analytics.track("sign_out");
+        analytics.reset();
     }
 
     async function continueAsGuest() {
@@ -101,13 +114,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await saveSession({ ...session, needsOnboarding: false });
     }
 
+    async function completeInterests() {
+        if (!session) return;
+        await saveSession({ ...session, needsInterests: false });
+    }
+
     async function updateToken(token: string) {
         if (!session) return;
         await saveSession({ ...session, token });
     }
 
     return (
-        <AuthContext.Provider value={{ session, isLoading, register, registerClub, signIn, signOut, continueAsGuest, completeOnboarding, updateToken, markEmailVerified }}>
+        <AuthContext.Provider value={{ session, isLoading, register, registerClub, signIn, signOut, continueAsGuest, completeOnboarding, completeInterests, updateToken, markEmailVerified }}>
             {children}
         </AuthContext.Provider>
     );

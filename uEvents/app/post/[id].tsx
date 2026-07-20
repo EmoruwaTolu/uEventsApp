@@ -1013,6 +1013,9 @@ export default function PostDetailScreen() {
                                         : 0;
                                     const isVoted = selectedOption === opt.id;
                                     const hasVoted = !!selectedOption;
+                                    // Once a poll has ended it can't be voted on, so reveal the
+                                    // results even if this user never voted — matching the feed.
+                                    const showResults = hasVoted || pollExpired;
                                     return (
                                         <Pressable
                                             key={opt.id}
@@ -1020,7 +1023,7 @@ export default function PostDetailScreen() {
                                             onPress={() => !hasVoted && !pollExpired && vote(opt.id)}
                                             disabled={hasVoted || !!votingId || pollExpired}
                                         >
-                                            {hasVoted && (
+                                            {showResults && (
                                                 <View
                                                     style={[
                                                         s.pollBar,
@@ -1033,7 +1036,7 @@ export default function PostDetailScreen() {
                                                 <Text style={[s.pollOptionText, isVoted && s.pollOptionTextVoted]}>
                                                     {lang === "fr" && opt.textFr ? opt.textFr : opt.textEn}
                                                 </Text>
-                                                {hasVoted && (
+                                                {showResults && (
                                                     <Text style={s.pollPct}>{pct}%</Text>
                                                 )}
                                             </View>

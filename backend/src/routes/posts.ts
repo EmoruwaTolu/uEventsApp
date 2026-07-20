@@ -19,6 +19,27 @@ async function waitlistPositionOf(
     return client.waitlist.count({ where: { postId, createdAt: { lte: createdAt } } });
 }
 
+// Friends-lite "going with" signal: for each post, how many RSVP'd students
+// share at least one followed club with the viewer. No friend graph needed —
+// club co-follows are the affinity proxy. Returns postId → count.
+async function mutualGoingCounts(
+    viewerId: string,
+    followedClubIds: string[],
+    postIds: string[],
+): Promise<Map<string, number>> {
+    if (!followedClubIds.length || !postIds.length) return new Map();
+    const rows = await prisma.rsvp.groupBy({
+        by: ["postId"],
+        where: {
+            postId: { in: postIds },
+            userId: { not: viewerId },
+            user: { follows: { some: { clubId: { in: followedClubIds } } } },
+        },
+        _count: { _all: true },
+    });
+    return new Map(rows.map((r) => [r.postId, r._count._all]));
+}
+
 const localeContentSchema = z.object({
     title:       z.string().max(200).optional(),
     body:        z.string().max(10000).optional(),
@@ -1114,10 +1135,17 @@ router.get("/for-you", requireAuth, async (req, res, next) => {
 
         // Which of these posts the current user has RSVP'd (the rsvps include now
         // holds the attendee preview, so this is fetched separately).
-        const myRsvps = await prisma.rsvp.findMany({
-            where: { userId, postId: { in: posts.map((p) => p.id) } },
-            select: { postId: true },
-        });
+        const [myRsvps, mutualGoing] = await Promise.all([
+            prisma.rsvp.findMany({
+                where: { userId, postId: { in: posts.map((p) => p.id) } },
+                select: { postId: true },
+            }),
+            mutualGoingCounts(
+                userId,
+                [...followedIds],
+                posts.filter((p) => p.type === "EVENT").map((p) => p.id),
+            ),
+        ]);
         const rsvpedSet = new Set(myRsvps.map((r) => r.postId));
 
         const scored = posts.filter((p) => !mutedPosts.has(p.id)).map((p) => {
@@ -1230,6 +1258,7 @@ router.get("/for-you", requireAuth, async (req, res, next) => {
                 rsvpPreview: p.type === "EVENT"
                     ? p.rsvps.map((r) => ({ name: r.user.firstName ?? "Student", avatarUrl: r.user.avatarUrl ?? null }))
                     : undefined,
+                mutualGoing: p.type === "EVENT" ? (mutualGoing.get(p.id) ?? 0) : undefined,
                 capacity: p.capacity,
                 isLiked: p.likes.length > 0,
                 isBookmarked: p.bookmarks.length > 0,
@@ -1401,6 +1430,12 @@ router.get("/feed", requireAuth, async (req, res, next) => {
             voteMap[v.option.postId] = v.optionId;
         }
 
+        const mutualGoing = await mutualGoingCounts(
+            userId,
+            [...followedIds],
+            posts.filter((p) => p.type === "EVENT").map((p) => p.id),
+        );
+
         const feed = posts.map((p) => {
             const totalVotes = p.pollOptions.reduce((sum, o) => sum + o._count.votes, 0);
             const tc = p.comments?.[0];
@@ -1437,6 +1472,7 @@ router.get("/feed", requireAuth, async (req, res, next) => {
                 rsvpPreview: p.type === "EVENT"
                     ? p.rsvps.map((r) => ({ name: r.user.firstName ?? "Student", avatarUrl: r.user.avatarUrl ?? null }))
                     : undefined,
+                mutualGoing: p.type === "EVENT" ? (mutualGoing.get(p.id) ?? 0) : undefined,
                 capacity: p.capacity,
                 isLiked: p.likes.length > 0,
                 isBookmarked: p.bookmarks.length > 0,
@@ -1491,7 +1527,13 @@ router.get("/:id", optionalAuth, async (req, res, next) => {
 
         let isLiked = false, isBookmarked = false, isRsvped = false, pendingRsvp = false, userVote: string | null = null;
         let waitlistPosition: number | null = null;
+        let mutualGoing = 0;
         if (userId) {
+            if (post.type === "EVENT") {
+                const follows = await prisma.follow.findMany({ where: { userId }, select: { clubId: true } });
+                const counts = await mutualGoingCounts(userId, follows.map((f) => f.clubId), [post.id]);
+                mutualGoing = counts.get(post.id) ?? 0;
+            }
             const [like, bookmark, rsvp, waitlistEntry] = await Promise.all([
                 prisma.like.findUnique({ where: { userId_postId: { userId, postId: post.id } } }),
                 prisma.bookmark.findUnique({ where: { userId_postId: { userId, postId: post.id } } }),
@@ -1519,6 +1561,7 @@ router.get("/:id", optionalAuth, async (req, res, next) => {
         res.json({
             ...post,
             isLiked, isBookmarked, isRsvped, pendingRsvp, waitlistPosition, canEdit, userVote,
+            mutualGoing,
             rsvpPreview: rsvpPreview.map((r) => r.user),
             recurrence: post.series ? {
                 seriesId:  post.series.id,

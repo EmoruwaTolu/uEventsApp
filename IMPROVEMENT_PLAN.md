@@ -20,16 +20,16 @@ export, per-club notification prefs). This list only tracks what's **actually op
 
 ## P1 — Quick UI & responsiveness wins (low risk, high polish)
 
-- [ ] **Font-scaling guards.** No `allowFontScaling`/`maxFontSizeMultiplier` anywhere; many
-  fixed-`height` containers wrap text (category pills, type badges, RSVP buttons, date
-  badges, tab labels). Large Dynamic Type clips them. Switch fixed `height:` → `minHeight:`
-  on text containers and add `maxFontSizeMultiplier={1.3}` (or `allowFontScaling={false}`
-  on tiny uppercase chrome labels).
-- [ ] **Home filter bar locked to 40px.** `index.tsx` ALL/Event/Poll row uses
-  `height: 40, maxHeight: 40` — pills clip as text grows. Let it size to content.
-- [ ] **Fake attendee dots in feed.** `EventFeedCard` draws "X going" with random colored
-  dots (`AVATAR_COLORS`) while the detail screen shows real avatars + names (`rsvpPreview`).
-  Pass real preview data into the card, or drop the dots for a plain count.
+- [x] **Font-scaling guards.** _Verified done (July 2026 audit):_ global
+  `maxFontSizeMultiplier` cap (1.4) applied at the root layout; buttons/pills size via
+  padding or `minHeight`; tab labels capped at 1.3; remaining fixed `height:` styles are
+  all avatars/icons/toggles, not text containers.
+- [x] **Home filter bar locked to 40px.** _Stale — that row no longer exists;_ the home
+  feed is now the two-pane Following / For You layout and category pills (Search tab)
+  size to content.
+- [x] **Fake attendee dots in feed.** _Done:_ `AVATAR_COLORS` is gone; `EventFeedCard`
+  renders real `rsvpPreview` avatars + `goingSummary`, and the preview data flows through
+  both `/posts/feed` and `/posts/for-you` payloads.
 - [ ] **`Dimensions.get` frozen in stylesheets.** Events search sheet `maxHeight`, profile
   clubs sheet `maxHeight`, and the `post/[id]` image carousel read `Dimensions.get` at
   render/module time — no rotation/split-view response. Switch to `useWindowDimensions()`.

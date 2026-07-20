@@ -68,6 +68,7 @@ type Poll = {
     totalVotes: number;
     userVote?: string;
     endsAt?: string;
+    closed?: boolean;
 };
 
 export type FeedPost = {
@@ -94,6 +95,8 @@ export type FeedPost = {
     freeFood?: boolean;
     rsvpCount?: number;
     rsvpPreview?: { name: string; avatarUrl?: string | null }[];
+    // Attendees who share a followed club with the viewer (friends-lite signal).
+    mutualGoing?: number;
     capacity?: number | null;
     likes?: number;
     comments?: number;
@@ -136,28 +139,33 @@ function AnimatedPollOption({
     const percentage = poll.totalVotes > 0 ? Math.round((option.votes / poll.totalVotes) * 100) : 0;
     const isUserVote = poll.userVote === option.id;
     const hasVoted = !!poll.userVote;
+    // A closed poll can't be voted on any more, so surface its results the same
+    // way a voted poll does — otherwise the options look tappable but every tap
+    // is rejected by the server ("Vote failed").
+    const closed = !!poll.closed;
+    const showResults = hasVoted || closed;
 
     const reduceMotion = useReduceMotion();
     const progressWidth = useRef(new Animated.Value(0)).current;
-    const fadeIn = useRef(new Animated.Value(hasVoted ? 1 : 0)).current;
+    const fadeIn = useRef(new Animated.Value(showResults ? 1 : 0)).current;
 
     useEffect(() => {
-        if (hasVoted) {
+        if (showResults) {
             // Respect the OS "Reduce Motion" setting: fill/fade instantly instead of sliding.
             Animated.timing(progressWidth, { toValue: percentage, duration: reduceMotion ? 0 : 800, useNativeDriver: false }).start();
             Animated.timing(fadeIn, { toValue: 1, duration: reduceMotion ? 0 : 400, delay: reduceMotion ? 0 : 200, useNativeDriver: true }).start();
         }
-    }, [hasVoted, percentage, reduceMotion]);
+    }, [showResults, percentage, reduceMotion]);
 
     return (
         <Pressable
-            style={[s.fcPollOption, hasVoted && s.fcPollOptionVoted, isUserVote && s.fcPollOptionSelected]}
-            onPress={() => !hasVoted && onPollVote(postId, option.id)}
-            disabled={hasVoted}
+            style={[s.fcPollOption, showResults && s.fcPollOptionVoted, isUserVote && s.fcPollOptionSelected]}
+            onPress={() => !hasVoted && !closed && onPollVote(postId, option.id)}
+            disabled={hasVoted || closed}
             accessibilityRole="button"
-            accessibilityLabel={`Vote for ${option.text}`}
+            accessibilityLabel={closed ? `${option.text}, poll closed` : `Vote for ${option.text}`}
         >
-            {hasVoted && (
+            {showResults && (
                 <Animated.View
                     style={[
                         s.fcPollFill,
@@ -168,7 +176,7 @@ function AnimatedPollOption({
             )}
             <View style={s.fcPollOptionContent}>
                 <View style={s.fcPollOptionLeft}>
-                    {hasVoted && isUserVote && (
+                    {showResults && isUserVote && (
                         <Animated.View style={{ opacity: fadeIn }}>
                             <Ionicons name="checkmark" size={16} color={C.primary} />
                         </Animated.View>
@@ -177,7 +185,7 @@ function AnimatedPollOption({
                         {option.text}
                     </Text>
                 </View>
-                {hasVoted && (
+                {showResults && (
                     <Animated.Text style={[s.fcPollPct, isUserVote && s.fcPollPctSelected, { opacity: fadeIn }]}>
                         {percentage}%
                     </Animated.Text>
@@ -1280,6 +1288,14 @@ function EventFeedCard({
                         </View>
                     );
                 })()}
+
+                {/* Friends-lite social proof — co-followers of your clubs who RSVP'd */}
+                {!isPast && (post.mutualGoing ?? 0) > 0 && (
+                    <View style={s.fcMutualRow}>
+                        <Ionicons name="people" size={12} color={C.gold} />
+                        <Text style={s.fcMutualText} numberOfLines={1}>{t.mutualGoing(post.mutualGoing!)}</Text>
+                    </View>
+                )}
 
                 {/* Description */}
                 {!!post.content && (

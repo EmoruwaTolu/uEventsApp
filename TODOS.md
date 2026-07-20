@@ -22,9 +22,22 @@ actually open._
 
 ## P1 — Shortly after launch
 
-- [ ] **Friends-lite / "going with."** RSVPs are already stored. Skip the full friend
-  graph: surface "2 people you follow clubs with are going" style signals from
-  existing data first.
+- [x] **Friends-lite / "going with."** `mutualGoing` on `/posts/feed`, `/posts/for-you`,
+  and post detail: count of RSVP'd students sharing ≥1 followed club with the viewer
+  (grouped query, no friend graph, no migration). Surfaced as a gold "N people from
+  clubs you follow are going" row on `EventFeedCard` and the event RSVP card (EN + FR).
+  Tests in `mutualGoing.test.ts`.
+- [x] **Observability.** Sentry (`@sentry/react-native` + expo config plugin) and
+  PostHog wired via `uEvents/lib/analytics.ts` — a no-op-without-keys wrapper. Global
+  screen tracking + ErrorBoundary capture in `_layout.tsx`; sign_up/sign_in/sign_out,
+  rsvp, like, and onboarding events tracked. Set `EXPO_PUBLIC_SENTRY_DSN` /
+  `EXPO_PUBLIC_POSTHOG_API_KEY` in `.env` (+ Sentry org slug in `app.json`,
+  `SENTRY_AUTH_TOKEN` in EAS secrets for sourcemaps) to activate.
+- [x] **Interest picker at signup (cold-start fix).** New students land on
+  `onboarding-interests` (via `needsInterests` session flag, same pattern as club
+  onboarding): pick ≥3 topics + follow suggested clubs (top clubs by followers),
+  skippable, bilingual, uses existing `/users/me/topics` + `/clubs/:id/follow`. For You
+  has real signals from the first session.
 - [x] **"Show less like this" on For You reason chips.** Reason chips now render on
   For You cards with a "Show less" action → `POST /posts/:id/show-less` records a
   `FeedSignal` (post + club + categories). The ranker suppresses the exact post and

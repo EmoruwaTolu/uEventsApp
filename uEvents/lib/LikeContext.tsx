@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from "react";
 import { useApi } from "./useApi";
+import { analytics } from "./analytics";
 
 export type LikeState = { liked: boolean; count: number };
 
@@ -43,6 +44,7 @@ export function LikeProvider({ children }: { children: React.ReactNode }) {
             count: Math.max(0, current.count + (current.liked ? -1 : 1)),
         };
         setOverride(postId, next);
+        analytics.track("like", { postId, action: next.liked ? "like" : "unlike" });
         authApi(`/posts/${postId}/like`, { method: next.liked ? "POST" : "DELETE" })
             .catch(() => setOverride(postId, current)); // revert to what was shown
     }, [authApi, setOverride]);
