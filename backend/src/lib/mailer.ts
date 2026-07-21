@@ -1,48 +1,55 @@
 /**
  * mailer.ts — one place to send transactional email.
  * ─────────────────────────────────────────────────────────────────────────────
- * Provider is chosen from the environment, so switching later is just an env
- * change — no code edits:
+ * The provider is chosen from the environment, so switching later is just an env
+ * change — no code edits. Priority (first configured wins):
  *
- *   • Gmail SMTP (current):  set GMAIL_USER + GMAIL_APP_PASSWORD
- *   • Resend (later):        set RESEND_API_KEY  (and a verified FROM_EMAIL)
+ *   1. Brevo   (current):  set BREVO_API_KEY        — HTTP API, works on Render
+ *   2. Gmail   (SMTP):     set GMAIL_USER + GMAIL_APP_PASSWORD
+ *   3. Resend:             set RESEND_API_KEY       — HTTP API, needs a verified domain
  *
- * If Gmail creds are present they win; otherwise Resend is used if configured;
- * otherwise sending is a no-op (tokens are still created, so dev/demo works
- * without any email set up). Every outcome is logged so failures are visible in
- * the server logs rather than silently swallowed.
+ * Why Brevo and not Gmail on Render: Render blocks outbound SMTP ports (25/465/
+ * 587), so SMTP providers like Gmail time out (ETIMEDOUT). Brevo and Resend send
+ * over HTTPS (port 443), which isn't blocked. Brevo also lets you verify a single
+ * sender address (e.g. a @gmail.com) without owning a domain.
  *
- * Gmail App Password: with 2-Step Verification on your Google account, go to
- * https://myaccount.google.com/apppasswords, generate a 16-character password,
- * and set GMAIL_APP_PASSWORD to it (spaces optional). Gmail SMTP sends from your
- * own address with no domain to verify — ~500 recipients/day.
+ * If nothing is configured, sending is a no-op (tokens are still created, so
+ * dev/demo works without email). Every outcome is logged so failures are visible.
+ *
+ * Brevo setup: create a free account, verify your sender under
+ * Senders, Domains & Dedicated IPs → Senders (click the link Brevo emails you),
+ * then create an API key under SMTP & API → API Keys and set BREVO_API_KEY.
+ * Set FROM_EMAIL to the verified sender and EMAIL_FROM_NAME to the display name.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import nodemailer, { type Transporter } from "nodemailer";
 import { Resend } from "resend";
 
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const GMAIL_USER = process.env.GMAIL_USER;
 const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, ""); // app passwords are shown with spaces
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
-type Provider = "gmail" | "resend" | "none";
+type Provider = "brevo" | "gmail" | "resend" | "none";
 
 function activeProvider(): Provider {
+    if (BREVO_API_KEY) return "brevo";
     if (GMAIL_USER && GMAIL_APP_PASSWORD) return "gmail";
     if (RESEND_API_KEY) return "resend";
     return "none";
 }
 
-// The "from" line. Gmail requires this to be your authenticated address (or a
-// configured "send-as" alias), so it defaults to GMAIL_USER; Resend uses your
-// verified FROM_EMAIL. EMAIL_FROM_NAME sets the display name.
-function fromAddress(): string {
+// The sender identity. Must be an address the provider has authorized:
+// Brevo → a verified sender; Gmail → the authenticated account; Resend → a
+// verified-domain address. EMAIL_FROM_NAME sets the display name.
+function fromParts(): { name: string; email: string } {
     const name = process.env.EMAIL_FROM_NAME ?? "uEvents";
-    const addr =
-        activeProvider() === "gmail"
-            ? (process.env.FROM_EMAIL ?? GMAIL_USER)
-            : (process.env.FROM_EMAIL ?? "noreply@ueventsapp.com");
-    return `${name} <${addr}>`;
+    const email = process.env.FROM_EMAIL ?? GMAIL_USER ?? "noreply@ueventsapp.com";
+    return { name, email };
+}
+function fromLine(): string {
+    const { name, email } = fromParts();
+    return `${name} <${email}>`;
 }
 
 let gmailTransport: Transporter | null = null;
@@ -67,11 +74,11 @@ function getResend(): Resend {
     const p = activeProvider();
     if (p === "none") {
         console.warn(
-            "[email] No email provider configured — set GMAIL_USER + GMAIL_APP_PASSWORD (or RESEND_API_KEY). " +
+            "[email] No email provider configured — set BREVO_API_KEY (or GMAIL_USER + GMAIL_APP_PASSWORD, or RESEND_API_KEY). " +
             "Emails will be SKIPPED (tokens are still created).",
         );
     } else {
-        console.log(`[email] Provider: ${p} (from: ${fromAddress()}).`);
+        console.log(`[email] Provider: ${p} (from: ${fromLine()}).`);
     }
 }
 
@@ -90,16 +97,38 @@ export async function sendEmail(opts: { to: string; subject: string; html: strin
         return;
     }
 
-    const from = fromAddress();
     try {
-        if (provider === "gmail") {
-            const info = await getGmailTransport().sendMail({ from, to: opts.to, subject: opts.subject, html: opts.html });
+        if (provider === "brevo") {
+            const { name, email } = fromParts();
+            const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+                method: "POST",
+                headers: {
+                    "api-key": BREVO_API_KEY!,
+                    "content-type": "application/json",
+                    accept: "application/json",
+                },
+                body: JSON.stringify({
+                    sender: { name, email },
+                    to: [{ email: opts.to }],
+                    subject: opts.subject,
+                    htmlContent: opts.html,
+                }),
+            });
+            if (!res.ok) {
+                const body = await res.text().catch(() => "");
+                console.error(`[email] Brevo rejected "${opts.subject}" to ${opts.to} (HTTP ${res.status}): ${body}`);
+            } else {
+                const data: any = await res.json().catch(() => ({}));
+                console.log(`[email] Brevo accepted "${opts.subject}" for ${opts.to} (id: ${data?.messageId}).`);
+            }
+        } else if (provider === "gmail") {
+            const info = await getGmailTransport().sendMail({ from: fromLine(), to: opts.to, subject: opts.subject, html: opts.html });
             console.log(`[email] Gmail accepted "${opts.subject}" for ${opts.to} (id: ${info.messageId}).`);
         } else {
             // Resend returns { data, error } and does NOT throw on API errors
             // (e.g. an unverified sender domain), so read the error explicitly.
-            const { data, error } = await getResend().emails.send({ from, to: opts.to, subject: opts.subject, html: opts.html });
-            if (error) console.error(`[email] Resend rejected "${opts.subject}" to ${opts.to} (from ${from}):`, error);
+            const { data, error } = await getResend().emails.send({ from: fromLine(), to: opts.to, subject: opts.subject, html: opts.html });
+            if (error) console.error(`[email] Resend rejected "${opts.subject}" to ${opts.to} (from ${fromLine()}):`, error);
             else console.log(`[email] Resend accepted "${opts.subject}" for ${opts.to} (id: ${data?.id}).`);
         }
     } catch (err) {
