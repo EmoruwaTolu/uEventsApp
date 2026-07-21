@@ -410,7 +410,7 @@ export default function SettingsScreen() {
             const res = await authApi<{ token?: string }>("/users/me/password", {
                 method: "PATCH",
                 body: JSON.stringify({ currentPassword: currentPw, newPassword: newPw }),
-            });
+            }, { signOutOn401: false }); // a wrong current password is a 401, but must not end the session
             if (res?.token) await updateToken(res.token);
             setCurrentPw(""); setNewPw(""); setConfirmPw("");
             closeModal();
