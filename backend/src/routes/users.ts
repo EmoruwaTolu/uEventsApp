@@ -6,9 +6,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
 import { validate } from "../middleware/validate";
-import { Resend } from "resend";
-
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+import { sendEmail } from "../lib/mailer";
 
 // Comma-separated list of allowed signup domains, e.g. "myuni.edu,grad.myuni.edu".
 // When unset, no domain restriction is applied (dev-friendly).
@@ -24,17 +22,14 @@ function emailDomainAllowed(email: string): boolean {
 }
 
 // Creates a verification token and emails the user a deep link to verify.
-// No-op (token still created) if Resend isn't configured, so dev still works.
+// No-op send (token still created) if no email provider is configured.
 async function sendVerificationEmail(userId: string, email: string): Promise<void> {
     const token = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
     await prisma.emailVerification.create({ data: { userId, token, expiresAt } });
 
-    if (!resend) return;
     const verifyUrl = `uevents://verify-email?token=${token}`;
-    const fromEmail = process.env.FROM_EMAIL ?? "noreply@ueventsapp.com";
-    await resend.emails.send({
-        from: `uEvents <${fromEmail}>`,
+    await sendEmail({
         to: email,
         subject: "Verify your uEvents email",
         html: `
@@ -700,22 +695,17 @@ router.post("/forgot-password", validate(forgotPasswordSchema), async (req, res,
             await prisma.passwordReset.create({ data: { userId: user.id, token, expiresAt } });
 
             const resetUrl = `uevents://reset-password?token=${token}`;
-            const fromEmail = process.env.FROM_EMAIL ?? "noreply@ueventsapp.com";
-
-            if (resend) {
-                await resend.emails.send({
-                    from: `uEvents <${fromEmail}>`,
-                    to: email,
-                    subject: "Reset your uEvents password",
-                    html: `
-                        <p>Hi,</p>
-                        <p>We received a request to reset your uEvents password. Tap the button below to choose a new one.</p>
-                        <p><a href="${resetUrl}" style="background:#8C0327;color:#fff;padding:12px 24px;text-decoration:none;font-weight:700;display:inline-block;">RESET PASSWORD</a></p>
-                        <p>This link expires in 1 hour. If you didn't request a reset, you can safely ignore this email.</p>
-                        <p>— The uEvents team</p>
-                    `,
-                });
-            }
+            await sendEmail({
+                to: email,
+                subject: "Reset your uEvents password",
+                html: `
+                    <p>Hi,</p>
+                    <p>We received a request to reset your uEvents password. Tap the button below to choose a new one.</p>
+                    <p><a href="${resetUrl}" style="background:#8C0327;color:#fff;padding:12px 24px;text-decoration:none;font-weight:700;display:inline-block;">RESET PASSWORD</a></p>
+                    <p>This link expires in 1 hour. If you didn't request a reset, you can safely ignore this email.</p>
+                    <p>— The uEvents team</p>
+                `,
+            });
         }
 
         res.json({ message: "If an account with that email exists, a reset link has been sent." });
