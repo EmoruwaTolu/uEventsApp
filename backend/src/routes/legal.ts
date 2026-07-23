@@ -12,7 +12,7 @@ router.use((_req, res, next) => {
     next();
 });
 
-const UPDATED = "July 4, 2026";
+const UPDATED = "July 23, 2026";
 const CONTACT = process.env.LEGAL_CONTACT_EMAIL ?? "support.uevents@gmail.com";
 
 function page(title: string, bodyHtml: string): string {
@@ -102,15 +102,42 @@ const PRIVACY = page("Privacy Policy", `
 
   <h2>Sharing</h2>
   <p>We do <strong>not</strong> sell your personal information, and we do not show ads or let
-  advertisers target you. We share data only with service providers that help us run the app
-  (for example, image hosting via Cloudinary and email delivery via Brevo), and only as needed
-  to provide the service. Content you post publicly (events, comments, recap photos) is visible
-  to other users as intended.</p>
+  advertisers target you. We share data only with service providers that help us operate the app,
+  and only as needed to provide the service:</p>
+  <ul>
+    <li><strong>Cloudinary</strong> — image hosting and delivery for photos you upload.</li>
+    <li><strong>Brevo</strong> — sending account emails such as verification and password reset.</li>
+    <li><strong>Hosting</strong> — our application and database run on cloud infrastructure that
+    stores your data securely.</li>
+    <li><strong>Diagnostics &amp; analytics</strong> — we may use privacy-respecting tools (for
+    example, Sentry for crash diagnostics and PostHog for aggregate product analytics) to fix bugs
+    and improve the app. These process limited technical and usage data and are never used for
+    advertising.</li>
+  </ul>
+  <p>Content you post publicly (events, comments, recap photos) is visible to other users as
+  intended. We may also disclose information if required by law, or to protect the rights, safety,
+  and security of our users and the service.</p>
+
+  <h2>Where your information is processed</h2>
+  <p>Our service providers may store and process your information on servers located outside your
+  province or country, including in the United States. Wherever it is processed, your information
+  remains protected by this policy and by appropriate contractual and legal safeguards.</p>
+
+  <h2>How we protect your information</h2>
+  <p>Passwords are stored only as salted hashes, never in plain text, and data is transmitted over
+  encrypted connections (HTTPS). No system is perfectly secure, but we take reasonable technical and
+  organizational measures to protect your information.</p>
 
   <h2>Data retention &amp; deletion</h2>
   <p>We keep your information while your account is active. You can delete your account at any
   time in <strong>Settings → Delete Account</strong>, which permanently removes your account and
   associated data. You may also contact us to request deletion.</p>
+
+  <h2>Your rights and choices</h2>
+  <p>Under applicable Canadian privacy law (including PIPEDA), you may request access to the personal
+  information we hold about you, ask us to correct it, or ask us to delete it. You can update most
+  details directly in the app, control notifications in Settings, and grant or revoke device
+  permissions at any time. To make a request or ask a question, contact us using the email below.</p>
 
   <h2>Children</h2>
   <p>uEvents is intended for university students and others 17 and older. It is not directed to
@@ -128,6 +155,10 @@ const PRIVACY = page("Privacy Policy", `
 const TERMS = page("Terms of Service", `
   <p>These Terms govern your use of the uEvents app. By creating an account or using the app,
   you agree to them.</p>
+
+  <h2>Eligibility</h2>
+  <p>uEvents is intended for university students and others 17 years of age or older. By using the
+  app, you confirm that you meet this requirement.</p>
 
   <h2>Accounts</h2>
   <ul>
@@ -166,6 +197,11 @@ const TERMS = page("Terms of Service", `
   <h2>Disclaimers &amp; liability</h2>
   <p>The service is provided "as is" without warranties of any kind. To the extent permitted by
   law, uEvents is not liable for indirect or incidental damages arising from your use of the app.</p>
+
+  <h2>Governing law</h2>
+  <p>These Terms are governed by the laws of the Province of Ontario and the federal laws of Canada
+  applicable there, without regard to conflict-of-laws rules. (Confirm the governing jurisdiction
+  with your own legal review before launch.)</p>
 
   <h2>Changes &amp; termination</h2>
   <p>We may update these Terms and will update the "last updated" date above. You may stop using
@@ -207,9 +243,43 @@ const SUPPORT = page("Support", `
   <a href="/legal/terms">Terms of Service</a>.</p>
 `);
 
+const DELETE_ACCOUNT = page("Delete your account", `
+  <p>You can delete your uEvents account and its associated data at any time. Deletion is
+  permanent and cannot be undone.</p>
+
+  <h2>Delete it yourself in the app (fastest)</h2>
+  <ul>
+    <li>Open the uEvents app and sign in.</li>
+    <li>Go to <strong>Profile → Settings</strong>.</li>
+    <li>Tap <strong>Delete Account</strong> and confirm.</li>
+  </ul>
+  <p>Your account and data are removed right away.</p>
+
+  <h2>Can't access the app?</h2>
+  <p>If you've uninstalled the app or can't sign in, email us and we'll delete your account
+  for you.</p>
+  <div class="note">Email <a href="mailto:${CONTACT}">${CONTACT}</a> with the subject
+  <strong>"Delete my account"</strong>. Please send it from the email address on your account
+  so we can verify the request. We action verified requests within 30 days.</div>
+
+  <h2>What gets deleted</h2>
+  <p>Your profile and account details, plus content tied to your account — posts,
+  announcements, polls, comments, uploaded photos, ratings, RSVPs, check-ins, follows,
+  bookmarks, likes, and votes.</p>
+
+  <h2>What we may keep</h2>
+  <p>We may retain a limited amount of information where required for security, fraud
+  prevention, or legal compliance, and we may keep aggregated or anonymized data that no
+  longer identifies you.</p>
+
+  <hr class="divider" />
+  <p>See also our <a href="/legal/privacy">Privacy Policy</a>.</p>
+`);
+
 router.get(["/privacy", "/privacy.html"], (_req, res) => res.type("html").send(PRIVACY));
 router.get(["/terms", "/terms.html"], (_req, res) => res.type("html").send(TERMS));
 router.get(["/support", "/support.html"], (_req, res) => res.type("html").send(SUPPORT));
+router.get(["/delete-account", "/delete-account.html"], (_req, res) => res.type("html").send(DELETE_ACCOUNT));
 
 // A tiny index so /legal resolves to something useful.
 router.get("/", (_req, res) =>
@@ -218,6 +288,7 @@ router.get("/", (_req, res) =>
         <li><a href="/legal/support">Support</a></li>
         <li><a href="/legal/privacy">Privacy Policy</a></li>
         <li><a href="/legal/terms">Terms of Service</a></li>
+        <li><a href="/legal/delete-account">Delete your account</a></li>
       </ul>`)),
 );
 
