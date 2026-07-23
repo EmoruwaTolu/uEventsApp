@@ -103,7 +103,7 @@ const PRIVACY = page("Privacy Policy", `
   <h2>Sharing</h2>
   <p>We do <strong>not</strong> sell your personal information, and we do not show ads or let
   advertisers target you. We share data only with service providers that help us run the app
-  (for example, image hosting via Cloudinary and email delivery via Resend), and only as needed
+  (for example, image hosting via Cloudinary and email delivery via Brevo), and only as needed
   to provide the service. Content you post publicly (events, comments, recap photos) is visible
   to other users as intended.</p>
 

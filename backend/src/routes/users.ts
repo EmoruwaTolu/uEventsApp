@@ -28,7 +28,10 @@ async function sendVerificationEmail(userId: string, email: string): Promise<voi
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
     await prisma.emailVerification.create({ data: { userId, token, expiresAt } });
 
-    const verifyUrl = `uevents://verify-email?token=${token}`;
+    // Link to the web verify page (works on desktop too); that page offers an
+    // "Open in the app" deep link and a plain web button as a fallback.
+    const base = process.env.PUBLIC_BASE_URL ?? "https://ueventsapp.onrender.com";
+    const verifyUrl = `${base}/verify-email?token=${token}`;
     await sendEmail({
         to: email,
         subject: "Verify your uEvents email",
@@ -36,6 +39,7 @@ async function sendVerificationEmail(userId: string, email: string): Promise<voi
             <p>Welcome to uEvents!</p>
             <p>Tap the button below to verify your email address and finish setting up your account.</p>
             <p><a href="${verifyUrl}" style="background:#8C0327;color:#fff;padding:12px 24px;text-decoration:none;font-weight:700;display:inline-block;">VERIFY EMAIL</a></p>
+            <p>Or paste this link into your browser:<br /><a href="${verifyUrl}">${verifyUrl}</a></p>
             <p>This link expires in 24 hours. If you didn't create a uEvents account, you can safely ignore this email.</p>
             <p>— The uEvents team</p>
         `,
