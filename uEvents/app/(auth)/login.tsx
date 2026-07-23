@@ -12,6 +12,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { useTheme } from "../../lib/ThemeContext";
 import { useReduceMotion } from "../../lib/useReduceMotion";
 import { useT } from "../../lib/LangContext";
+import { API_BASE } from "../../lib/api";
 import type { AppColors } from "../../styles/theme";
 
 type Page = "landing" | "signin" | "register" | "register-club";
@@ -591,11 +592,11 @@ export default function LoginScreen() {
                         <Text style={s.powered}>{t.authPoweredBy}</Text>
                         {page === "landing" && (
                             <View style={s.legalRow}>
-                                <Pressable onPress={() => Linking.openURL("https://uevents.app/terms")}>
+                                <Pressable onPress={() => Linking.openURL(`${API_BASE}/legal/terms`)}>
                                     <Text style={s.legalLink}>{t.authTerms}</Text>
                                 </Pressable>
                                 <Text style={s.legalDot}>·</Text>
-                                <Pressable onPress={() => Linking.openURL("https://uevents.app/privacy")}>
+                                <Pressable onPress={() => Linking.openURL(`${API_BASE}/legal/privacy`)}>
                                     <Text style={s.legalLink}>{t.authPrivacy}</Text>
                                 </Pressable>
                             </View>
