@@ -694,7 +694,10 @@ router.post("/forgot-password", validate(forgotPasswordSchema), async (req, res,
 
             await prisma.passwordReset.create({ data: { userId: user.id, token, expiresAt } });
 
-            const resetUrl = `uevents://reset-password?token=${token}`;
+            // Link to the web reset page (works on desktop too); that page offers
+            // an "Open in the app" deep link and a plain web form as a fallback.
+            const base = process.env.PUBLIC_BASE_URL ?? "https://ueventsapp.onrender.com";
+            const resetUrl = `${base}/reset-password?token=${token}`;
             await sendEmail({
                 to: email,
                 subject: "Reset your uEvents password",
@@ -702,6 +705,7 @@ router.post("/forgot-password", validate(forgotPasswordSchema), async (req, res,
                     <p>Hi,</p>
                     <p>We received a request to reset your uEvents password. Tap the button below to choose a new one.</p>
                     <p><a href="${resetUrl}" style="background:#8C0327;color:#fff;padding:12px 24px;text-decoration:none;font-weight:700;display:inline-block;">RESET PASSWORD</a></p>
+                    <p>Or paste this link into your browser:<br /><a href="${resetUrl}">${resetUrl}</a></p>
                     <p>This link expires in 1 hour. If you didn't request a reset, you can safely ignore this email.</p>
                     <p>— The uEvents team</p>
                 `,
