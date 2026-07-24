@@ -66,8 +66,8 @@
       [
         "@sentry/react-native/expo",
         {
-          "organization": "SENTRY_ORG_SLUG_HERE",
-          "project": "uevents"
+          "organization": "uevents",
+          "project": "react-native"
         }
       ],
       [
@@ -97,8 +97,7 @@
           "cameraPermission": "Allow uEvents to use the camera to take event photos."
         }
       ],
-      "expo-font",
-      "@sentry/react-native"
+      "expo-font"
     ],
     "extra": {
       "router": {},

@@ -17,7 +17,8 @@
       "channel": "preview",
       "env": {
         "EXPO_PUBLIC_API_BASE": "https://ueventsapp.onrender.com",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "EXPO_PUBLIC_SENTRY_DSN": "https://8f0e15298ec134d2c783d343e18278fd@o4511791346352128.ingest.us.sentry.io/4511791359918080",
+        "SENTRY_ALLOW_FAILURE": "true"
       },
       "android": {
         "buildType": "apk"
@@ -28,7 +29,8 @@
       "channel": "production",
       "env": {
         "EXPO_PUBLIC_API_BASE": "https://ueventsapp.onrender.com",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "EXPO_PUBLIC_SENTRY_DSN": "https://8f0e15298ec134d2c783d343e18278fd@o4511791346352128.ingest.us.sentry.io/4511791359918080",
+        "SENTRY_ALLOW_FAILURE": "true"
       }
     }
   },
