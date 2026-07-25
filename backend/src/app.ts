@@ -18,6 +18,7 @@ import calendarRouter     from "./routes/calendar";
 import legalRouter        from "./routes/legal";
 import resetPageRouter    from "./routes/resetPage";
 import verifyPageRouter   from "./routes/verifyPage";
+import adminPageRouter    from "./routes/adminPage";
 
 const app = express();
 
@@ -94,6 +95,7 @@ app.use("/calendar",      calendarRouter);
 app.use("/legal",         legalRouter);
 app.use("/reset-password", resetPageRouter);
 app.use("/verify-email",   verifyPageRouter);
+app.use("/admin",          adminPageRouter);
 
 app.use(errorHandler);
 
