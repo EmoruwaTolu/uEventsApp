@@ -227,6 +227,18 @@ const makePostStyles = (C: AppColors) => StyleSheet.create({
 
     commentsSection: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
     commentsHeaderRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" },
+    commentSortRow: { flexDirection: "row", justifyContent: "flex-end", marginBottom: 12 },
+    sortToggle: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 5,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderWidth: 1,
+        borderColor: C.primary,
+        backgroundColor: C.primaryBg,
+    },
+    sortToggleText: { fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 0.8 },
     commentsLabel: {
         fontSize: 10,
         fontWeight: "800",
@@ -483,6 +495,7 @@ export default function PostDetailScreen() {
     const [votingId, setVotingId] = useState<string | null>(null);
     const [comments, setComments] = useState<Comment[]>([]);
     const [commentsLoading, setCommentsLoading] = useState(false);
+    const [commentSort, setCommentSort] = useState<"newest" | "oldest">("newest");
     const [commentText, setCommentText] = useState("");
     const [commentSubmitting, setCommentSubmitting] = useState(false);
     const [replyingTo, setReplyingTo] = useState<{ id: string; name: string } | null>(null);
@@ -1192,6 +1205,24 @@ export default function PostDetailScreen() {
                             )}
                         </View>
 
+                        {comments.length > 0 && (
+                            <View style={s.commentSortRow}>
+                                <Pressable
+                                    style={s.sortToggle}
+                                    onPress={() => setCommentSort((so) => so === "newest" ? "oldest" : "newest")}
+                                    hitSlop={8}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={commentSort === "newest"
+                                        ? "Comments sorted newest first. Tap to show oldest first."
+                                        : "Comments sorted oldest first. Tap to show newest first."}
+                                >
+                                    <Ionicons name="swap-vertical" size={14} color={C.primary} />
+                                    <Text style={s.sortToggleText}>{commentSort === "newest" ? t.newest : t.oldest}</Text>
+                                    <Ionicons name={commentSort === "newest" ? "arrow-down" : "arrow-up"} size={11} color={C.primary} />
+                                </Pressable>
+                            </View>
+                        )}
+
                         {commentsLoading ? (
                             <ActivityIndicator color={C.primary} style={{ marginTop: 16 }} />
                         ) : comments.length === 0 ? (
@@ -1199,7 +1230,10 @@ export default function PostDetailScreen() {
                         ) : (
                             (() => {
                                 const pinned = comments.find((c) => c.isPinned);
-                                const rest = comments.filter((c) => !c.isPinned);
+                                const rest = comments.filter((c) => !c.isPinned).sort((a, b) => {
+                                    const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+                                    return commentSort === "newest" ? -diff : diff;
+                                });
                                 const ordered = pinned ? [pinned, ...rest] : rest;
 
                                 const renderComment = (c: Comment, isReply = false) => {

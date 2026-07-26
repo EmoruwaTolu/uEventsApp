@@ -1300,9 +1300,15 @@ export default function EventPage() {
                                 <Pressable
                                     style={styles.sortToggle}
                                     onPress={() => setCommentSort((s) => s === "newest" ? "oldest" : "newest")}
+                                    hitSlop={8}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={commentSort === "newest"
+                                        ? "Comments sorted newest first. Tap to show oldest first."
+                                        : "Comments sorted oldest first. Tap to show newest first."}
                                 >
-                                    <Ionicons name="swap-vertical-outline" size={13} color="#6B7280" />
+                                    <Ionicons name="swap-vertical" size={14} color={C.primary} />
                                     <Text style={styles.sortToggleText}>{commentSort === "newest" ? t.newest : t.oldest}</Text>
+                                    <Ionicons name={commentSort === "newest" ? "arrow-down" : "arrow-up"} size={11} color={C.primary} />
                                 </Pressable>
                             </View>
                         )}
@@ -2022,8 +2028,17 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
     filterPillActive: { borderColor: C.primary, backgroundColor: C.primaryBg },
     filterPillText: { fontSize: 9, fontWeight: "800", color: C.textLight, letterSpacing: 1 },
     filterPillTextActive: { color: C.primary },
-    sortToggle: { flexDirection: "row", alignItems: "center", gap: 4 },
-    sortToggleText: { fontSize: 9, fontWeight: "700", color: C.textMuted, letterSpacing: 0.5 },
+    sortToggle: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 5,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderWidth: 1,
+        borderColor: C.primary,
+        backgroundColor: C.primaryBg,
+    },
+    sortToggleText: { fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 0.8 },
     commentAvatarClub: { backgroundColor: "#1D4ED8" },
     clubBadge: {
         backgroundColor: "#1D4ED8",
