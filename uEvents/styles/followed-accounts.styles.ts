@@ -1,5 +1,6 @@
 import { StyleSheet } from "react-native";
-import type { AppColors } from "./theme";
+import { lightColors, type AppColors } from "./theme";
+import { fonts, lbl, meta } from "../styles/theme";
 
 export const makeFollowedStyles = (C: AppColors) => StyleSheet.create({
     container: {
@@ -18,20 +19,8 @@ export const makeFollowedStyles = (C: AppColors) => StyleSheet.create({
         paddingTop: 12,
         paddingBottom: 8,
     },
-    headerLabel: {
-        fontSize: 11,
-        fontWeight: "700",
-        letterSpacing: 1.5,
-        color: C.textMuted,
-        textTransform: "uppercase",
-    },
-    viewAll: {
-        fontSize: 11,
-        fontWeight: "700",
-        letterSpacing: 1,
-        color: C.primary,
-        textTransform: "uppercase",
-    },
+    headerLabel: { ...lbl(11, "bold", 0.12), color: C.textMuted },
+    viewAll: { ...lbl(11, "bold", 0.09), color: C.primary },
     listContent: {
         paddingHorizontal: 16,
     },
@@ -55,18 +44,10 @@ export const makeFollowedStyles = (C: AppColors) => StyleSheet.create({
         height: 52,
         borderRadius: 26,
     },
-    name: {
-        fontSize: 10,
-        marginTop: 5,
+    name: { ...meta(10, "medium"), marginTop: 5,
         color: C.textBody,
-        textAlign: "center",
-        fontWeight: "500",
-    },
-    initial: {
-        fontSize: 18,
-        fontWeight: "700",
-        color: C.primary,
-    },
+        textAlign: "center" },
+    initial: { fontFamily: fonts.displayBold, fontSize: 18, color: C.primary },
     itemPressable: {},
 
     editCircle: { backgroundColor: C.surface },
@@ -82,8 +63,8 @@ export const makeFollowedStyles = (C: AppColors) => StyleSheet.create({
         borderTopRightRadius: 16,
         gap: 12,
     },
-    modalTitle: { fontSize: 18, fontWeight: "700", color: C.text },
-    modalBody: { fontSize: 14, color: C.textBody },
+    modalTitle: { fontFamily: fonts.displayBold, fontSize: 18, color: C.text },
+    modalBody: { ...meta(14, "regular"), color: C.textBody },
     modalButton: {
         backgroundColor: C.text,
         borderRadius: 12,
@@ -91,13 +72,7 @@ export const makeFollowedStyles = (C: AppColors) => StyleSheet.create({
         alignItems: "center",
         marginTop: 4,
     },
-    modalButtonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+    modalButtonText: { ...meta(16, "bold"), color: "#fff" },
 });
 
-export const followedStyles = makeFollowedStyles({
-    bg: "#F7F3EE", surface: "#FFFFFF", surfaceAlt: "#F9FAFB", surfaceWarm: "#FAF6EF", loadingBg: "#D0D0D0",
-    text: "#111827", textBody: "#374151", textMuted: "#6B7280", textLight: "#9CA3AF",
-    textFaint: "#D1CBC3", primary: "#8C0327", primaryBg: "#FEE2E2", gold: "#A8763E",
-    border: "#E5E7EB", borderWarm: "#E5E0D8", skeleton: "#E5E0D8",
-    overlay: "rgba(0,0,0,0.5)",
-});
+export const followedStyles = makeFollowedStyles(lightColors);

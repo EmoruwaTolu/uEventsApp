@@ -12,7 +12,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useT, useLang } from "../lib/LangContext";
 import { timeAgo, localeFor } from "../lib/datetime";
 import { useTheme } from "../lib/ThemeContext";
-import type { AppColors } from "../styles/theme";
+import { meta, lbl, fonts, AppColors } from "../styles/theme";
 
 type PostType = "EVENT" | "POLL" | "ANNOUNCEMENT" | "UPDATE";
 
@@ -50,14 +50,11 @@ const makeAnalyticsStyles = (C: AppColors) => StyleSheet.create({
         borderBottomColor: C.borderWarm,
     },
     topBarSide: { width: 32 },
-    topBarTitle: {
-        flex: 1,
+    topBarTitle: { ...lbl(12, "bold", 0.12), flex: 1,
         textAlign: "center",
-        fontSize: 12,
-        fontWeight: "800",
-        color: C.text,
-        letterSpacing: 2,
-    },
+        
+        
+        color: C.text },
 
     // Hero card
     heroCard: {
@@ -83,33 +80,21 @@ const makeAnalyticsStyles = (C: AppColors) => StyleSheet.create({
         gap: 16,
     },
     heroStat: { flex: 1, gap: 6 },
-    heroStatLabel: {
-        fontSize: 9,
-        fontWeight: "700",
-        color: C.textLight,
-        letterSpacing: 1,
-        lineHeight: 13,
-    },
+    heroStatLabel: { ...lbl(9, "bold", 0.11), color: C.textLight,
+        
+        lineHeight: 13 },
     heroStatValueRow: {
         flexDirection: "row",
         alignItems: "center",
         gap: 8,
         flexWrap: "wrap",
     },
-    heroStatValue: {
-        fontSize: 34,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: -1,
-        lineHeight: 38,
-    },
-    heroStatValueLarge: {
-        fontSize: 34,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: -1,
-        lineHeight: 38,
-    },
+    heroStatValue: { fontFamily: fonts.displayBold, fontSize: 34, letterSpacing: -1, color: C.text,
+        
+        lineHeight: 38 },
+    heroStatValueLarge: { fontFamily: fonts.displayBold, fontSize: 34, letterSpacing: -1, color: C.text,
+        
+        lineHeight: 38 },
     heroTrendBadge: {
         flexDirection: "row",
         alignItems: "center",
@@ -118,24 +103,14 @@ const makeAnalyticsStyles = (C: AppColors) => StyleSheet.create({
         paddingHorizontal: 6,
         paddingVertical: 3,
     },
-    heroTrendText: {
-        fontSize: 10,
-        fontWeight: "700",
-        color: C.primary,
-        letterSpacing: 0.5,
-    },
+    heroTrendText: { ...meta(10, "bold"), color: C.primary },
     highIntentBadge: {
         alignSelf: "flex-start",
         backgroundColor: C.surfaceAlt,
         paddingHorizontal: 6,
         paddingVertical: 3,
     },
-    highIntentText: {
-        fontSize: 9,
-        fontWeight: "700",
-        color: C.textMuted,
-        letterSpacing: 1,
-    },
+    highIntentText: { ...lbl(9, "bold", 0.11), color: C.textMuted },
     heroStatDivider: {
         width: StyleSheet.hairlineWidth,
         backgroundColor: C.borderWarm,
@@ -151,12 +126,10 @@ const makeAnalyticsStyles = (C: AppColors) => StyleSheet.create({
         alignItems: "center",
         gap: 14,
     },
-    heroPerfText: {
-        flex: 1,
-        fontSize: 12,
+    heroPerfText: { ...meta(12, "regular"), flex: 1,
+        
         color: C.textMuted,
-        lineHeight: 18,
-    },
+        lineHeight: 18 },
     heroDots: {
         flexDirection: "row",
         gap: 5,
@@ -185,23 +158,13 @@ const makeAnalyticsStyles = (C: AppColors) => StyleSheet.create({
         borderBottomColor: C.text,
         marginBottom: 0,
     },
-    sectionTitle: {
-        fontSize: 20,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: -0.3,
-    },
+    sectionTitle: { fontFamily: fonts.displayBold, fontSize: 20, letterSpacing: -0.3, color: C.text },
     filterBtn: {
         flexDirection: "row",
         alignItems: "center",
         gap: 5,
     },
-    filterBtnText: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 1,
-    },
+    filterBtnText: { ...lbl(10, "bold", 0.1), color: C.primary },
 
     // Filter dropdown
     filterDropdown: {
@@ -220,12 +183,7 @@ const makeAnalyticsStyles = (C: AppColors) => StyleSheet.create({
     filterOptionActive: {
         backgroundColor: C.primaryBg,
     },
-    filterOptionText: {
-        fontSize: 11,
-        fontWeight: "700",
-        color: C.textMuted,
-        letterSpacing: 1,
-    },
+    filterOptionText: { ...lbl(11, "bold", 0.09), color: C.textMuted },
     filterOptionTextActive: {
         color: C.primary,
     },
@@ -266,42 +224,19 @@ const makeAnalyticsStyles = (C: AppColors) => StyleSheet.create({
         paddingHorizontal: 7,
         paddingVertical: 3,
     },
-    postTypeText: {
-        fontSize: 9,
-        fontWeight: "700",
-        color: C.textBody,
-        letterSpacing: 1,
-    },
-    postTimeAgo: {
-        fontSize: 11,
-        color: C.textLight,
-        fontWeight: "500",
-    },
-    postTitle: {
-        fontSize: 15,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: -0.3,
-        lineHeight: 20,
-    },
+    postTypeText: { ...lbl(9, "bold", 0.11), color: C.textBody },
+    postTimeAgo: { ...meta(11, "medium"), color: C.textLight },
+    postTitle: { ...meta(15, "bold"), letterSpacing: -0.3, color: C.text,
+        
+        lineHeight: 20 },
     postStats: {
         flexDirection: "row",
         gap: 20,
         marginTop: 2,
     },
     postStat: { gap: 2 },
-    postStatLabel: {
-        fontSize: 9,
-        fontWeight: "700",
-        color: C.textLight,
-        letterSpacing: 1,
-    },
-    postStatValue: {
-        fontSize: 16,
-        fontWeight: "800",
-        color: C.text,
-        letterSpacing: -0.3,
-    },
+    postStatLabel: { ...lbl(9, "bold", 0.11), color: C.textLight },
+    postStatValue: { ...meta(16, "bold"), letterSpacing: -0.3, color: C.text },
     postStatValueRed: {
         color: C.primary,
     },
@@ -323,19 +258,10 @@ const makeAnalyticsStyles = (C: AppColors) => StyleSheet.create({
         padding: 20,
     },
     exportLeft: { gap: 6 },
-    exportLabel: {
-        fontSize: 9,
-        fontWeight: "700",
-        color: "rgba(255,255,255,0.6)",
-        letterSpacing: 1.5,
-    },
-    exportTitle: {
-        fontSize: 20,
-        fontWeight: "900",
-        color: "#fff",
-        letterSpacing: -0.3,
-        lineHeight: 26,
-    },
+    exportLabel: { ...lbl(9, "bold", 0.12), color: "rgba(255,255,255,0.6)" },
+    exportTitle: { fontFamily: fonts.displayBold, fontSize: 20, letterSpacing: -0.3, color: "#fff",
+        
+        lineHeight: 26 },
     exportIconWrap: {
         width: 44,
         height: 44,
@@ -345,20 +271,18 @@ const makeAnalyticsStyles = (C: AppColors) => StyleSheet.create({
     },
 
     // Error state
-    errorText: { fontSize: 11, fontWeight: "700", color: C.textLight, letterSpacing: 2, marginTop: 12 },
+    errorText: { ...lbl(11, "bold", 0.12), color: C.textLight,  marginTop: 12 },
     errorRetry: { marginTop: 16, borderWidth: 1.5, borderColor: C.primary, paddingHorizontal: 20, paddingVertical: 10 },
-    errorRetryText: { fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 1.5 },
+    errorRetryText: { ...lbl(10, "bold", 0.12), color: C.primary },
 
     // Report period
-    reportPeriod: {
-        textAlign: "center",
-        fontSize: 9,
-        fontWeight: "700",
+    reportPeriod: { ...lbl(9, "bold", 0.11), textAlign: "center",
+        
+        
         color: C.textLight,
-        letterSpacing: 1,
+        
         marginTop: 14,
-        marginBottom: 8,
-    },
+        marginBottom: 8 },
 
     // Follower growth chart
     growthCard: {
@@ -375,19 +299,10 @@ const makeAnalyticsStyles = (C: AppColors) => StyleSheet.create({
         alignItems: "flex-start",
         justifyContent: "space-between",
     },
-    growthCardLabel: {
-        fontSize: 9,
-        fontWeight: "800",
-        color: C.textLight,
-        letterSpacing: 1.5,
-        marginBottom: 4,
-    },
-    growthCardTotal: {
-        fontSize: 30,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: -1,
-    },
+    growthCardLabel: { ...lbl(9, "bold", 0.12), color: C.textLight,
+        
+        marginBottom: 4 },
+    growthCardTotal: { fontFamily: fonts.displayBold, fontSize: 30, letterSpacing: -1, color: C.text },
     growthDeltaBadge: {
         flexDirection: "row",
         alignItems: "center",
@@ -397,12 +312,7 @@ const makeAnalyticsStyles = (C: AppColors) => StyleSheet.create({
         paddingVertical: 5,
     },
     growthDeltaPos: { backgroundColor: "#DCFCE7" },
-    growthDeltaText: {
-        fontSize: 9,
-        fontWeight: "800",
-        color: C.textLight,
-        letterSpacing: 0.5,
-    },
+    growthDeltaText: { ...meta(9, "bold"), color: C.textLight },
     growthDeltaTextPos: { color: "#16A34A" },
     growthBars: {
         flexDirection: "row",
@@ -428,22 +338,14 @@ const makeAnalyticsStyles = (C: AppColors) => StyleSheet.create({
         minHeight: 2,
     },
     growthBarFillActive: { backgroundColor: C.primary },
-    growthBarLabel: {
-        fontSize: 8,
-        fontWeight: "700",
-        color: C.primary,
-        letterSpacing: 0.5,
+    growthBarLabel: { ...lbl(8, "bold", 0.06), color: C.primary,
+        
         marginTop: 4,
-        textAlign: "center",
-    },
-    growthBarLabelDim: {
-        fontSize: 8,
-        fontWeight: "600",
-        color: C.textLight,
-        letterSpacing: 0.3,
+        textAlign: "center" },
+    growthBarLabelDim: { ...meta(8, "semi"), color: C.textLight,
+        
         marginTop: 4,
-        textAlign: "center",
-    },
+        textAlign: "center" },
 
     // Trends
     trendsBlock: {
@@ -451,15 +353,11 @@ const makeAnalyticsStyles = (C: AppColors) => StyleSheet.create({
         marginTop: 24,
         gap: 10,
     },
-    trendsSectionTitle: {
-        fontSize: 20,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: -0.3,
+    trendsSectionTitle: { fontFamily: fonts.displayBold, fontSize: 20, letterSpacing: -0.3, color: C.text,
+        
         borderBottomWidth: 2,
         borderBottomColor: C.text,
-        paddingBottom: 4,
-    },
+        paddingBottom: 4 },
     trendCard: {
         backgroundColor: C.surface,
         flexDirection: "row",
@@ -472,20 +370,11 @@ const makeAnalyticsStyles = (C: AppColors) => StyleSheet.create({
         borderLeftColor: C.primary,
     },
     trendCardLeft: { flex: 1, gap: 4 },
-    trendCardTag: {
-        fontSize: 9,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 2,
-    },
-    trendCardTitle: {
-        fontSize: 14,
-        fontWeight: "900",
-        color: C.text,
-        lineHeight: 20,
-    },
+    trendCardTag: { ...lbl(9, "bold", 0.12), color: C.primary },
+    trendCardTitle: { ...meta(14, "bold"), color: C.text,
+        lineHeight: 20 },
     trendCardStats: { flexDirection: "row", gap: 14, marginTop: 2 },
-    trendCardStat: { fontSize: 11, color: C.textMuted, fontWeight: "600" },
+    trendCardStat: { ...meta(11, "semi"), color: C.textMuted },
     trendCardBtn: {
         width: 36,
         height: 36,
@@ -502,25 +391,18 @@ const makeAnalyticsStyles = (C: AppColors) => StyleSheet.create({
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: C.borderWarm,
     },
-    typeAvgTitle: {
-        fontSize: 9,
-        fontWeight: "800",
-        color: C.textLight,
-        letterSpacing: 2,
-        marginBottom: 2,
-    },
+    typeAvgTitle: { ...lbl(9, "bold", 0.12), color: C.textLight,
+        
+        marginBottom: 2 },
     typeAvgRow: {
         flexDirection: "row",
         alignItems: "center",
         gap: 10,
     },
-    typeAvgLabel: {
-        width: 90,
-        fontSize: 10,
-        fontWeight: "700",
-        color: C.textBody,
-        letterSpacing: 0.5,
-    },
+    typeAvgLabel: { ...meta(10, "bold"), width: 90,
+        
+        
+        color: C.textBody },
     typeAvgBarTrack: {
         flex: 1,
         height: 8,
@@ -532,13 +414,11 @@ const makeAnalyticsStyles = (C: AppColors) => StyleSheet.create({
         height: 8,
         backgroundColor: C.primary,
     },
-    typeAvgValue: {
-        width: 36,
+    typeAvgValue: { ...meta(12, "bold"), width: 36,
         textAlign: "right",
-        fontSize: 12,
-        fontWeight: "800",
-        color: C.text,
-    },
+        
+        
+        color: C.text },
 });
 
 export default function AnalyticsScreen() {

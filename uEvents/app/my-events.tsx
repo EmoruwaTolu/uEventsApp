@@ -8,7 +8,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { useApi } from "../lib/useApi";
 import { useT } from "../lib/LangContext";
 import { useTheme } from "../lib/ThemeContext";
-import type { AppColors } from "../styles/theme";
+import { meta, lbl, fonts, AppColors } from "../styles/theme";
 
 const GREEN = "#16A34A";
 
@@ -192,9 +192,9 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingHorizontal: 16, paddingVertical: 12,
     },
     backGroup: { flexDirection: "row", alignItems: "center", gap: 2 },
-    backLabel: { fontSize: 14, fontWeight: "900", color: C.primary, letterSpacing: 2 },
-    countBadge: { fontSize: 11, fontWeight: "800", color: C.textMuted, letterSpacing: 1 },
-    screenTitle: { fontSize: 26, fontWeight: "900", color: C.text, letterSpacing: -0.5, paddingHorizontal: 16, marginBottom: 12 },
+    backLabel: { ...meta(14, "bold"), color: C.primary },
+    countBadge: { ...lbl(11, "bold", 0.09), color: C.textMuted },
+    screenTitle: { fontFamily: fonts.displayBold, fontSize: 26, letterSpacing: -0.5, color: C.text,  paddingHorizontal: 16, marginBottom: 12 },
     searchBar: {
         flexDirection: "row", alignItems: "center", gap: 8,
         marginHorizontal: 16, marginBottom: 14,
@@ -202,12 +202,12 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         backgroundColor: C.surfaceAlt ?? C.surface,
         borderWidth: 1, borderColor: C.border,
     },
-    searchInput: { flex: 1, fontSize: 15, fontWeight: "500", color: C.text, paddingVertical: 0 },
-    sectionLabel: { fontSize: 11, fontWeight: "800", color: C.textLight, letterSpacing: 1.5, paddingHorizontal: 16, marginBottom: 8 },
+    searchInput: { fontFamily: fonts.body, fontSize: 15, flex: 1,   color: C.text, paddingVertical: 0 },
+    sectionLabel: { ...lbl(11, "bold", 0.12), color: C.textLight,  paddingHorizontal: 16, marginBottom: 8 },
     center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 14, paddingHorizontal: 32 },
-    emptyText: { fontSize: 13, fontWeight: "600", color: C.textMuted, textAlign: "center" },
+    emptyText: { ...meta(13, "semi"), color: C.textMuted, textAlign: "center" },
     retry: { borderWidth: 1.5, borderColor: C.primary, paddingHorizontal: 20, paddingVertical: 10 },
-    retryText: { fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 1.5 },
+    retryText: { ...lbl(10, "bold", 0.12), color: C.primary },
 
     row: {
         flexDirection: "row", alignItems: "center", gap: 12,
@@ -220,14 +220,14 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         position: "absolute", top: 4, left: 4, backgroundColor: "rgba(0,0,0,0.72)",
         paddingHorizontal: 5, paddingVertical: 2, alignItems: "center",
     },
-    dateDay: { fontSize: 8, fontWeight: "800", color: "#fff", letterSpacing: 0.5 },
-    dateNum: { fontSize: 15, fontWeight: "900", color: "#fff", lineHeight: 17 },
+    dateDay: { ...lbl(8, "bold", 0.06), color: "#fff" },
+    dateNum: { ...meta(15, "bold"), color: "#fff", lineHeight: 17 },
     body: { flex: 1, gap: 4 },
-    title: { fontSize: 16, fontWeight: "800", color: C.text, letterSpacing: -0.3 },
-    sub: { fontSize: 12, fontWeight: "500", color: C.textMuted },
+    title: { ...meta(16, "bold"), letterSpacing: -0.3, color: C.text },
+    sub: { ...meta(12, "medium"), color: C.textMuted },
     goingBadge: {
         alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 3,
         backgroundColor: GREEN, paddingHorizontal: 8, paddingVertical: 3, marginTop: 2,
     },
-    goingBadgeText: { fontSize: 9, fontWeight: "800", color: "#fff", letterSpacing: 0.8 },
+    goingBadgeText: { ...lbl(9, "bold", 0.09), color: "#fff" },
 });

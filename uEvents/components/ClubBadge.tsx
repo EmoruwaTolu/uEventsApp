@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { View, Image, Text, StyleSheet } from "react-native";
+import { fonts, lbl, meta, lightColors } from "../styles/theme";
 
 export type ClubBadgeProps = {
     logoUri?: string;
@@ -14,7 +15,7 @@ export default function ClubBadge({
     name,
     size = 44,
     borderColor = "#A8763E",
-    backgroundColor = "#111827",
+    backgroundColor = lightColors.text,
 }: ClubBadgeProps) {
     const [imgError, setImgError] = useState(false);
     const radius = size / 2;
@@ -63,8 +64,5 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-    initials: {
-        color: "#fff",
-        fontWeight: "800",
-    },
+    initials: { ...meta(13, "bold"), color: "#fff" },
 });

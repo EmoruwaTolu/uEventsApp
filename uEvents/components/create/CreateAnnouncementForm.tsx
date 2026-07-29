@@ -25,6 +25,7 @@ import { useToast } from "../../lib/ToastContext";
 import { cs } from "./CreateEventForm";
 import { useT } from "../../lib/LangContext";
 import { localeFor } from "../../lib/datetime";
+import { fonts, lbl, meta, lightColors } from "../../styles/theme";
 
 type Lang = "en" | "fr";
 
@@ -37,7 +38,7 @@ type Props = {
 
 const MAX_TITLE = 120;
 const MAX_BODY = 2000;
-const BURGUNDY = "#8C0327";
+const BURGUNDY = lightColors.primary;
 const IDLE_BORDER = "#D4CFC8";
 const ANIM_DURATION = 200;
 
@@ -227,7 +228,7 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
                 </Pressable>
                 <View style={s.langToggle}>
                     {autoSaving && (
-                        <Text style={{ fontSize: 11, color: "#9CA3AF", marginRight: 8 }}>{t.saving}</Text>
+                        <Text style={{ ...meta(11, "regular"), color: lightColors.textLight, marginRight: 8 }}>{t.saving}</Text>
                     )}
                     {(["en", "fr"] as Lang[]).map((l) => (
                         <Pressable
@@ -284,7 +285,7 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
                 <View style={s.section}>
                     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                         <Text style={s.sectionLabel}>{`2. ${t.sectionBodyContent}`}</Text>
-                        <Text style={{ fontSize: 11, color: bodies[lang].length > MAX_BODY * 0.9 ? "#8C0327" : "#9CA3AF" }}>
+                        <Text style={{ ...meta(11, "regular"), color: bodies[lang].length > MAX_BODY * 0.9 ? lightColors.primary : lightColors.textLight }}>
                             {bodies[lang].length}/{MAX_BODY}
                         </Text>
                     </View>
@@ -317,7 +318,7 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
                 <View style={s.section}>
                     <Text style={s.sectionLabel}>{`4. ${t.schedulePublishSection}`}</Text>
                     <View style={[s.schedRow, { backgroundColor: scheduleDate ? "#FEF3C7" : "#EDECEA" }]}>
-                        <Ionicons name="time-outline" size={14} color="#9CA3AF" />
+                        <Ionicons name="time-outline" size={14} color={lightColors.textLight} />
                         <Pressable onPress={() => setPickerTarget("sched-date")} style={{ flex: 1 }}>
                             <Text style={[s.schedText, !scheduleDate && s.schedPlaceholder]}>
                                 {scheduleDate
@@ -334,7 +335,7 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
                         )}
                         {scheduleDate && (
                             <Pressable onPress={() => setScheduleDate(null)} style={{ marginLeft: 6 }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Clear schedule date">
-                                <Ionicons name="close-circle" size={16} color="#9CA3AF" />
+                                <Ionicons name="close-circle" size={16} color={lightColors.textLight} />
                             </Pressable>
                         )}
                     </View>
@@ -362,7 +363,7 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
                                     minimumDate={new Date()}
                                     display="spinner"
                                     onChange={onPickerChange}
-                                    style={{ width: "100%", backgroundColor: "#FFFFFF" }} themeVariant="light" textColor="#111827"
+                                    style={{ width: "100%", backgroundColor: "#FFFFFF" }} themeVariant="light" textColor={lightColors.text}
                                 />
                             </View>
                         </BottomSheet>
@@ -403,7 +404,7 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
                             </Text>
                             {expiresAt && (
                                 <Pressable onPress={() => setExpiresAt(null)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Clear expiry date">
-                                    <Ionicons name="close-circle" size={14} color="#9CA3AF" />
+                                    <Ionicons name="close-circle" size={14} color={lightColors.textLight} />
                                 </Pressable>
                             )}
                         </Pressable>
@@ -437,7 +438,7 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
                                     </Text>
                                     {commentsLockDate && (
                                         <Pressable onPress={() => setCommentsLockDate(null)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Clear auto-lock date">
-                                            <Ionicons name="close-circle" size={14} color="#9CA3AF" />
+                                            <Ionicons name="close-circle" size={14} color={lightColors.textLight} />
                                         </Pressable>
                                     )}
                                 </Pressable>
@@ -483,7 +484,7 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
                         minimumDate={new Date()}
                         display="spinner"
                         onChange={(_, d) => { if (d) setExpiresAt(d); }}
-                        style={{ width: "100%", backgroundColor: "#FFFFFF" }} themeVariant="light" textColor="#111827"
+                        style={{ width: "100%", backgroundColor: "#FFFFFF" }} themeVariant="light" textColor={lightColors.text}
                     />
                 </View>
             </BottomSheet>
@@ -503,7 +504,7 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
                         minimumDate={new Date()}
                         display="spinner"
                         onChange={(_, d) => { if (d) setCommentsLockDate(d); }}
-                        style={{ width: "100%", backgroundColor: "#FFFFFF" }} themeVariant="light" textColor="#111827"
+                        style={{ width: "100%", backgroundColor: "#FFFFFF" }} themeVariant="light" textColor={lightColors.text}
                     />
                 </View>
             </BottomSheet>
@@ -516,7 +517,7 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
                             <Ionicons
                                 name={r.met ? "checkmark-circle" : "ellipse-outline"}
                                 size={11}
-                                color={r.met ? BURGUNDY : "#C4BFB8"}
+                                color={r.met ? BURGUNDY : lightColors.textFaint}
                             />
                             <Text style={[s.reqText, r.met && s.reqTextMet]}>{r.label}</Text>
                         </View>
@@ -557,7 +558,7 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
 }
 
 const s = StyleSheet.create({
-    safe: { flex: 1, backgroundColor: "#F7F3EE" },
+    safe: { flex: 1, backgroundColor: lightColors.bg },
 
     // Top bar
     topBar: {
@@ -572,16 +573,11 @@ const s = StyleSheet.create({
         gap: 6,
         flex: 1,
     },
-    topBarBrand: {
-        fontSize: 14,
-        fontWeight: "900",
-        color: BURGUNDY,
-        letterSpacing: 2,
-    },
+    topBarBrand: { ...meta(14, "bold"), color: BURGUNDY },
     langToggle: {
         flexDirection: "row",
         borderWidth: 1,
-        borderColor: "#D1CBC3",
+        borderColor: lightColors.textFaint,
         overflow: "hidden",
     },
     langPill: {
@@ -590,32 +586,19 @@ const s = StyleSheet.create({
         backgroundColor: "transparent",
     },
     langPillActive: { backgroundColor: BURGUNDY },
-    langPillText: {
-        fontSize: 11,
-        fontWeight: "700",
-        color: "#9CA3AF",
-        letterSpacing: 1,
-    },
+    langPillText: { ...lbl(11, "bold", 0.09), color: lightColors.textLight },
     langPillTextActive: { color: "#fff" },
 
     scroll: { paddingHorizontal: 20 },
 
     // Hero
     hero: { paddingTop: 8, paddingBottom: 28 },
-    heroLabel: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: BURGUNDY,
-        letterSpacing: 2,
-        marginBottom: 8,
-    },
-    heroHeading: {
-        fontSize: 38,
-        fontWeight: "900",
-        color: "#111827",
-        letterSpacing: -1,
-        lineHeight: 42,
-    },
+    heroLabel: { ...lbl(10, "bold", 0.12), color: BURGUNDY,
+        
+        marginBottom: 8 },
+    heroHeading: { fontFamily: fonts.displayBold, fontSize: 38, letterSpacing: -1, color: lightColors.text,
+        
+        lineHeight: 42 },
 
     // Sections
     section: { marginBottom: 32 },
@@ -625,28 +608,15 @@ const s = StyleSheet.create({
         justifyContent: "space-between",
         marginBottom: 14,
     },
-    sectionLabel: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: BURGUNDY,
-        letterSpacing: 1.5,
-        marginBottom: 14,
-    },
-    charCount: {
-        fontSize: 10,
-        fontWeight: "700",
-        color: "#9CA3AF",
-        letterSpacing: 0.5,
-        marginBottom: 14,
-    },
+    sectionLabel: { ...lbl(10, "bold", 0.12), color: BURGUNDY,
+        
+        marginBottom: 14 },
+    charCount: { ...meta(10, "bold"), color: lightColors.textLight,
+        
+        marginBottom: 14 },
     charCountWarn: { color: BURGUNDY },
-    fieldError: {
-        fontSize: 11,
-        color: "#DC2626",
-        marginTop: 4,
-        fontWeight: "600",
-        letterSpacing: 0.3,
-    },
+    fieldError: { ...meta(11, "semi"), color: "#DC2626",
+        marginTop: 4 },
 
     // Title input
     titleWrap: {
@@ -654,16 +624,12 @@ const s = StyleSheet.create({
         backgroundColor: "#fff",
         minHeight: 100,
     },
-    titleInput: {
-        fontSize: 22,
-        fontWeight: "800",
-        color: "#000",
-        letterSpacing: -0.3,
+    titleInput: { fontFamily: fonts.displayBold, fontSize: 22, letterSpacing: -0.3, color: "#000",
+        
         lineHeight: 30,
         padding: 14,
         paddingBottom: 28,
-        minHeight: 100,
-    },
+        minHeight: 100 },
     titleCorner: {
         position: "absolute",
         bottom: 0,
@@ -678,20 +644,14 @@ const s = StyleSheet.create({
         borderWidth: 1.5,
         minHeight: 160,
     },
-    bodyInput: {
-        fontSize: 14,
-        color: "#374151",
+    bodyInput: { ...meta(14, "regular"), color: lightColors.textBody,
         lineHeight: 22,
         padding: 14,
-        minHeight: 160,
-    },
+        minHeight: 160 },
 
-    visualSub: {
-        fontSize: 10,
-        color: "#9CA3AF",
-        letterSpacing: 0.3,
-        marginBottom: 10,
-    },
+    visualSub: { ...meta(10, "regular"), color: lightColors.textLight,
+        
+        marginBottom: 10 },
 
     // Schedule row
     schedRow: {
@@ -701,15 +661,8 @@ const s = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 12,
     },
-    schedText: {
-        fontSize: 13,
-        fontWeight: "600",
-        color: "#111827",
-    },
-    schedPlaceholder: {
-        color: "#C4BFB8",
-        fontWeight: "400",
-    },
+    schedText: { ...meta(13, "semi"), color: lightColors.text },
+    schedPlaceholder: { ...meta(13, "regular"), color: lightColors.textFaint },
     pickerOverlay: {
         flex: 1,
         backgroundColor: "rgba(0,0,0,0.35)",
@@ -717,7 +670,7 @@ const s = StyleSheet.create({
     pickerSheet: {
         backgroundColor: "#FFFFFF",
         borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: "#D1CBC3",
+        borderTopColor: lightColors.textFaint,
         paddingBottom: 34,
     },
     pickerSheetHeader: {
@@ -727,25 +680,15 @@ const s = StyleSheet.create({
         paddingHorizontal: 20,
         paddingVertical: 14,
         borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: "#E5E0D8",
+        borderBottomColor: lightColors.border,
     },
-    pickerSheetTitle: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: BURGUNDY,
-        letterSpacing: 1.5,
-    },
+    pickerSheetTitle: { ...lbl(10, "bold", 0.12), color: BURGUNDY },
     pickerDoneBtn: {
         paddingHorizontal: 14,
         paddingVertical: 6,
         backgroundColor: BURGUNDY,
     },
-    pickerDoneText: {
-        fontSize: 11,
-        fontWeight: "800",
-        color: "#fff",
-        letterSpacing: 1,
-    },
+    pickerDoneText: { ...lbl(11, "bold", 0.09), color: "#fff" },
 
     // Bottom bar
     bottomBar: {
@@ -753,9 +696,9 @@ const s = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: "#F7F3EE",
+        backgroundColor: lightColors.bg,
         borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: "#D1CBC3",
+        borderTopColor: lightColors.textFaint,
         paddingBottom: 30,
         paddingTop: 10,
         paddingHorizontal: 20,
@@ -772,12 +715,7 @@ const s = StyleSheet.create({
         alignItems: "center",
         gap: 4,
     },
-    reqText: {
-        fontSize: 9,
-        fontWeight: "700",
-        color: "#C4BFB8",
-        letterSpacing: 0.8,
-    },
+    reqText: { ...lbl(9, "bold", 0.09), color: lightColors.textFaint },
     reqTextMet: { color: BURGUNDY },
     bottomBtns: {
         flexDirection: "row",
@@ -786,18 +724,14 @@ const s = StyleSheet.create({
     btnDraft: {
         flex: 1,
         paddingVertical: 14,
-        backgroundColor: "#E5E0D8",
+        backgroundColor: lightColors.border,
         alignItems: "center",
         justifyContent: "center",
     },
-    btnDraftText: {
-        fontSize: 11,
-        fontWeight: "800",
-        color: "#374151",
-        letterSpacing: 1,
+    btnDraftText: { ...lbl(11, "bold", 0.09), color: lightColors.textBody,
+        
         textAlign: "center",
-        lineHeight: 16,
-    },
+        lineHeight: 16 },
     btnPublish: {
         flex: 1,
         paddingVertical: 14,
@@ -805,15 +739,11 @@ const s = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-    btnPublishText: {
-        fontSize: 11,
-        fontWeight: "800",
-        color: "#fff",
-        letterSpacing: 1,
+    btnPublishText: { ...lbl(11, "bold", 0.09), color: "#fff",
+        
         textAlign: "center",
-        lineHeight: 16,
-    },
+        lineHeight: 16 },
     btnPublishDisabled: {
-        backgroundColor: "#C4BFB8",
+        backgroundColor: lightColors.textFaint,
     },
 });

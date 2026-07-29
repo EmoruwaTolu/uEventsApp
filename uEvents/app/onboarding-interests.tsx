@@ -14,7 +14,7 @@ import { EVENT_TAGS } from "../lib/eventTags";
 import { translateCategory } from "../lib/categories";
 import { analytics } from "../lib/analytics";
 import ClubBadge from "../components/ClubBadge";
-import type { AppColors } from "../styles/theme";
+import { meta, lbl, fonts, AppColors } from "../styles/theme";
 
 const MIN_TOPICS = 3;
 
@@ -184,11 +184,11 @@ export default function OnboardingInterests() {
 const makeStyles = (C: AppColors) => StyleSheet.create({
     safe: { flex: 1, backgroundColor: C.bg },
     scroll: { paddingHorizontal: 24, paddingTop: 28, paddingBottom: 24 },
-    eyebrow: { fontSize: 11, fontWeight: "800", letterSpacing: 3, color: C.gold, marginBottom: 10 },
-    title: { fontSize: 28, fontWeight: "900", letterSpacing: 0.5, color: C.text, marginBottom: 10 },
-    subtitle: { fontSize: 14, lineHeight: 20, color: C.textMuted, marginBottom: 28 },
-    sectionHeader: { fontSize: 12, fontWeight: "800", letterSpacing: 2, color: C.text, marginBottom: 12, marginTop: 8 },
-    sectionSub: { fontSize: 13, color: C.textMuted, marginBottom: 14, marginTop: -6 },
+    eyebrow: { ...lbl(11, "bold", 0.12), color: C.gold, marginBottom: 10 },
+    title: { fontFamily: fonts.displayBold, fontSize: 28, color: C.text, marginBottom: 10 },
+    subtitle: { ...meta(14, "regular"), lineHeight: 20, color: C.textMuted, marginBottom: 28 },
+    sectionHeader: { ...lbl(12, "bold", 0.12), color: C.text, marginBottom: 12, marginTop: 8 },
+    sectionSub: { ...meta(13, "regular"), color: C.textMuted, marginBottom: 14, marginTop: -6 },
     chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 28 },
     chip: {
         paddingHorizontal: 14, paddingVertical: 10, minHeight: 38,
@@ -196,7 +196,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         alignItems: "center", justifyContent: "center",
     },
     chipOn: { backgroundColor: C.primary, borderColor: C.primary },
-    chipText: { fontSize: 11, fontWeight: "800", letterSpacing: 1.5, color: C.textBody },
+    chipText: { ...lbl(11, "bold", 0.12), color: C.textBody },
     chipTextOn: { color: "#fff" },
     clubList: { gap: 4 },
     clubRow: {
@@ -204,20 +204,20 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderWarm,
     },
     clubInfo: { flex: 1, minWidth: 0 },
-    clubName: { fontSize: 14, fontWeight: "700", color: C.text },
-    clubCat: { fontSize: 10, fontWeight: "700", letterSpacing: 1, color: C.textLight, marginTop: 2 },
+    clubName: { ...meta(14, "bold"), color: C.text },
+    clubCat: { ...lbl(10, "bold", 0.1), color: C.textLight, marginTop: 2 },
     followBtn: {
         paddingHorizontal: 14, paddingVertical: 8, minHeight: 32,
         borderWidth: 1, borderColor: C.primary, alignItems: "center", justifyContent: "center",
     },
     followBtnOn: { backgroundColor: C.primary },
-    followText: { fontSize: 10, fontWeight: "800", letterSpacing: 1.5, color: C.primary },
+    followText: { ...lbl(10, "bold", 0.12), color: C.primary },
     followTextOn: { color: "#fff" },
     footer: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.borderWarm, backgroundColor: C.bg },
-    hint: { fontSize: 12, color: C.textLight, textAlign: "center", marginBottom: 10 },
+    hint: { ...meta(12, "regular"), color: C.textLight, textAlign: "center", marginBottom: 10 },
     continueBtn: { backgroundColor: C.primary, minHeight: 52, alignItems: "center", justifyContent: "center" },
     continueBtnDisabled: { opacity: 0.4 },
-    continueText: { fontSize: 13, fontWeight: "800", letterSpacing: 2, color: "#fff" },
+    continueText: { ...lbl(13, "bold", 0.12), color: "#fff" },
     skipBtn: { alignItems: "center", paddingVertical: 14 },
-    skipText: { fontSize: 12, color: C.textLight, textDecorationLine: "underline" },
+    skipText: { ...meta(12, "regular"), color: C.textLight, textDecorationLine: "underline" },
 });

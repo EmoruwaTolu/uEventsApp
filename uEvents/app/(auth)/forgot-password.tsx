@@ -10,7 +10,7 @@ import { LoginInput } from "../../components/LoginInput";
 import { api } from "../../lib/api";
 import { useTheme } from "../../lib/ThemeContext";
 import { useT } from "../../lib/LangContext";
-import type { AppColors } from "../../styles/theme";
+import { meta, lbl, fonts, AppColors } from "../../styles/theme";
 
 type Stage = "input" | "sent";
 
@@ -28,36 +28,22 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         gap: 6,
         marginBottom: 28,
     },
-    backArrow: {
-        fontSize: 16,
-        color: C.text,
-    },
-    backText: {
-        fontSize: 11,
-        fontWeight: "800",
-        letterSpacing: 1.5,
-        color: C.text,
-    },
+    backArrow: { fontFamily: fonts.body, fontSize: 16, color: C.text },
+    backText: { ...lbl(11, "bold", 0.12), color: C.text },
     header: {
         marginBottom: 40,
     },
-    eyebrow: {
-        fontSize: 10,
-        fontWeight: "800",
-        letterSpacing: 3,
-        color: C.primary,
-        marginBottom: 8,
-    },
+    eyebrow: { ...lbl(10, "bold", 0.12), color: C.primary,
+        marginBottom: 8 },
     titleWrap: {
         transform: [{ scaleX: 0.78 }],
         transformOrigin: "left",
     },
     title: {
         fontSize: 64,
-        fontWeight: "600",
         color: C.text,
         letterSpacing: -1,
-        fontFamily: "Georgia",
+        fontFamily: fonts.displayBold,
         lineHeight: 68,
     },
     accent: {
@@ -67,19 +53,13 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         marginTop: 14,
         marginBottom: 14,
     },
-    subtitle: {
-        fontSize: 15,
-        color: C.textMuted,
-        lineHeight: 22,
-    },
+    subtitle: { fontFamily: fonts.body, fontSize: 15, color: C.textMuted,
+        lineHeight: 22 },
     form: {
         gap: 14,
     },
-    fieldError: {
-        fontSize: 12,
-        color: C.primary,
-        marginTop: -6,
-    },
+    fieldError: { ...meta(12, "regular"), color: C.primary,
+        marginTop: -6 },
     sentBox: {
         backgroundColor: C.surface,
         borderLeftWidth: 3,
@@ -87,28 +67,14 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         padding: 16,
         gap: 8,
     },
-    sentTitle: {
-        fontSize: 11,
-        fontWeight: "800",
-        letterSpacing: 1.5,
-        color: C.primary,
-    },
-    sentBody: {
-        fontSize: 14,
-        color: C.textBody,
-        lineHeight: 20,
-    },
-    sentEmail: {
-        fontWeight: "700",
-        color: C.text,
-    },
-    powered: {
-        textAlign: "center",
-        fontSize: 11,
+    sentTitle: { ...lbl(11, "bold", 0.12), color: C.primary },
+    sentBody: { ...meta(14, "regular"), color: C.textBody,
+        lineHeight: 20 },
+    sentEmail: { ...meta(13, "bold"), color: C.text },
+    powered: { ...meta(11, "regular"), textAlign: "center",
+        
         color: C.textFaint,
-        marginTop: 40,
-        letterSpacing: 0.5,
-    },
+        marginTop: 40 },
 });
 
 export default function ForgotPasswordScreen() {

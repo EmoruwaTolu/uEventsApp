@@ -1,5 +1,6 @@
 import { StyleSheet } from "react-native";
-import type { AppColors } from "./theme";
+import { lightColors, type AppColors } from "./theme";
+import { fonts, lbl, meta } from "../styles/theme";
 
 export const makeHomeStyles = (C: AppColors) => StyleSheet.create({
     safe: { flex: 1, backgroundColor: C.bg },
@@ -24,12 +25,7 @@ export const makeHomeStyles = (C: AppColors) => StyleSheet.create({
         paddingBottom: 20,
         backgroundColor: C.bg,
     },
-    mastheadLabel: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 2,
-    },
+    mastheadLabel: { ...meta(12.5, "bold"), letterSpacing: 0.3, color: C.primary },
     mastheadActions: {
         flexDirection: "row",
         alignItems: "center",
@@ -38,13 +34,9 @@ export const makeHomeStyles = (C: AppColors) => StyleSheet.create({
     mastheadIconBtn: {
         position: "relative",
     },
-    mastheadHeading: {
-        fontSize: 42,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: -1,
-        lineHeight: 46,
-    },
+    mastheadHeading: { fontFamily: fonts.displayBold, fontSize: 42, letterSpacing: -1, color: C.text,
+        
+        lineHeight: 46 },
     mastheadAccent: {
         width: 48,
         height: 3,
@@ -55,13 +47,7 @@ export const makeHomeStyles = (C: AppColors) => StyleSheet.create({
         flex: 1,
         alignItems: "center",
     },
-    mastheadTitle: {
-        fontSize: 13,
-        fontWeight: "800",
-        letterSpacing: 3,
-        color: C.text,
-        textTransform: "uppercase",
-    },
+    mastheadTitle: { ...lbl(13, "bold", 0.12), color: C.text },
     mastheadSide: {
         width: 28,
         alignItems: "center",
@@ -83,12 +69,7 @@ export const makeHomeStyles = (C: AppColors) => StyleSheet.create({
         paddingHorizontal: 16,
         paddingBottom: 12,
     },
-    mastheadGreeting: {
-        fontSize: 13,
-        fontWeight: "700",
-        color: C.text,
-        letterSpacing: 0.2,
-    },
+    mastheadGreeting: { ...meta(13, "bold"), color: C.text },
     notifBadge: {
         position: "absolute",
         top: -2,
@@ -100,13 +81,7 @@ export const makeHomeStyles = (C: AppColors) => StyleSheet.create({
         borderWidth: 1.5,
         borderColor: C.bg,
     },
-    feedHeaderTitle: {
-        fontSize: 11,
-        fontWeight: "800",
-        letterSpacing: 1.5,
-        color: C.textMuted,
-        textTransform: "uppercase",
-    },
+    feedHeaderTitle: { ...lbl(11, "bold", 0.12), color: C.textMuted },
     caughtUp: {
         flexDirection: "row",
         alignItems: "center",
@@ -119,31 +94,18 @@ export const makeHomeStyles = (C: AppColors) => StyleSheet.create({
         height: StyleSheet.hairlineWidth,
         backgroundColor: C.textFaint,
     },
-    caughtUpText: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.textFaint,
-        letterSpacing: 1.5,
-    },
+    caughtUpText: { ...lbl(10, "bold", 0.12), color: C.textFaint },
     discoverHeader: {
         paddingHorizontal: 16,
         paddingTop: 8,
         paddingBottom: 20,
     },
-    discoverLabel: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 2,
-        marginBottom: 6,
-    },
-    discoverHeading: {
-        fontSize: 42,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: -1,
-        lineHeight: 46,
-    },
+    discoverLabel: { ...lbl(10, "bold", 0.12), color: C.primary,
+        
+        marginBottom: 6 },
+    discoverHeading: { fontFamily: fonts.displayBold, fontSize: 42, letterSpacing: -1, color: C.text,
+        
+        lineHeight: 46 },
     discoverAccent: {
         width: 48,
         height: 3,
@@ -156,18 +118,11 @@ export const makeHomeStyles = (C: AppColors) => StyleSheet.create({
         paddingHorizontal: 32,
         gap: 10,
     },
-    emptyTitle: {
-        fontSize: 13,
-        fontWeight: "900",
-        color: C.textFaint,
-        letterSpacing: 2,
-        marginTop: 8,
-    },
-    emptySubtitle: {
-        fontSize: 13,
-        color: C.textLight,
-        textAlign: "center",
-    },
+    emptyTitle: { ...lbl(13, "bold", 0.12), color: C.textFaint,
+        
+        marginTop: 8 },
+    emptySubtitle: { ...meta(13, "regular"), color: C.textLight,
+        textAlign: "center" },
     tabBar: {
         flexDirection: "row",
         backgroundColor: C.bg,
@@ -182,18 +137,8 @@ export const makeHomeStyles = (C: AppColors) => StyleSheet.create({
         gap: 2,
     },
     tabActive: {},
-    tabText: {
-        fontSize: 13,
-        fontWeight: "500",
-        color: C.textLight,
-        letterSpacing: 0.5,
-    },
-    tabTextActive: {
-        fontSize: 13,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: -0.2,
-    },
+    tabText: { ...meta(13, "medium"), color: C.textLight },
+    tabTextActive: { ...meta(13, "bold"), letterSpacing: -0.2, color: C.text },
     tabIndicator: {
         position: "absolute",
         bottom: 0,
@@ -208,19 +153,8 @@ export const makeHomeStyles = (C: AppColors) => StyleSheet.create({
         paddingHorizontal: 24,
         paddingVertical: 12,
     },
-    discoverBtnText: {
-        fontSize: 11,
-        fontWeight: "800",
-        color: "#fff",
-        letterSpacing: 1.5,
-    },
+    discoverBtnText: { ...lbl(11, "bold", 0.12), color: "#fff" },
 });
 
 // Legacy alias kept for any imports that destructure { homeStyles }
-export const homeStyles = makeHomeStyles({
-    bg: "#F7F3EE", surface: "#FFFFFF", surfaceAlt: "#F9FAFB", surfaceWarm: "#FAF6EF", loadingBg: "#D0D0D0",
-    text: "#111827", textBody: "#374151", textMuted: "#6B7280", textLight: "#9CA3AF",
-    textFaint: "#D1CBC3", primary: "#8C0327", primaryBg: "#FEE2E2", gold: "#A8763E",
-    border: "#E5E7EB", borderWarm: "#E5E0D8", skeleton: "#E5E0D8",
-    overlay: "rgba(0,0,0,0.5)",
-});
+export const homeStyles = makeHomeStyles(lightColors);

@@ -13,7 +13,7 @@ import { useToast } from "../lib/ToastContext";
 import { uploadImage } from "../lib/uploadImage";
 import { useTheme } from "../lib/ThemeContext";
 import { useT } from "../lib/LangContext";
-import type { AppColors } from "../styles/theme";
+import { meta, lbl, fonts, AppColors } from "../styles/theme";
 
 type FeedbackType = "BUG_REPORT" | "FEATURE_REQUEST";
 
@@ -36,12 +36,7 @@ const makeFeedbackStyles = (C: AppColors) => StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-    topBarTitle: {
-        fontSize: 12,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: 2,
-    },
+    topBarTitle: { ...lbl(12, "bold", 0.12), color: C.text },
 
     scroll: {
         paddingHorizontal: 20,
@@ -50,28 +45,17 @@ const makeFeedbackStyles = (C: AppColors) => StyleSheet.create({
         gap: 6,
     },
 
-    heading: {
-        fontSize: 26,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: -0.5,
-        marginBottom: 6,
-    },
-    sub: {
-        fontSize: 14,
-        color: C.textMuted,
+    heading: { fontFamily: fonts.displayBold, fontSize: 26, letterSpacing: -0.5, color: C.text,
+        
+        marginBottom: 6 },
+    sub: { ...meta(14, "regular"), color: C.textMuted,
         lineHeight: 20,
-        marginBottom: 24,
-    },
+        marginBottom: 24 },
 
-    label: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.textLight,
-        letterSpacing: 2,
+    label: { ...lbl(10, "bold", 0.12), color: C.textLight,
+        
         marginBottom: 8,
-        marginTop: 16,
-    },
+        marginTop: 16 },
 
     typePicker: {
         flexDirection: "row",
@@ -92,31 +76,22 @@ const makeFeedbackStyles = (C: AppColors) => StyleSheet.create({
         backgroundColor: C.primary,
         borderColor: C.primary,
     },
-    typeOptionText: {
-        fontSize: 13,
-        fontWeight: "700",
-        color: C.textMuted,
-    },
+    typeOptionText: { ...meta(13, "bold"), color: C.textMuted },
     typeOptionTextActive: {
         color: "#fff",
     },
 
-    messageInput: {
-        backgroundColor: C.surface,
+    messageInput: { ...meta(14, "regular"), backgroundColor: C.surface,
         borderWidth: 1,
         borderColor: C.border,
         padding: 14,
-        fontSize: 14,
+        
         color: C.text,
         minHeight: 140,
-        lineHeight: 21,
-    },
-    charCount: {
-        fontSize: 11,
-        color: C.textLight,
+        lineHeight: 21 },
+    charCount: { ...meta(11, "regular"), color: C.textLight,
         textAlign: "right",
-        marginTop: 4,
-    },
+        marginTop: 4 },
 
     screenshotPicker: {
         backgroundColor: C.surface,
@@ -128,12 +103,7 @@ const makeFeedbackStyles = (C: AppColors) => StyleSheet.create({
         justifyContent: "center",
         gap: 8,
     },
-    screenshotPickerText: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.textLight,
-        letterSpacing: 1.5,
-    },
+    screenshotPickerText: { ...lbl(10, "bold", 0.12), color: C.textLight },
     screenshotPreviewWrap: {
         position: "relative",
         height: 200,
@@ -164,12 +134,7 @@ const makeFeedbackStyles = (C: AppColors) => StyleSheet.create({
     submitBtnDisabled: {
         opacity: 0.45,
     },
-    submitBtnText: {
-        fontSize: 12,
-        fontWeight: "900",
-        color: "#fff",
-        letterSpacing: 2,
-    },
+    submitBtnText: { ...lbl(12, "bold", 0.12), color: "#fff" },
 });
 
 export default function FeedbackModal() {

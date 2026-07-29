@@ -44,11 +44,13 @@ export function fmtLongDate(iso: string, lang: string): string {
     return `${weekday}, ${month} ${day} · ${h}:${m}`;
 }
 
-/** Short feed date, e.g. "FRI, JUL 4 · 18:30". */
+/** Short feed date, e.g. "Fri, Jul 4 · 18:30". */
 export function fmtFeedDate(iso: string, lang: string): string {
     const d = new Date(iso);
-    const weekday = d.toLocaleDateString(localeFor(lang), { weekday: "short" }).toUpperCase();
-    const month = d.toLocaleDateString(localeFor(lang), { month: "short" }).toUpperCase();
+    // Sentence case — the feed sets meta lines in sentence case, and the
+    // location half of the same line is never uppercased.
+    const weekday = d.toLocaleDateString(localeFor(lang), { weekday: "short" });
+    const month = d.toLocaleDateString(localeFor(lang), { month: "short" });
     const day = d.getDate();
     const h = d.getHours().toString().padStart(2, "0");
     const m = d.getMinutes().toString().padStart(2, "0");

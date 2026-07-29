@@ -15,7 +15,7 @@ import { useToast } from "../lib/ToastContext";
 import { uploadImage } from "../lib/uploadImage";
 import { useTheme } from "../lib/ThemeContext";
 import { API_BASE } from "../lib/api";
-import type { AppColors } from "../styles/theme";
+import { meta, lbl, fonts, AppColors } from "../styles/theme";
 
 // Legal pages are hosted by the backend (see backend/src/routes/legal.ts).
 const TOS_URL = `${API_BASE}/legal/terms`;
@@ -47,7 +47,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingVertical: 12,
     },
     backGroup: { flexDirection: "row", alignItems: "center", gap: 6 },
-    backLabel: { fontSize: 14, fontWeight: "900", color: C.primary, letterSpacing: 2 },
+    backLabel: { ...meta(14, "bold"), color: C.primary },
 
     scroll: { paddingBottom: 32 },
 
@@ -56,20 +56,12 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingTop: 4,
         paddingBottom: 28,
     },
-    mastheadLabel: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 2,
-        marginBottom: 8,
-    },
-    mastheadHeading: {
-        fontSize: 48,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: -1.5,
-        lineHeight: 50,
-    },
+    mastheadLabel: { ...lbl(10, "bold", 0.12), color: C.primary,
+        
+        marginBottom: 8 },
+    mastheadHeading: { fontFamily: fonts.displayBold, fontSize: 48, letterSpacing: -1.5, color: C.text,
+        
+        lineHeight: 50 },
     mastheadAccent: {
         width: 48,
         height: 3,
@@ -77,15 +69,11 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         marginTop: 14,
     },
 
-    sectionLabel: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.textLight,
-        letterSpacing: 2,
+    sectionLabel: { ...lbl(10, "bold", 0.12), color: C.textLight,
+        
         paddingHorizontal: 20,
         paddingBottom: 8,
-        paddingTop: 4,
-    },
+        paddingTop: 4 },
 
     card: {
         backgroundColor: C.surface,
@@ -113,8 +101,8 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         flexShrink: 0,
     },
     rowIconDestructive: { backgroundColor: C.primary },
-    rowLabel: { flex: 1, fontSize: 14, fontWeight: "700", color: C.text, letterSpacing: 0.2 },
-    rowLabelDestructive: { color: C.primary, letterSpacing: 1.5, fontSize: 12, fontWeight: "900" },
+    rowLabel: { ...meta(14, "bold"), flex: 1,   color: C.text },
+    rowLabelDestructive: { ...lbl(12, "bold", 0.12), color: C.primary },
 
     divider: {
         height: StyleSheet.hairlineWidth,
@@ -123,22 +111,14 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
     },
 
     fieldGroup: { gap: 6, marginTop: 12 },
-    fieldLabel: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.textLight,
-        letterSpacing: 1.5,
-        textTransform: "uppercase",
-    },
-    input: {
-        backgroundColor: C.surface,
+    fieldLabel: { ...lbl(10, "bold", 0.12), color: C.textLight },
+    input: { ...meta(14, "regular"), backgroundColor: C.surface,
         borderWidth: 1,
         borderColor: C.borderWarm,
         paddingVertical: 10,
         paddingHorizontal: 12,
-        fontSize: 14,
-        color: C.text,
-    },
+        
+        color: C.text },
     inputMultiline: { minHeight: 80, textAlignVertical: "top" },
 
     formActions: { flexDirection: "row", gap: 10, marginTop: 16 },
@@ -150,19 +130,19 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         borderColor: C.borderWarm,
         backgroundColor: C.surface,
     },
-    cancelBtnText: { fontSize: 11, fontWeight: "800", color: C.textMuted, letterSpacing: 1.5 },
+    cancelBtnText: { ...lbl(11, "bold", 0.12), color: C.textMuted },
     saveBtn: {
         flex: 1,
         paddingVertical: 12,
         alignItems: "center",
         backgroundColor: C.primary,
     },
-    saveBtnText: { fontSize: 11, fontWeight: "800", color: "#fff", letterSpacing: 1.5 },
+    saveBtnText: { ...lbl(11, "bold", 0.12), color: "#fff" },
 
     avatarRow: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 4 },
     avatarPreview: { width: 64, height: 64, borderRadius: 32 },
     avatarPlaceholder: { backgroundColor: C.surfaceAlt, alignItems: "center", justifyContent: "center" },
-    avatarChangeText: { fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 1.5 },
+    avatarChangeText: { ...lbl(10, "bold", 0.12), color: C.primary },
 
     modalBackdrop: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: C.overlay },
     modalSheet: {
@@ -190,13 +170,13 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         borderBottomWidth: StyleSheet.hairlineWidth,
         borderBottomColor: C.borderWarm,
     },
-    modalTitle: { fontSize: 11, fontWeight: "900", color: C.text, letterSpacing: 2 },
+    modalTitle: { fontFamily: fonts.displayBold, fontSize: 17, color: C.text },
     modalBody: { paddingHorizontal: 16, paddingTop: 4 },
 
     langPicker: { flexDirection: "row", overflow: "hidden", borderWidth: 1, borderColor: C.borderWarm },
     langOption: { paddingVertical: 7, paddingHorizontal: 16, backgroundColor: C.surface },
     langOptionActive: { backgroundColor: C.primary },
-    langOptionText: { fontSize: 11, fontWeight: "800", color: C.textMuted, letterSpacing: 1 },
+    langOptionText: { ...lbl(11, "bold", 0.09), color: C.textMuted },
     langOptionTextActive: { color: "#fff" },
 });
 
@@ -778,7 +758,7 @@ export default function SettingsScreen() {
                                                     {([1, 2, 3, 4] as const).map((i) => (
                                                         <View key={i} style={{ flex: 1, height: 3, backgroundColor: i <= str.level ? str.color : C.border }} />
                                                     ))}
-                                                    <Text style={{ fontSize: 9, fontWeight: "800", color: str.color, letterSpacing: 1, width: 44, textAlign: "right" }}>
+                                                    <Text style={{ ...lbl(9, "bold", 0.11), color: str.color,  width: 44, textAlign: "right" }}>
                                                         {str.label}
                                                     </Text>
                                                 </View>

@@ -8,7 +8,7 @@ import { useApi } from "../lib/useApi";
 import { useT, useLang } from "../lib/LangContext";
 import { timeAgo } from "../lib/datetime";
 import { useTheme } from "../lib/ThemeContext";
-import type { AppColors } from "../styles/theme";
+import { lightColors, meta, lbl, fonts, AppColors } from "../styles/theme";
 import { NotifRowSkeleton } from "../components/SkeletonLoader";
 
 type ApiNotif = {
@@ -33,12 +33,12 @@ function typeIcon(type: string): string {
 }
 
 function typeColor(type: string): { bg: string; icon: string } {
-    if (type === "LIKE")     return { bg: "#FEE2E2", icon: "#8C0327" };
+    if (type === "LIKE")     return { bg: "#FEE2E2", icon: lightColors.primary };
     if (type === "FOLLOW")   return { bg: "#DBEAFE", icon: "#1D4ED8" };
     if (type === "REMINDER") return { bg: "#FEF3C7", icon: "#D97706" };
-    if (type === "POST")     return { bg: "#E5E7EB", icon: "#374151" };
+    if (type === "POST")     return { bg: lightColors.border, icon: lightColors.textBody };
     if (type === "COMMENT" || type === "REPLY") return { bg: "#DCFCE7", icon: "#15803D" };
-    return { bg: "#FEE2E2", icon: "#8C0327" };
+    return { bg: "#FEE2E2", icon: lightColors.primary };
 }
 
 
@@ -54,14 +54,14 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingVertical: 12,
     },
     backGroup: { flexDirection: "row", alignItems: "center", gap: 6 },
-    backLabel: { fontSize: 14, fontWeight: "900", color: C.primary, letterSpacing: 2 },
+    backLabel: { ...meta(14, "bold"), color: C.primary },
     markAllBtn: { paddingHorizontal: 10, paddingVertical: 5, backgroundColor: "#1F2937" },
-    markAllText: { fontSize: 9, fontWeight: "800", color: "#fff", letterSpacing: 1 },
+    markAllText: { ...lbl(9, "bold", 0.11), color: "#fff" },
 
     hero: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 24 },
-    heroLabel: { fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 2, marginBottom: 6 },
-    heroTitle: { fontSize: 40, fontWeight: "900", color: C.text, letterSpacing: -1.2, lineHeight: 44 },
-    heroSubtitle: { fontSize: 13, fontWeight: "600", color: C.textMuted, letterSpacing: 1, marginTop: 8 },
+    heroLabel: { ...lbl(10, "bold", 0.12), color: C.primary,  marginBottom: 6 },
+    heroTitle: { fontFamily: fonts.displayBold, fontSize: 40, letterSpacing: -1.2, color: C.text,  lineHeight: 44 },
+    heroSubtitle: { ...lbl(13, "semi", 0.08), color: C.textMuted,  marginTop: 8 },
     heroAccent: { width: 48, height: 3, backgroundColor: C.primary, marginTop: 14 },
     unreadBadge: {
         alignSelf: "flex-start",
@@ -70,7 +70,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingHorizontal: 10,
         paddingVertical: 4,
     },
-    unreadBadgeText: { fontSize: 10, fontWeight: "800", color: "#fff", letterSpacing: 1 },
+    unreadBadgeText: { ...lbl(10, "bold", 0.1), color: "#fff" },
 
     item: {
         flexDirection: "row",
@@ -88,17 +88,17 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
     },
     itemContent: { flex: 1, minWidth: 0, padding: 14, gap: 3 },
     itemTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
-    notifTitle: { fontSize: 13, fontWeight: "800", color: C.text, flex: 1 },
-    notifTime: { fontSize: 10, fontWeight: "600", color: C.textLight, flexShrink: 0 },
-    notifBody: { fontSize: 13, color: C.textMuted, lineHeight: 18 },
+    notifTitle: { ...meta(13, "bold"), color: C.text, flex: 1 },
+    notifTime: { ...meta(10, "semi"), color: C.textLight, flexShrink: 0 },
+    notifBody: { ...meta(13, "regular"), color: C.textMuted, lineHeight: 18 },
 
     emptyState: { alignItems: "center", paddingTop: 80, gap: 10 },
-    emptyTitle: { fontSize: 13, fontWeight: "900", color: C.textFaint, letterSpacing: 2 },
-    emptySubtitle: { fontSize: 13, color: C.textLight },
+    emptyTitle: { ...lbl(13, "bold", 0.12), color: C.textFaint },
+    emptySubtitle: { ...meta(13, "regular"), color: C.textLight },
 
-    errorText: { fontSize: 11, fontWeight: "700", color: C.textLight, letterSpacing: 2, marginTop: 12 },
+    errorText: { ...lbl(11, "bold", 0.12), color: C.textLight,  marginTop: 12 },
     errorRetry: { marginTop: 16, borderWidth: 1.5, borderColor: C.primary, paddingHorizontal: 20, paddingVertical: 10 },
-    errorRetryText: { fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 1.5 },
+    errorRetryText: { ...lbl(10, "bold", 0.12), color: C.primary },
 });
 
 export default function NotificationsScreen() {

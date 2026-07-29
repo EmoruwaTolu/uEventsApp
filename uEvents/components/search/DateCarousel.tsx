@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { View, Text, Pressable, FlatList, StyleSheet } from "react-native";
+import { fonts, lbl, meta, lightColors } from "../../styles/theme";
 
 type Props = {
     selectedDateISO: string;
@@ -98,15 +99,8 @@ const styles = StyleSheet.create({
     cellSelected: {
         backgroundColor: "#9d001d",
     },
-    dow: {
-        fontSize: 12,
-        color: "#6B7280",
-    },
-    md: {
-        fontSize: 16,
-        fontWeight: "700",
-        color: "#111827",
-    },
+    dow: { ...meta(12, "regular"), color: lightColors.textMuted },
+    md: { ...meta(16, "bold"), color: lightColors.text },
     dowSelected: { color: "#FFFFFF" },
     mdSelected: { color: "#FFFFFF" },
 });

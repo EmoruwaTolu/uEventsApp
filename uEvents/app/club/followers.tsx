@@ -10,7 +10,7 @@ import { useApi } from "../../lib/useApi";
 import { useTheme } from "../../lib/ThemeContext";
 import { useT, useLang } from "../../lib/LangContext";
 import { timeAgo } from "../../lib/datetime";
-import type { AppColors } from "../../styles/theme";
+import { meta, lbl, fonts, AppColors } from "../../styles/theme";
 
 type Follower = {
     userId: string;
@@ -39,26 +39,18 @@ const makeFollowersStyles = (C: AppColors) => StyleSheet.create({
         backgroundColor: C.bg,
     },
     backBtn: { width: 36, alignItems: "flex-start" },
-    topBarTitle: {
-        flex: 1,
+    topBarTitle: { ...lbl(12, "bold", 0.12), flex: 1,
         textAlign: "center",
-        fontSize: 12,
-        fontWeight: "800",
-        color: C.text,
-        letterSpacing: 2,
-    },
+        
+        
+        color: C.text },
     center: {
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
         gap: 12,
     },
-    emptyText: {
-        fontSize: 11,
-        fontWeight: "700",
-        color: C.textFaint,
-        letterSpacing: 2,
-    },
+    emptyText: { ...lbl(11, "bold", 0.12), color: C.textFaint },
     retryBtn: {
         borderWidth: 1.5,
         borderColor: C.primary,
@@ -66,12 +58,7 @@ const makeFollowersStyles = (C: AppColors) => StyleSheet.create({
         paddingVertical: 10,
         marginTop: 4,
     },
-    retryBtnText: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 1.5,
-    },
+    retryBtnText: { ...lbl(10, "bold", 0.12), color: C.primary },
     countBanner: {
         paddingHorizontal: 20,
         paddingVertical: 12,
@@ -79,12 +66,7 @@ const makeFollowersStyles = (C: AppColors) => StyleSheet.create({
         borderBottomWidth: StyleSheet.hairlineWidth,
         borderBottomColor: C.borderWarm,
     },
-    countText: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 2,
-    },
+    countText: { ...lbl(10, "bold", 0.12), color: C.primary },
     row: {
         flexDirection: "row",
         alignItems: "center",
@@ -107,11 +89,11 @@ const makeFollowersStyles = (C: AppColors) => StyleSheet.create({
         flexShrink: 0,
     },
     avatarImg: { width: 40, height: 40 },
-    avatarInit: { fontSize: 16, fontWeight: "700", color: C.primary },
+    avatarInit: { ...meta(16, "bold"), color: C.primary },
     info: { flex: 1, gap: 2 },
-    name: { fontSize: 14, fontWeight: "700", color: C.text },
-    meta: { fontSize: 12, color: C.textMuted },
-    since: { fontSize: 11, color: C.textLight },
+    name: { ...meta(14, "bold"), color: C.text },
+    meta: { ...meta(12, "regular"), color: C.textMuted },
+    since: { ...meta(11, "regular"), color: C.textLight },
 });
 
 export default function FollowersScreen() {

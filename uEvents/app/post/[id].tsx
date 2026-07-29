@@ -19,7 +19,8 @@ import { useAuth } from "../../auth/AuthContext";
 import { PostDetailSkeleton } from "../../components/SkeletonLoader";
 import { useTheme } from "../../lib/ThemeContext";
 import { timeAgo, localeFor } from "../../lib/datetime";
-import type { AppColors } from "../../styles/theme";
+import { fonts, lbl, meta, type AppColors } from "../../styles/theme";
+import { PollCard, AnnouncementCard, type FeedPost } from "../../components/SocialFeed";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -87,7 +88,7 @@ type Comment = {
 const makePostStyles = (C: AppColors) => StyleSheet.create({
     page: { flex: 1, backgroundColor: C.bg },
     center: { flex: 1, alignItems: "center", justifyContent: "center" },
-    errorText: { fontSize: 14, color: C.textLight },
+    errorText: { ...meta(14), color: C.textLight },
 
     topBar: {
         flexDirection: "row",
@@ -97,18 +98,20 @@ const makePostStyles = (C: AppColors) => StyleSheet.create({
         backgroundColor: C.bg,
     },
     backBtn: { width: 44, height: 44, alignItems: "flex-start", justifyContent: "center" },
-    topBarTitle: {
-        flex: 1,
+    topBarTitle: { ...lbl(11, "bold", 0.12), flex: 1,
         textAlign: "center",
-        fontSize: 12,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 2,
-    },
+        color: C.primary },
     topBarActions: { flexDirection: "row", gap: 4, minWidth: 64, justifyContent: "flex-end" },
     topBarBtn: { padding: 6 },
 
-    card: { backgroundColor: C.surface, marginLeft: 12, marginRight: 12, overflow: "hidden", borderWidth: 1, borderColor: C.borderWarm },
+    card: {
+        backgroundColor: C.surface,
+        marginHorizontal: 11,
+        overflow: "hidden",
+        borderWidth: 1,
+        borderColor: C.border,
+        borderRadius: 6,
+    },
     hero: { aspectRatio: 1, backgroundColor: "#111", overflow: "hidden" },
     carouselCounter: {
         alignSelf: "center",
@@ -118,11 +121,7 @@ const makePostStyles = (C: AppColors) => StyleSheet.create({
         paddingVertical: 3,
         borderRadius: 10,
     },
-    carouselCounterText: {
-        fontSize: 11,
-        fontWeight: "600",
-        color: C.textMuted,
-    },
+    carouselCounterText: { ...meta(11.5, "semi"), color: C.textMuted },
 
     clubRow: {
         flexDirection: "row",
@@ -142,32 +141,20 @@ const makePostStyles = (C: AppColors) => StyleSheet.create({
         flexShrink: 0,
     },
     clubAvatarImg: { width: 34, height: 34, borderRadius: 8 },
-    clubLabel: { fontSize: 9, fontWeight: "600", color: C.textLight, letterSpacing: 1 },
-    clubName: { fontSize: 12, fontWeight: "800", color: C.text, letterSpacing: 0.3 },
-    postAge: { fontSize: 11, color: C.textLight },
+    clubLabel: { ...lbl(9.5, "bold", 0.1), color: C.textLight },
+    clubName: { fontFamily: fonts.displayBold, fontSize: 14, color: C.text },
+    postAge: { ...meta(12), color: C.textLight },
 
     hairline: { height: StyleSheet.hairlineWidth, backgroundColor: C.borderWarm, marginHorizontal: 16 },
 
     content: { paddingHorizontal: 16, paddingVertical: 20, gap: 12 },
 
-    annoTitle: {
-        fontSize: 24,
-        fontWeight: "900",
-        color: C.text,
-        lineHeight: 30,
-        letterSpacing: -0.5,
-    },
-    annoBody: { fontSize: 15, color: C.textBody, lineHeight: 24 },
+    annoTitle: { fontFamily: fonts.displayBold, fontSize: 24, lineHeight: 30, letterSpacing: -0.3, color: C.text },
+    annoBody: { fontFamily: fonts.body, fontSize: 15.5, lineHeight: 24, color: C.textBody },
 
-    pollQuestion: {
-        fontSize: 22,
-        fontWeight: "900",
-        color: C.text,
-        lineHeight: 28,
-        letterSpacing: -0.3,
-        marginBottom: 4,
-    },
-    pollBody: { fontSize: 13, color: C.textMuted, lineHeight: 19, marginBottom: 4 },
+    pollQuestion: { fontFamily: fonts.displayBold, fontSize: 22, lineHeight: 28, letterSpacing: -0.2, color: C.text,
+        marginBottom: 4 },
+    pollBody: { fontFamily: fonts.body, fontSize: 14, lineHeight: 21, color: C.textMuted, marginBottom: 4 },
     pollOptions: { gap: 8 },
     pollOption: {
         position: "relative",
@@ -192,16 +179,10 @@ const makePostStyles = (C: AppColors) => StyleSheet.create({
         paddingVertical: 14,
         zIndex: 1,
     },
-    pollOptionText: {
-        fontSize: 12,
-        fontWeight: "700",
-        color: C.textBody,
-        textTransform: "uppercase",
-        letterSpacing: 0.5,
-    },
-    pollOptionTextVoted: { color: C.primary },
-    pollPct: { fontSize: 12, fontWeight: "700", color: C.textLight },
-    voteCount: { fontSize: 10, fontWeight: "700", color: C.textLight, letterSpacing: 1, marginTop: 4 },
+    pollOptionText: { fontFamily: fonts.bodyMedium, fontSize: 15, color: C.textBody },
+    pollOptionTextVoted: { fontFamily: fonts.bodySemi, color: C.primary },
+    pollPct: { fontFamily: fonts.bodyBold, fontSize: 15, color: C.textLight },
+    voteCount: { ...meta(12.5), color: C.textLight, marginTop: 4 },
 
     actionsBar: {
         flexDirection: "row",
@@ -211,7 +192,7 @@ const makePostStyles = (C: AppColors) => StyleSheet.create({
         gap: 20,
     },
     actionBtn: { flexDirection: "row", alignItems: "center", gap: 5 },
-    actionCount: { fontSize: 13, fontWeight: "600", color: C.textLight },
+    actionCount: { ...meta(14, "bold"), color: C.textLight },
     actionCountActive: { color: C.primary },
     rsvpBtn: {
         flexDirection: "row", alignItems: "center", gap: 5,
@@ -220,14 +201,16 @@ const makePostStyles = (C: AppColors) => StyleSheet.create({
     },
     rsvpBtnActive: { backgroundColor: "transparent", borderWidth: 1.5, borderColor: C.primary },
     rsvpBtnFull: { backgroundColor: C.textLight },
-    rsvpBtnText: { fontSize: 11, fontWeight: "800", color: "#fff", letterSpacing: 1 },
+    rsvpBtnText: { ...lbl(12, "bold", 0.06), color: "#fff" },
     rsvpBtnTextActive: { color: C.primary },
 
     sectionDivider: { height: 8, backgroundColor: C.surfaceAlt },
 
     commentsSection: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
-    commentsHeaderRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" },
-    commentSortRow: { flexDirection: "row", justifyContent: "flex-end", marginBottom: 12 },
+    // Label, status badges and the sort toggle share one line; the spacer pushes
+    // the toggle right. No wrap — a wrapped badge would strand the toggle.
+    commentsHeaderRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 },
+    commentsHeaderSpacer: { flex: 1 },
     sortToggle: {
         flexDirection: "row",
         alignItems: "center",
@@ -238,13 +221,8 @@ const makePostStyles = (C: AppColors) => StyleSheet.create({
         borderColor: C.primary,
         backgroundColor: C.primaryBg,
     },
-    sortToggleText: { fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 0.8 },
-    commentsLabel: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 2,
-    },
+    sortToggleText: { ...lbl(10, "bold", 0.08), color: C.primary },
+    commentsLabel: { ...lbl(10.5, "bold", 0.12), color: C.primary },
     commentStatusBadge: {
         flexDirection: "row",
         alignItems: "center",
@@ -253,11 +231,11 @@ const makePostStyles = (C: AppColors) => StyleSheet.create({
         paddingHorizontal: 7,
         paddingVertical: 3,
     },
-    commentStatusText: { fontSize: 9, fontWeight: "700", color: C.textLight, letterSpacing: 1 },
+    commentStatusText: { ...lbl(9.5, "bold", 0.08), color: C.textLight },
     commentStatusSlow: { backgroundColor: "#FEF3C7" },
     commentStatusSlowText: { color: "#D97706" },
 
-    noComments: { fontSize: 13, color: C.textLight },
+    noComments: { ...meta(13.5), color: C.textLight },
     comment: { marginBottom: 16, borderRadius: 0 },
     commentPinned: {
         backgroundColor: "#FFF9F9",
@@ -269,7 +247,7 @@ const makePostStyles = (C: AppColors) => StyleSheet.create({
         marginBottom: 16,
     },
     pinnedBadgeRow: { flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 6 },
-    pinnedBadgeText: { fontSize: 9, fontWeight: "800", color: C.primary, letterSpacing: 1.5 },
+    pinnedBadgeText: { ...lbl(9.5, "bold", 0.1), color: C.primary },
     commentInner: { flexDirection: "row", gap: 10 },
     commentAvatar: {
         width: 32,
@@ -282,12 +260,12 @@ const makePostStyles = (C: AppColors) => StyleSheet.create({
         flexShrink: 0,
     },
     commentAvatarImg: { width: 32, height: 32, borderRadius: 16 },
-    commentAvatarInit: { fontSize: 12, fontWeight: "700", color: C.textBody },
+    commentAvatarInit: { ...lbl(12, "bold", 0.02), color: C.textBody },
     commentBody: { flex: 1 },
     commentHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 3 },
-    commentName: { fontSize: 12, fontWeight: "700", color: C.text },
-    commentAge: { fontSize: 11, color: C.textLight },
-    commentText: { fontSize: 13, color: C.textBody, lineHeight: 19 },
+    commentName: { ...meta(13.5, "bold"), color: C.text },
+    commentAge: { ...meta(12), color: C.textLight },
+    commentText: { fontFamily: fonts.body, fontSize: 14.5, lineHeight: 21, color: C.textBody },
 
     commentInputBar: {
         flexDirection: "row",
@@ -299,19 +277,16 @@ const makePostStyles = (C: AppColors) => StyleSheet.create({
         borderTopColor: C.border,
         backgroundColor: C.surface,
     },
-    commentTextInput: {
-        flex: 1,
+    commentTextInput: { fontFamily: fonts.body, fontSize: 14, flex: 1,
         borderWidth: 1,
         borderColor: C.border,
         paddingHorizontal: 12,
         paddingTop: 11,
         paddingBottom: 11,
-        fontSize: 13,
         color: C.text,
         maxHeight: 100,
         backgroundColor: C.surfaceAlt,
-        textAlignVertical: "center",
-    },
+        textAlignVertical: "center" },
     commentSendBtn: {
         width: 44,
         height: 44,
@@ -331,7 +306,7 @@ const makePostStyles = (C: AppColors) => StyleSheet.create({
         borderBottomWidth: StyleSheet.hairlineWidth,
         borderBottomColor: C.border,
     },
-    infoBannerText: { fontSize: 10, fontWeight: "800", color: C.textLight, letterSpacing: 1.5 },
+    infoBannerText: { ...lbl(10, "bold", 0.1), color: C.textLight },
     infoBannerWarn: { backgroundColor: "#FFFBEB" },
     infoBannerWarnText: { color: "#D97706" },
     infoBannerBlue: { backgroundColor: "#EFF6FF" },
@@ -347,7 +322,7 @@ const makePostStyles = (C: AppColors) => StyleSheet.create({
         borderTopColor: C.border,
         backgroundColor: C.surfaceAlt,
     },
-    commentsClosedText: { fontSize: 12, color: C.textLight, fontStyle: "italic" },
+    commentsClosedText: { ...meta(13), color: C.textLight },
 
     slowModeBar: {
         flex: 1,
@@ -356,12 +331,12 @@ const makePostStyles = (C: AppColors) => StyleSheet.create({
         gap: 8,
         paddingVertical: 10,
     },
-    slowModeText: { fontSize: 12, color: "#D97706", fontWeight: "600" },
+    slowModeText: { ...meta(12.5, "semi"), color: "#D97706" },
 
     commentReply: { marginBottom: 10 },
     repliesBlock: { marginTop: 8, marginLeft: 42, paddingLeft: 12, borderLeftWidth: 2, borderLeftColor: C.surfaceAlt },
     replyBtn: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 },
-    replyBtnText: { fontSize: 10, fontWeight: "700", color: C.textLight, letterSpacing: 1 },
+    replyBtnText: { ...lbl(10, "bold", 0.08), color: C.textLight },
     replyingToBar: {
         flexDirection: "row",
         alignItems: "center",
@@ -372,13 +347,13 @@ const makePostStyles = (C: AppColors) => StyleSheet.create({
         borderTopWidth: StyleSheet.hairlineWidth,
         borderTopColor: "#FECACA",
     },
-    replyingToText: { fontSize: 12, color: C.primary },
+    replyingToText: { ...meta(12.5), color: C.primary },
 
     checkInBanner: {
         flexDirection: "row",
         alignItems: "center",
         gap: 14,
-        backgroundColor: "#111827",
+        backgroundColor: C.text,
         paddingVertical: 18,
         paddingHorizontal: 20,
     },
@@ -391,8 +366,8 @@ const makePostStyles = (C: AppColors) => StyleSheet.create({
         flexShrink: 0,
     },
     checkInBannerBody: { flex: 1, gap: 3 },
-    checkInBannerTitle: { fontSize: 14, fontWeight: "900", color: "#fff", letterSpacing: 1 },
-    checkInBannerSub: { fontSize: 11, color: "rgba(255,255,255,0.5)", fontWeight: "500" },
+    checkInBannerTitle: { ...lbl(13, "bold", 0.08), color: "#fff" },
+    checkInBannerSub: { ...meta(12), color: "rgba(255,255,255,0.5)" },
 
     checkInBtn: {
         flexDirection: "row",
@@ -402,7 +377,7 @@ const makePostStyles = (C: AppColors) => StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 7,
     },
-    checkInBtnText: { fontSize: 10, fontWeight: "800", color: "#fff", letterSpacing: 1 },
+    checkInBtnText: { ...lbl(10.5, "bold", 0.08), color: "#fff" },
 
     scannerSafe: { flex: 1, backgroundColor: "#000" },
     scannerTopBar: {
@@ -413,7 +388,7 @@ const makePostStyles = (C: AppColors) => StyleSheet.create({
         paddingVertical: 12,
     },
     scannerClose: { width: 36, alignItems: "flex-start" },
-    scannerTitle: { fontSize: 12, fontWeight: "800", color: "#fff", letterSpacing: 2 },
+    scannerTitle: { ...lbl(11, "bold", 0.12), color: "#fff" },
     scanner: { flex: 1 },
     scannerOverlay: {
         flex: 1,
@@ -428,13 +403,10 @@ const makePostStyles = (C: AppColors) => StyleSheet.create({
         borderColor: "#fff",
         borderRadius: 4,
     },
-    scannerHint: {
-        fontSize: 13,
-        color: "rgba(255,255,255,0.7)",
+    scannerHint: { ...meta(13, "regular"), color: "rgba(255,255,255,0.7)",
         textAlign: "center",
         paddingHorizontal: 40,
-        lineHeight: 20,
-    },
+        lineHeight: 20 },
     scannerResult: {
         flex: 1,
         alignItems: "center",
@@ -442,25 +414,17 @@ const makePostStyles = (C: AppColors) => StyleSheet.create({
         gap: 16,
         paddingHorizontal: 40,
     },
-    scannerResultTitle: {
-        fontSize: 24,
-        fontWeight: "900",
-        color: "#fff",
-        letterSpacing: 1,
-    },
-    scannerResultSub: {
-        fontSize: 14,
-        color: "rgba(255,255,255,0.6)",
+    scannerResultTitle: { fontFamily: fonts.displayBold, fontSize: 24, color: "#fff" },
+    scannerResultSub: { ...meta(14, "regular"), color: "rgba(255,255,255,0.6)",
         textAlign: "center",
-        lineHeight: 22,
-    },
+        lineHeight: 22 },
     scannerDoneBtn: {
         backgroundColor: "#fff",
         paddingHorizontal: 32,
         paddingVertical: 14,
         marginTop: 8,
     },
-    scannerDoneBtnText: { fontSize: 12, fontWeight: "800", color: "#111827", letterSpacing: 2 },
+    scannerDoneBtnText: { ...lbl(12, "bold", 0.12), color: C.text },
 });
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -478,6 +442,9 @@ export default function PostDetailScreen() {
     const { session } = useAuth();
     const scrollRef = useRef<ScrollView>(null);
     const commentsSectionY = useRef(0);
+    const scrollToComments = useCallback(() => {
+        scrollRef.current?.scrollTo({ y: Math.max(0, commentsSectionY.current - 80), animated: true });
+    }, []);
     const didFocusComments = useRef(false);
     const { colors: C } = useTheme();
     const s = useMemo(() => makePostStyles(C), [C]);
@@ -829,14 +796,14 @@ export default function PostDetailScreen() {
             <SafeAreaView style={s.page} edges={["top"]}>
                 <View style={s.center}>
                     <Ionicons name="cloud-offline-outline" size={36} color={C.textFaint} />
-                    <Text style={{ marginTop: 12, fontSize: 11, fontWeight: "700", color: C.textLight, letterSpacing: 2 }}>
+                    <Text style={{ ...lbl(11, "bold", 0.12), marginTop: 12,   color: C.textLight }}>
                         COULDN'T LOAD POST
                     </Text>
                     <Pressable
                         onPress={() => loadPost()}
                         style={{ marginTop: 16, borderWidth: 1.5, borderColor: C.primary, paddingHorizontal: 20, paddingVertical: 10 }}
                     >
-                        <Text style={{ fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 1.5 }}>{t.retry}</Text>
+                        <Text style={{ ...lbl(10, "bold", 0.12), color: C.primary }}>{t.retry}</Text>
                     </Pressable>
                 </View>
             </SafeAreaView>
@@ -848,14 +815,14 @@ export default function PostDetailScreen() {
             <SafeAreaView style={s.page} edges={["top"]}>
                 <View style={s.center}>
                     <Ionicons name="document-outline" size={40} color={C.textFaint} />
-                    <Text style={{ marginTop: 12, fontSize: 13, fontWeight: "900", color: C.textFaint, letterSpacing: 2 }}>
+                    <Text style={{ ...lbl(13, "bold", 0.12), marginTop: 12,   color: C.textFaint }}>
                         POST NOT FOUND
                     </Text>
                     <Pressable
                         onPress={() => router.replace("/(tabs)" as any)}
                         style={{ marginTop: 16, backgroundColor: C.primary, paddingHorizontal: 24, paddingVertical: 10 }}
                     >
-                        <Text style={{ color: "#fff", fontSize: 11, fontWeight: "800", letterSpacing: 1.5 }}>{t.goHome}</Text>
+                        <Text style={{ ...lbl(11, "bold", 0.12), color: "#fff" }}>{t.goHome}</Text>
                     </Pressable>
                 </View>
             </SafeAreaView>
@@ -868,10 +835,52 @@ export default function PostDetailScreen() {
     const title = locale.title ?? "";
     const body = locale.body ?? "";
     const imageUrl = locale.posterUrl ?? locale.imageUrl;
-    const clubName = pickText(post.club?.clubName, post.club?.clubNameFr, lang).toUpperCase();
+    const clubName = pickText(post.club?.clubName, post.club?.clubNameFr, lang);
     const totalVotes = pollOptions.reduce((sum, o) => sum + o._count.votes, 0);
     const pollExpired = !!post.pollExpiresAt && new Date(post.pollExpiresAt) <= new Date();
     const postExpired = !!post.expiresAt && new Date(post.expiresAt) <= new Date();
+
+    // "Ended" / "2d left" — shown in the card's header subtitle.
+    const pollEndsLabel = !post.pollExpiresAt ? undefined : (() => {
+        const diff = new Date(post.pollExpiresAt!).getTime() - Date.now();
+        if (diff <= 0) return t.pollEnded;
+        if (diff < 3600000) return t.pollMinutesLeft(Math.floor(diff / 60000));
+        if (diff < 86400000) return t.pollHoursLeft(Math.floor(diff / 3600000));
+        return t.pollDaysLeft(Math.floor(diff / 86400000));
+    })();
+
+    // Polls and announcements reuse the feed card verbatim, so the detail page
+    // can't drift from the feed. Events keep the bespoke layout below — they
+    // carry RSVP, capacity and check-in state the feed card doesn't show.
+    const useFeedCard = post.type === "POLL" || post.type === "ANNOUNCEMENT";
+    const cardPost: FeedPost | null = !useFeedCard ? null : {
+        id: post.id,
+        clubId: post.club?.id ?? "",
+        clubName,
+        clubAvatar: post.club?.logoUrl,
+        type: post.type === "POLL" ? "poll" : "announcement",
+        timestamp: timeAgo(post.createdAt, lang),
+        content: body,
+        imageUrl,
+        images: post.images,
+        eventTitle: post.type === "ANNOUNCEMENT" ? title : undefined,
+        likes: post.hideLikeCount ? 0 : like.count,
+        comments: comments.length,
+        isLiked: like.liked,
+        isBookmarked: bm,
+        poll: post.type !== "POLL" ? undefined : {
+            question: title,
+            options: pollOptions.map((o) => ({
+                id: o.id,
+                text: lang === "fr" && o.textFr ? o.textFr : o.textEn,
+                votes: o._count.votes,
+            })),
+            totalVotes,
+            userVote: selectedOption ?? undefined,
+            closed: pollExpired,
+            endsAt: pollEndsLabel,
+        },
+    };
 
     return (
         <SafeAreaView style={s.page} edges={["top"]}>
@@ -961,199 +970,222 @@ export default function PostDetailScreen() {
                         </View>
                     )}
 
-                    {/* Hero image / carousel */}
-                    {(post.images && post.images.length > 1) ? (
-                        <View style={{ marginHorizontal: 12 }}>
-                            <FlatList
-                                data={post.images}
-                                horizontal
-                                pagingEnabled
-                                showsHorizontalScrollIndicator={false}
-                                keyExtractor={(uri, i) => `${uri}-${i}`}
-                                renderItem={({ item }) => (
-                                    <View style={[s.hero, { width: carouselSize, height: carouselSize }]}>
-                                        <ExpoImage source={{ uri: item }} style={StyleSheet.absoluteFill as any} contentFit="cover" transition={200} />
-                                    </View>
-                                )}
-                                onScroll={(e) => {
-                                    const idx = Math.round(e.nativeEvent.contentOffset.x / carouselSize);
-                                    setCarouselIndex(idx);
-                                }}
-                                scrollEventThrottle={16}
+                    {useFeedCard && cardPost ? (
+                        /* Poll / announcement: the feed card is the detail view, so the
+                           two can never drift. Comments follow underneath. */
+                        post.type === "POLL" ? (
+                            <PollCard
+                                post={cardPost}
+                                onPollVote={(_postId, optionId) => vote(optionId)}
+                                onLikePress={() => toggleLikeCtx(id!, like)}
+                                onCommentPress={scrollToComments}
+                                onClubPress={(cid) => cid && router.push(`/club/${cid}` as any)}
                             />
-                            <View style={s.carouselCounter}>
-                                <Text style={s.carouselCounterText}>
-                                    {carouselIndex + 1} / {post.images.length}
-                                </Text>
-                            </View>
-                        </View>
-                    ) : !!imageUrl ? (
-                        <View style={[s.hero, { marginHorizontal: 12 }]}>
-                            <ExpoImage source={{ uri: imageUrl }} style={StyleSheet.absoluteFill as any} contentFit="cover" transition={200} />
-                        </View>
-                    ) : null}
-
-                    {/* Club header + content + actions — card */}
-                    <View style={s.card}>
-                    <Pressable
-                        style={s.clubRow}
-                        onPress={() => post.club?.id && router.push(`/club/${post.club.id}` as any)}
-                    >
-                        <View style={s.clubAvatar}>
-                            {post.club?.logoUrl
-                                ? <ExpoImage source={{ uri: post.club.logoUrl }} style={s.clubAvatarImg} contentFit="cover" transition={200} />
-                                : <Ionicons name="people" size={14} color="#fff" />
-                            }
-                        </View>
-                        <View style={{ flex: 1 }}>
-                            <Text style={s.clubLabel}>{t.postedBy}</Text>
-                            <Text style={s.clubName}>{clubName}</Text>
-                        </View>
-                        <Text style={s.postAge}>{timeAgo(post.createdAt, lang)}</Text>
-                    </Pressable>
-
-                    <View style={s.hairline} />
-
-                    {/* Content */}
-                    {post.type === "POLL" ? (
-                        <View style={s.content}>
-                            <Text style={s.pollQuestion}>{title}</Text>
-                            {!!body && <Text style={s.pollBody}>{body}</Text>}
-                            <View style={s.pollOptions}>
-                                {pollOptions.map((opt) => {
-                                    const pct = totalVotes > 0
-                                        ? Math.round((opt._count.votes / totalVotes) * 100)
-                                        : 0;
-                                    const isVoted = selectedOption === opt.id;
-                                    const hasVoted = !!selectedOption;
-                                    // Once a poll has ended it can't be voted on, so reveal the
-                                    // results even if this user never voted — matching the feed.
-                                    const showResults = hasVoted || pollExpired;
-                                    return (
-                                        <Pressable
-                                            key={opt.id}
-                                            style={[s.pollOption, isVoted && s.pollOptionSelected]}
-                                            onPress={() => !hasVoted && !pollExpired && vote(opt.id)}
-                                            disabled={hasVoted || !!votingId || pollExpired}
-                                        >
-                                            {showResults && (
-                                                <View
-                                                    style={[
-                                                        s.pollBar,
-                                                        { width: `${pct}%` as any },
-                                                        isVoted && s.pollBarSelected,
-                                                    ]}
-                                                />
-                                            )}
-                                            <View style={s.pollOptionInner}>
-                                                <Text style={[s.pollOptionText, isVoted && s.pollOptionTextVoted]}>
-                                                    {lang === "fr" && opt.textFr ? opt.textFr : opt.textEn}
-                                                </Text>
-                                                {showResults && (
-                                                    <Text style={s.pollPct}>{pct}%</Text>
-                                                )}
-                                            </View>
-                                        </Pressable>
-                                    );
-                                })}
-                            </View>
-                            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 2 }}>
-                                <Text style={s.voteCount}>{totalVotes} {totalVotes === 1 ? "VOTE" : "VOTES"}</Text>
-                                {!!post.pollExpiresAt && (() => {
-                                    const diff = new Date(post.pollExpiresAt!).getTime() - Date.now();
-                                    const expired = diff <= 0;
-                                    const label = expired
-                                        ? "ENDED"
-                                        : diff < 3600000
-                                        ? `${Math.floor(diff / 60000)}M LEFT`
-                                        : diff < 86400000
-                                        ? `${Math.floor(diff / 3600000)}H LEFT`
-                                        : `${Math.floor(diff / 86400000)}D LEFT`;
-                                    return (
-                                        <Text style={[s.voteCount, { color: expired ? C.textLight : C.primary }]}>{label}</Text>
-                                    );
-                                })()}
-                            </View>
-                        </View>
+                        ) : (
+                            <AnnouncementCard
+                                post={cardPost}
+                                onLikePress={() => toggleLikeCtx(id!, like)}
+                                onCommentPress={scrollToComments}
+                                onClubPress={(cid) => cid && router.push(`/club/${cid}` as any)}
+                            />
+                        )
                     ) : (
-                        <View style={s.content}>
-                            <Text style={s.annoTitle}>{title}</Text>
-                            {!!body && <Text style={s.annoBody}>{body}</Text>}
-                        </View>
-                    )}
+                    <>
+                        {/* Hero image / carousel */}
+                        {(post.images && post.images.length > 1) ? (
+                            <View style={{ marginHorizontal: 12 }}>
+                                <FlatList
+                                    data={post.images}
+                                    horizontal
+                                    pagingEnabled
+                                    showsHorizontalScrollIndicator={false}
+                                    keyExtractor={(uri, i) => `${uri}-${i}`}
+                                    renderItem={({ item }) => (
+                                        <View style={[s.hero, { width: carouselSize, height: carouselSize }]}>
+                                            <ExpoImage source={{ uri: item }} style={StyleSheet.absoluteFill as any} contentFit="cover" transition={200} />
+                                        </View>
+                                    )}
+                                    onScroll={(e) => {
+                                        const idx = Math.round(e.nativeEvent.contentOffset.x / carouselSize);
+                                        setCarouselIndex(idx);
+                                    }}
+                                    scrollEventThrottle={16}
+                                />
+                                <View style={s.carouselCounter}>
+                                    <Text style={s.carouselCounterText}>
+                                        {carouselIndex + 1} / {post.images.length}
+                                    </Text>
+                                </View>
+                            </View>
+                        ) : !!imageUrl ? (
+                            <View style={[s.hero, { marginHorizontal: 12 }]}>
+                                <ExpoImage source={{ uri: imageUrl }} style={StyleSheet.absoluteFill as any} contentFit="cover" transition={200} />
+                            </View>
+                        ) : null}
 
-                    <View style={s.hairline} />
-
-                    {/* Actions bar */}
-                    <View style={s.actionsBar}>
-                        <Pressable style={s.actionBtn} onPress={() => toggleLikeCtx(id!, like)} accessibilityLabel={like.liked ? "Unlike post" : "Like post"} accessibilityRole="button">
-                            <Ionicons
-                                name={like.liked ? "heart" : "heart-outline"}
-                                size={20}
-                                color={like.liked ? C.primary : C.textLight}
-                            />
-                            {like.count > 0 && !post.hideLikeCount && (
-                                <Text style={[s.actionCount, like.liked && s.actionCountActive]}>
-                                    {like.count}
-                                </Text>
-                            )}
-                        </Pressable>
-                        <Pressable style={s.actionBtn} accessibilityLabel={`${comments.length} comments`} accessibilityRole="button">
-                            <Ionicons name="chatbubble-outline" size={19} color={C.textLight} />
-                            {comments.length > 0 && (
-                                <Text style={s.actionCount}>{comments.length}</Text>
-                            )}
-                        </Pressable>
+                        {/* Club header + content + actions — card */}
+                        <View style={s.card}>
                         <Pressable
-                            style={s.actionBtn}
-                            hitSlop={8}
-                            onPress={() => Share.share({ message: `${title}\n\n${API_BASE}/share/post/${id}` })}
-                            accessibilityLabel={t.sharePostLabel}
-                            accessibilityRole="button"
+                            style={s.clubRow}
+                            onPress={() => post.club?.id && router.push(`/club/${post.club.id}` as any)}
                         >
-                            <Ionicons name="share-outline" size={20} color={C.textLight} />
+                            <View style={s.clubAvatar}>
+                                {post.club?.logoUrl
+                                    ? <ExpoImage source={{ uri: post.club.logoUrl }} style={s.clubAvatarImg} contentFit="cover" transition={200} />
+                                    : <Ionicons name="people" size={14} color="#fff" />
+                                }
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={s.clubLabel}>{t.postedBy}</Text>
+                                <Text style={s.clubName}>{clubName}</Text>
+                            </View>
+                            <Text style={s.postAge}>{timeAgo(post.createdAt, lang)}</Text>
                         </Pressable>
-                        {!post.canEdit && (
+
+                        <View style={s.hairline} />
+
+                        {/* Content */}
+                        {post.type === "POLL" ? (
+                            <View style={s.content}>
+                                <Text style={s.pollQuestion}>{title}</Text>
+                                {!!body && <Text style={s.pollBody}>{body}</Text>}
+                                <View style={s.pollOptions}>
+                                    {pollOptions.map((opt) => {
+                                        const pct = totalVotes > 0
+                                            ? Math.round((opt._count.votes / totalVotes) * 100)
+                                            : 0;
+                                        const isVoted = selectedOption === opt.id;
+                                        const hasVoted = !!selectedOption;
+                                        // Once a poll has ended it can't be voted on, so reveal the
+                                        // results even if this user never voted — matching the feed.
+                                        const showResults = hasVoted || pollExpired;
+                                        return (
+                                            <Pressable
+                                                key={opt.id}
+                                                style={[s.pollOption, isVoted && s.pollOptionSelected]}
+                                                onPress={() => !hasVoted && !pollExpired && vote(opt.id)}
+                                                disabled={hasVoted || !!votingId || pollExpired}
+                                            >
+                                                {showResults && (
+                                                    <View
+                                                        style={[
+                                                            s.pollBar,
+                                                            { width: `${pct}%` as any },
+                                                            isVoted && s.pollBarSelected,
+                                                        ]}
+                                                    />
+                                                )}
+                                                <View style={s.pollOptionInner}>
+                                                    <Text style={[s.pollOptionText, isVoted && s.pollOptionTextVoted]}>
+                                                        {lang === "fr" && opt.textFr ? opt.textFr : opt.textEn}
+                                                    </Text>
+                                                    {showResults && (
+                                                        <Text style={s.pollPct}>{pct}%</Text>
+                                                    )}
+                                                </View>
+                                            </Pressable>
+                                        );
+                                    })}
+                                </View>
+                                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 2 }}>
+                                    <Text style={s.voteCount}>{totalVotes} {totalVotes === 1 ? "VOTE" : "VOTES"}</Text>
+                                    {!!post.pollExpiresAt && (() => {
+                                        const diff = new Date(post.pollExpiresAt!).getTime() - Date.now();
+                                        const expired = diff <= 0;
+                                        const label = expired
+                                            ? "ENDED"
+                                            : diff < 3600000
+                                            ? `${Math.floor(diff / 60000)}M LEFT`
+                                            : diff < 86400000
+                                            ? `${Math.floor(diff / 3600000)}H LEFT`
+                                            : `${Math.floor(diff / 86400000)}D LEFT`;
+                                        return (
+                                            <Text style={[s.voteCount, { color: expired ? C.textLight : C.primary }]}>{label}</Text>
+                                        );
+                                    })()}
+                                </View>
+                            </View>
+                        ) : (
+                            <View style={s.content}>
+                                <Text style={s.annoTitle}>{title}</Text>
+                                {!!body && <Text style={s.annoBody}>{body}</Text>}
+                            </View>
+                        )}
+
+                        <View style={s.hairline} />
+
+                        {/* Actions bar */}
+                        <View style={s.actionsBar}>
+                            <Pressable style={s.actionBtn} onPress={() => toggleLikeCtx(id!, like)} accessibilityLabel={like.liked ? "Unlike post" : "Like post"} accessibilityRole="button">
+                                <Ionicons
+                                    name={like.liked ? "heart" : "heart-outline"}
+                                    size={20}
+                                    color={like.liked ? C.primary : C.textLight}
+                                />
+                                {like.count > 0 && !post.hideLikeCount && (
+                                    <Text style={[s.actionCount, like.liked && s.actionCountActive]}>
+                                        {like.count}
+                                    </Text>
+                                )}
+                            </Pressable>
+                            <Pressable style={s.actionBtn} accessibilityLabel={`${comments.length} comments`} accessibilityRole="button">
+                                <Ionicons name="chatbubble-outline" size={19} color={C.textLight} />
+                                {comments.length > 0 && (
+                                    <Text style={s.actionCount}>{comments.length}</Text>
+                                )}
+                            </Pressable>
                             <Pressable
                                 style={s.actionBtn}
                                 hitSlop={8}
-                                onPress={reportPost}
-                                accessibilityLabel={t.reportPostLabel}
+                                onPress={() => Share.share({ message: `${title}\n\n${API_BASE}/share/post/${id}` })}
+                                accessibilityLabel={t.sharePostLabel}
                                 accessibilityRole="button"
                             >
-                                <Ionicons name="flag-outline" size={20} color={C.textLight} />
+                                <Ionicons name="share-outline" size={20} color={C.textLight} />
                             </Pressable>
-                        )}
-                        {post.type === "EVENT" && !postExpired && (() => {
-                            const atCapacity = post.capacity != null && rsvpCount >= post.capacity && !isRsvped(id!);
-                            return (
-                                <View style={{ alignItems: "flex-end", gap: 6 }}>
-                                    {!post.canEdit && isRsvped(id!) && (
-                                        <Pressable style={s.checkInBtn} onPress={openScanner}>
-                                            <Ionicons name="qr-code-outline" size={13} color="#fff" />
-                                            <Text style={s.checkInBtnText}>{t.checkInBtn}</Text>
-                                        </Pressable>
-                                    )}
-                                    <Pressable
-                                        style={[s.rsvpBtn, isRsvped(id!) && s.rsvpBtnActive, atCapacity && s.rsvpBtnFull]}
-                                        onPress={atCapacity ? undefined : toggleRsvp}
-                                        disabled={atCapacity}
-                                    >
-                                        <Ionicons name="ticket-outline" size={14} color={isRsvped(id!) ? C.primary : "#fff"} />
-                                        <Text style={[s.rsvpBtnText, isRsvped(id!) && s.rsvpBtnTextActive]}>
-                                            {atCapacity ? "FULL" : isRsvped(id!) ? "GOING" : "RSVP"}
-                                        </Text>
-                                        {rsvpCount > 0 && (
-                                            <Text style={[s.rsvpBtnText, isRsvped(id!) && s.rsvpBtnTextActive]}>
-                                                · {rsvpCount}{post.capacity != null ? `/${post.capacity}` : ""}
-                                            </Text>
+                            {!post.canEdit && (
+                                <Pressable
+                                    style={s.actionBtn}
+                                    hitSlop={8}
+                                    onPress={reportPost}
+                                    accessibilityLabel={t.reportPostLabel}
+                                    accessibilityRole="button"
+                                >
+                                    <Ionicons name="flag-outline" size={20} color={C.textLight} />
+                                </Pressable>
+                            )}
+                            {post.type === "EVENT" && !postExpired && (() => {
+                                const atCapacity = post.capacity != null && rsvpCount >= post.capacity && !isRsvped(id!);
+                                return (
+                                    <View style={{ alignItems: "flex-end", gap: 6 }}>
+                                        {!post.canEdit && isRsvped(id!) && (
+                                            <Pressable style={s.checkInBtn} onPress={openScanner}>
+                                                <Ionicons name="qr-code-outline" size={13} color="#fff" />
+                                                <Text style={s.checkInBtnText}>{t.checkInBtn}</Text>
+                                            </Pressable>
                                         )}
-                                    </Pressable>
-                                </View>
-                            );
-                        })()}
-                    </View>
-                    </View>{/* end card */}
+                                        <Pressable
+                                            style={[s.rsvpBtn, isRsvped(id!) && s.rsvpBtnActive, atCapacity && s.rsvpBtnFull]}
+                                            onPress={atCapacity ? undefined : toggleRsvp}
+                                            disabled={atCapacity}
+                                        >
+                                            <Ionicons name="ticket-outline" size={14} color={isRsvped(id!) ? C.primary : "#fff"} />
+                                            <Text style={[s.rsvpBtnText, isRsvped(id!) && s.rsvpBtnTextActive]}>
+                                                {atCapacity ? "FULL" : isRsvped(id!) ? "GOING" : "RSVP"}
+                                            </Text>
+                                            {rsvpCount > 0 && (
+                                                <Text style={[s.rsvpBtnText, isRsvped(id!) && s.rsvpBtnTextActive]}>
+                                                    · {rsvpCount}{post.capacity != null ? `/${post.capacity}` : ""}
+                                                </Text>
+                                            )}
+                                        </Pressable>
+                                    </View>
+                                );
+                            })()}
+                        </View>
+                        </View>{/* end card */}
+                    </>
+                    )}
 
                     {/* Check-in banner — club only, events only */}
                     {post.canEdit && post.type === "EVENT" && (
@@ -1203,10 +1235,8 @@ export default function PostDetailScreen() {
                                     </Text>
                                 </View>
                             )}
-                        </View>
-
-                        {comments.length > 0 && (
-                            <View style={s.commentSortRow}>
+                            <View style={s.commentsHeaderSpacer} />
+                            {comments.length > 0 && (
                                 <Pressable
                                     style={s.sortToggle}
                                     onPress={() => setCommentSort((so) => so === "newest" ? "oldest" : "newest")}
@@ -1220,8 +1250,8 @@ export default function PostDetailScreen() {
                                     <Text style={s.sortToggleText}>{commentSort === "newest" ? t.newest : t.oldest}</Text>
                                     <Ionicons name={commentSort === "newest" ? "arrow-down" : "arrow-up"} size={11} color={C.primary} />
                                 </Pressable>
-                            </View>
-                        )}
+                            )}
+                        </View>
 
                         {commentsLoading ? (
                             <ActivityIndicator color={C.primary} style={{ marginTop: 16 }} />
@@ -1256,7 +1286,7 @@ export default function PostDetailScreen() {
                                                 <View style={[s.commentAvatar, isReply && { width: 26, height: 26, borderRadius: 13 }]}>
                                                     {avatar
                                                         ? <ExpoImage source={{ uri: avatar }} style={[s.commentAvatarImg, isReply && { width: 26, height: 26, borderRadius: 13 }]} contentFit="cover" transition={200} />
-                                                        : <Text style={[s.commentAvatarInit, isReply && { fontSize: 10 }]}>{name[0]?.toUpperCase()}</Text>
+                                                        : <Text style={[s.commentAvatarInit, isReply && { ...meta(10, "regular") }]}>{name[0]?.toUpperCase()}</Text>
                                                     }
                                                 </View>
                                                 <View style={s.commentBody}>
@@ -1345,7 +1375,7 @@ export default function PostDetailScreen() {
                                 {replyingTo && (
                                     <View style={s.replyingToBar}>
                                         <Ionicons name="return-down-forward-outline" size={12} color={C.primary} />
-                                        <Text style={s.replyingToText}>Replying to <Text style={{ fontWeight: "700" }}>{replyingTo.name}</Text></Text>
+                                        <Text style={s.replyingToText}>Replying to <Text style={{ ...meta(13, "bold") }}>{replyingTo.name}</Text></Text>
                                         <Pressable onPress={() => setReplyingTo(null)} hitSlop={8} style={{ marginLeft: "auto" }} accessibilityLabel={t.cancelReplyLabel} accessibilityRole="button">
                                             <Ionicons name="close" size={14} color={C.textLight} />
                                         </Pressable>

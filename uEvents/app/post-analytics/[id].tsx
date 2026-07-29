@@ -12,7 +12,7 @@ import { API_BASE } from "../../lib/api";
 import { useLang, useT } from "../../lib/LangContext";
 import { timeAgo } from "../../lib/datetime";
 import { useTheme } from "../../lib/ThemeContext";
-import type { AppColors } from "../../styles/theme";
+import { meta, lbl, fonts, AppColors } from "../../styles/theme";
 
 type ApiComment = {
     id: string;
@@ -89,14 +89,11 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         backgroundColor: C.bg,
     },
     topBarSide: { width: 32 },
-    topBarTitle: {
-        flex: 1,
+    topBarTitle: { ...lbl(12, "bold", 0.12), flex: 1,
         textAlign: "center",
-        fontSize: 12,
-        fontWeight: "800",
-        color: C.text,
-        letterSpacing: 2,
-    },
+        
+        
+        color: C.text },
 
     // Hero
     hero: { backgroundColor: "#111", overflow: "hidden" },
@@ -114,25 +111,13 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingBottom: 18,
         gap: 4,
     },
-    identityLabel: {
-        fontSize: 9,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 2,
-    },
-    identityTitle: {
-        fontSize: 22,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: -0.4,
-        lineHeight: 28,
-    },
-    identityMeta: {
-        fontSize: 12,
-        color: C.textLight,
-        fontWeight: "500",
-        marginTop: 2,
-    },
+    identityLabel: { ...lbl(9, "bold", 0.12), color: C.primary },
+    identityTitle: { fontFamily: fonts.displayBold, fontSize: 22, letterSpacing: -0.4, color: C.text,
+        
+        lineHeight: 28 },
+    identityMeta: { ...meta(12, "medium"), color: C.textLight,
+        
+        marginTop: 2 },
 
     // Stats grid
     statsCard: {
@@ -156,24 +141,11 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
     statCellBottom: {
         borderBottomWidth: 0,
     },
-    statLabel: {
-        fontSize: 9,
-        fontWeight: "700",
-        color: C.textLight,
-        letterSpacing: 1,
-    },
-    statValue: {
-        fontSize: 28,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: -0.8,
-        lineHeight: 34,
-    },
-    statSub: {
-        fontSize: 10,
-        fontWeight: "600",
-        color: C.textLight,
-    },
+    statLabel: { ...lbl(9, "bold", 0.11), color: C.textLight },
+    statValue: { fontFamily: fonts.displayBold, fontSize: 28, letterSpacing: -0.8, color: C.text,
+        
+        lineHeight: 34 },
+    statSub: { ...meta(10, "semi"), color: C.textLight },
     statSubRed: { color: C.primary },
     statSubGreen: { color: "#16A34A" },
 
@@ -198,12 +170,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingHorizontal: 10,
         paddingVertical: 6,
     },
-    attendeesBtnText: {
-        fontSize: 9,
-        fontWeight: "800",
-        color: "#fff",
-        letterSpacing: 1,
-    },
+    attendeesBtnText: { ...lbl(9, "bold", 0.11), color: "#fff" },
     attendeeRow: {
         flexDirection: "row",
         alignItems: "center",
@@ -213,56 +180,26 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         borderBottomWidth: StyleSheet.hairlineWidth,
         borderBottomColor: C.border,
     },
-    attendeeName: {
-        fontSize: 14,
-        fontWeight: "700",
-        color: C.text,
-    },
-    attendeeMeta: {
-        fontSize: 11,
-        color: C.textLight,
-        marginTop: 2,
-    },
-    rsvpHeadLabel: {
-        fontSize: 9,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 2,
-    },
+    attendeeName: { ...meta(14, "bold"), color: C.text },
+    attendeeMeta: { ...meta(11, "regular"), color: C.textLight,
+        marginTop: 2 },
+    rsvpHeadLabel: { ...lbl(9, "bold", 0.12), color: C.primary },
     rsvpTotalRow: {
         flexDirection: "row",
         alignItems: "baseline",
     },
-    rsvpTotalNum: {
-        fontSize: 42,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: -1,
-    },
-    rsvpTotalLabel: {
-        fontSize: 16,
-        fontWeight: "500",
-        color: C.textMuted,
-    },
+    rsvpTotalNum: { fontFamily: fonts.displayBold, fontSize: 42, letterSpacing: -1, color: C.text },
+    rsvpTotalLabel: { fontFamily: fonts.body, fontSize: 16, color: C.textMuted },
     rsvpRow: { gap: 6 },
-    rsvpRowLabel: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.textBody,
-        letterSpacing: 1,
-    },
+    rsvpRowLabel: { ...lbl(10, "bold", 0.1), color: C.textBody },
     rsvpRowBottom: {
         flexDirection: "row",
         alignItems: "center",
         gap: 8,
     },
-    rsvpRowCount: {
-        fontSize: 13,
-        fontWeight: "700",
-        color: C.textBody,
-        flexShrink: 0,
-    },
-    rsvpRowCountRed: { color: C.primary, fontSize: 11, fontWeight: "700", flexShrink: 0 },
+    rsvpRowCount: { ...meta(13, "bold"), color: C.textBody,
+        flexShrink: 0 },
+    rsvpRowCountRed: { ...meta(11, "bold"), color: C.primary,   flexShrink: 0 },
     rsvpBarTrack: {
         height: 6,
         backgroundColor: C.surfaceAlt,
@@ -280,12 +217,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingBottom: 24,
         gap: 20,
     },
-    chartLabel: {
-        fontSize: 9,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 2,
-    },
+    chartLabel: { ...lbl(9, "bold", 0.12), color: C.primary },
     chartBars: {
         flexDirection: "row",
         alignItems: "flex-end",
@@ -309,13 +241,9 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
     chartBarFillFeatured: {
         backgroundColor: C.primary,
     },
-    chartBarLabel: {
-        fontSize: 8,
-        fontWeight: "700",
-        color: C.textLight,
-        letterSpacing: 0.5,
-        textAlign: "center",
-    },
+    chartBarLabel: { ...lbl(8, "bold", 0.06), color: C.textLight,
+        
+        textAlign: "center" },
 
     // Sentiment
     sentimentSection: {
@@ -332,23 +260,13 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         borderBottomWidth: 2,
         borderBottomColor: C.text,
     },
-    sentimentTitle: {
-        fontSize: 18,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: -0.3,
-    },
+    sentimentTitle: { fontFamily: fonts.displayBold, fontSize: 18, letterSpacing: -0.3, color: C.text },
     sentimentBadge: {
         backgroundColor: "#16A34A",
         paddingHorizontal: 8,
         paddingVertical: 4,
     },
-    sentimentBadgeText: {
-        fontSize: 9,
-        fontWeight: "800",
-        color: "#fff",
-        letterSpacing: 1,
-    },
+    sentimentBadgeText: { ...lbl(9, "bold", 0.11), color: "#fff" },
 
     feedbackCard: {
         paddingHorizontal: 20,
@@ -366,29 +284,18 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         width: 38,
         height: 38,
         borderRadius: 19,
-        backgroundColor: "#9CA3AF",
+        backgroundColor: C.textLight,
         alignItems: "center",
         justifyContent: "center",
         overflow: "hidden",
         flexShrink: 0,
     },
     feedbackAvatarImg: { width: 38, height: 38, borderRadius: 19 },
-    feedbackName: {
-        fontSize: 13,
-        fontWeight: "800",
-        color: C.text,
-    },
-    feedbackTime: {
-        fontSize: 11,
-        color: C.textLight,
-        fontWeight: "500",
-    },
-    feedbackQuote: {
-        fontSize: 13,
-        color: C.textBody,
+    feedbackName: { ...meta(13, "bold"), color: C.text },
+    feedbackTime: { ...meta(11, "medium"), color: C.textLight },
+    feedbackQuote: { ...meta(13, "regular"), color: C.textBody,
         lineHeight: 20,
-        fontStyle: "italic",
-    },
+        fontStyle: "italic" },
 
     viewAllBtn: {
         marginHorizontal: 20,
@@ -398,12 +305,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingVertical: 14,
         alignItems: "center",
     },
-    viewAllText: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 1.5,
-    },
+    viewAllText: { ...lbl(10, "bold", 0.12), color: C.primary },
 
     // All comments modal
     modalSafe: { flex: 1, backgroundColor: C.bg },
@@ -417,12 +319,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         borderBottomColor: C.text,
         backgroundColor: C.bg,
     },
-    modalTitle: {
-        fontSize: 14,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: 1.5,
-    },
+    modalTitle: { ...meta(14, "bold"), color: C.text },
     modalClose: {
         width: 32,
         height: 32,
@@ -445,39 +342,24 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingHorizontal: 7,
         paddingVertical: 3,
     },
-    optionYearChipText: {
-        fontSize: 9,
-        fontWeight: "700",
-        color: C.textBody,
-        letterSpacing: 0.5,
-    },
-    optionYearChipPct: {
-        fontSize: 9,
-        fontWeight: "600",
-        color: C.primary,
-    },
+    optionYearChipText: { ...meta(9, "bold"), color: C.textBody },
+    optionYearChipPct: { ...meta(9, "semi"), color: C.primary },
 
     // Demographics charts
-    demoSectionLabel: {
-        fontSize: 9,
-        fontWeight: "800",
-        color: C.textLight,
-        letterSpacing: 1.5,
+    demoSectionLabel: { ...lbl(9, "bold", 0.12), color: C.textLight,
+        
         marginTop: 12,
-        marginBottom: 6,
-    },
+        marginBottom: 6 },
     demoRow: {
         flexDirection: "row",
         alignItems: "center",
         gap: 8,
         marginBottom: 6,
     },
-    demoLabel: {
-        width: 90,
-        fontSize: 11,
-        fontWeight: "600",
-        color: C.textBody,
-    },
+    demoLabel: { ...meta(11, "semi"), width: 90,
+        
+        
+        color: C.textBody },
     demoBarWrap: {
         flex: 1,
         height: 6,
@@ -487,18 +369,10 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         height: 6,
         backgroundColor: C.primary,
     },
-    demoCount: {
-        fontSize: 11,
-        fontWeight: "700",
-        color: C.text,
+    demoCount: { ...meta(11, "bold"), color: C.text,
         minWidth: 50,
-        textAlign: "right",
-    },
-    demoPct: {
-        fontSize: 10,
-        fontWeight: "500",
-        color: C.textLight,
-    },
+        textAlign: "right" },
+    demoPct: { ...meta(10, "medium"), color: C.textLight },
 
     // Attendees modal demographics header
     attendeeDemoHeader: {
@@ -509,12 +383,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         borderBottomColor: C.borderWarm,
         gap: 8,
     },
-    attendeeDemoTitle: {
-        fontSize: 9,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 2,
-    },
+    attendeeDemoTitle: { ...lbl(9, "bold", 0.12), color: C.primary },
     attendeeDemoRow: {
         flexDirection: "row",
         flexWrap: "wrap",
@@ -528,11 +397,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingHorizontal: 10,
         paddingVertical: 5,
     },
-    attendeeDemoChipText: {
-        fontSize: 11,
-        fontWeight: "600",
-        color: C.primary,
-    },
+    attendeeDemoChipText: { ...meta(11, "semi"), color: C.primary },
 
     // Modal export button
     modalExportBtn: {
@@ -651,7 +516,7 @@ export default function PostAnalyticsDetail() {
         return (
             <SafeAreaView style={s.safe} edges={["top"]}>
                 <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-                    <Text style={{ color: C.textLight, fontSize: 13 }}>{t.postNotFound}</Text>
+                    <Text style={{ ...meta(13, "regular"), color: C.textLight }}>{t.postNotFound}</Text>
                 </View>
             </SafeAreaView>
         );
@@ -744,7 +609,7 @@ export default function PostAnalyticsDetail() {
                                     <Text style={s.attendeesBtnText}>{t.attendeesLabel}</Text>
                                 </Pressable>
                                 {attendees.length > 0 && (
-                                    <Pressable style={[s.attendeesBtn, { backgroundColor: "#374151" }]} onPress={exportAttendees}>
+                                    <Pressable style={[s.attendeesBtn, { backgroundColor: C.textBody }]} onPress={exportAttendees}>
                                         <Ionicons name="share-outline" size={13} color="#fff" />
                                         <Text style={s.attendeesBtnText}>{t.exportLabel}</Text>
                                     </Pressable>
@@ -964,7 +829,7 @@ export default function PostAnalyticsDetail() {
                             contentContainerStyle={{ paddingBottom: 40 }}
                             ListEmptyComponent={
                                 <View style={{ alignItems: "center", paddingTop: 60 }}>
-                                    <Text style={{ color: C.textLight, fontSize: 13 }}>No RSVPs yet.</Text>
+                                    <Text style={{ ...meta(13, "regular"), color: C.textLight }}>No RSVPs yet.</Text>
                                 </View>
                             }
                             ListHeaderComponent={attendees.length >= 3 ? (() => {
@@ -1054,7 +919,7 @@ export default function PostAnalyticsDetail() {
                             contentContainerStyle={{ paddingBottom: 40 }}
                             ListEmptyComponent={
                                 <View style={{ alignItems: "center", paddingTop: 60 }}>
-                                    <Text style={{ color: C.textLight, fontSize: 13 }}>No comments yet.</Text>
+                                    <Text style={{ ...meta(13, "regular"), color: C.textLight }}>No comments yet.</Text>
                                 </View>
                             }
                             renderItem={({ item }) => (

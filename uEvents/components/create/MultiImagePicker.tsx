@@ -14,8 +14,9 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useT } from "../../lib/LangContext";
+import { fonts, lbl, meta, lightColors } from "../../styles/theme";
 
-const BURGUNDY = "#8C0327";
+const BURGUNDY = lightColors.primary;
 const MAX_IMAGES = 10;
 const THUMB = 80;
 
@@ -81,14 +82,14 @@ export default function MultiImagePicker({ images, onChange }: Props) {
                         )}
                     </Pressable>
                     <Pressable onPress={() => remove(idx)} style={s.removeBtn} hitSlop={6} accessibilityRole="button" accessibilityLabel="Remove image">
-                        <Ionicons name="close-circle" size={18} color="#6B7280" />
+                        <Ionicons name="close-circle" size={18} color={lightColors.textMuted} />
                     </Pressable>
                 </View>
             ))}
 
             {images.length < MAX_IMAGES && (
                 <Pressable style={s.addTile} onPress={pickMore} accessibilityRole="button" accessibilityLabel="Add image">
-                    <Ionicons name="add" size={22} color="#9CA3AF" />
+                    <Ionicons name="add" size={22} color={lightColors.textLight} />
                     <Text style={s.addLabel}>{t.addBadge}</Text>
                 </Pressable>
             )}
@@ -123,12 +124,7 @@ const s = StyleSheet.create({
         paddingVertical: 2,
         alignItems: "center",
     },
-    coverBadgeText: {
-        fontSize: 8,
-        fontWeight: "900",
-        color: "#fff",
-        letterSpacing: 1,
-    },
+    coverBadgeText: { ...lbl(8, "bold", 0.12), color: "#fff" },
     removeBtn: {
         position: "absolute",
         top: -7,
@@ -141,16 +137,11 @@ const s = StyleSheet.create({
         height: THUMB,
         backgroundColor: "#F3F4F6",
         borderWidth: 1.5,
-        borderColor: "#E5E0D8",
+        borderColor: lightColors.border,
         borderStyle: "dashed",
         alignItems: "center",
         justifyContent: "center",
         gap: 2,
     },
-    addLabel: {
-        fontSize: 9,
-        fontWeight: "800",
-        color: "#9CA3AF",
-        letterSpacing: 1,
-    },
+    addLabel: { ...lbl(9, "bold", 0.11), color: lightColors.textLight },
 });

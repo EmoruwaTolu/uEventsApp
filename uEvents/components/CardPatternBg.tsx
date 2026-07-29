@@ -1,6 +1,7 @@
 import React from "react";
 import { StyleSheet, View } from "react-native";
 import Svg, { Defs, Pattern, Rect, Circle } from "react-native-svg";
+import { lightColors } from "../styles/theme";
 
 type Props = {
     base?: string;   // --c3
@@ -10,7 +11,7 @@ type Props = {
 };
 
 export default function CardPatternBg({
-    base = "#8C0327",
+    base = lightColors.primary,
     accent = "#9d001d",
     cell = 64,
     dotR = 6,

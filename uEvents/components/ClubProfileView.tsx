@@ -18,11 +18,11 @@ import { useTheme } from "../lib/ThemeContext";
 import { useT } from "../lib/LangContext";
 import { translateCategory } from "../lib/categories";
 import { timeAgo, fmtTime24 as fmtTime, fmtLongDate } from "../lib/datetime";
-import type { AppColors } from "../styles/theme";
+import { lightColors, meta, lbl, fonts, AppColors } from "../styles/theme";
 import { LinearGradient } from "expo-linear-gradient";
 import SocialFeed, { FeedPost } from "./SocialFeed";
 
-const BURGUNDY = "#8C0327";
+const BURGUNDY = lightColors.primary;
 
 type PostTab = "history" | "events" | "polls" | "media";
 
@@ -455,7 +455,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
 
     if (loading) {
         return (
-            <View style={{ flex: 1, backgroundColor: "#F7F3EE" }}>
+            <View style={{ flex: 1, backgroundColor: C.bg }}>
                 <ProfileSkeleton />
             </View>
         );
@@ -463,17 +463,17 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
 
     if (!club) {
         return (
-            <View style={{ flex: 1, backgroundColor: "#F7F3EE" }}>
+            <View style={{ flex: 1, backgroundColor: C.bg }}>
                 {fetchError
                     ? <ErrorRetry message="Couldn't load club profile" onRetry={() => loadClub()} />
-                    : <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><Text style={{ color: "#6B7280" }}>{t.clubNotFound}</Text></View>
+                    : <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><Text style={{ color: C.textMuted }}>{t.clubNotFound}</Text></View>
                 }
             </View>
         );
     }
 
     const refreshControl = (
-        <RefreshControl refreshing={refreshing} onRefresh={() => loadClub(true)} tintColor="#8C0327" />
+        <RefreshControl refreshing={refreshing} onRefresh={() => loadClub(true)} tintColor={C.primary} />
     );
 
     const clubHeader = (
@@ -551,7 +551,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                             <>
                                 <View style={s.statDivider} />
                                 <View style={[s.statItem, { flexDirection: "row", gap: 3 }]}>
-                                    <Ionicons name="location-outline" size={10} color="#9CA3AF" />
+                                    <Ionicons name="location-outline" size={10} color={C.textLight} />
                                     <Text style={[s.statLabel, { letterSpacing: 0.5 }]} numberOfLines={1}>{club.location}</Text>
                                 </View>
                             </>
@@ -584,19 +584,19 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                 <View style={s.socialBlock}>
                     {club.instagram && (
                         <View style={s.socialRow}>
-                            <Ionicons name="logo-instagram" size={15} color="#6B7280" />
+                            <Ionicons name="logo-instagram" size={15} color={C.textMuted} />
                             <Text style={s.socialText}>@{club.instagram.replace(/^@/, "")}</Text>
                         </View>
                     )}
                     {club.twitter && (
                         <View style={s.socialRow}>
-                            <Ionicons name="logo-twitter" size={15} color="#6B7280" />
+                            <Ionicons name="logo-twitter" size={15} color={C.textMuted} />
                             <Text style={s.socialText}>@{club.twitter.replace(/^@/, "")}</Text>
                         </View>
                     )}
                     {club.contactEmail && (
                         <View style={s.socialRow}>
-                            <Ionicons name="mail-outline" size={15} color="#6B7280" />
+                            <Ionicons name="mail-outline" size={15} color={C.textMuted} />
                             <Text style={s.socialText}>{club.contactEmail}</Text>
                         </View>
                     )}
@@ -627,7 +627,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                                 </View>
                             </View>
                             <Text style={s.pinnedEventTitle} numberOfLines={3}>
-                                {(pinnedPost.eventTitle ?? pinnedPost.content ?? "").toUpperCase()}
+                                {pinnedPost.eventTitle ?? pinnedPost.content ?? ""}
                             </Text>
                             {!!pinnedPost.content && (
                                 <Text style={s.pinnedEventDesc} numberOfLines={3}>{pinnedPost.content}</Text>
@@ -664,7 +664,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                             <Text style={s.pinnedLabel}>{t.pinnedPostBadge}</Text>
                         </View>
                         <Text style={s.pinnedTitle} numberOfLines={2}>
-                            {(pinnedPost.eventTitle ?? pinnedPost.poll?.question ?? pinnedPost.content ?? "").toUpperCase()}
+                            {pinnedPost.eventTitle ?? pinnedPost.poll?.question ?? pinnedPost.content ?? ""}
                         </Text>
                         {!!pinnedPost.content && !!pinnedPost.eventTitle && (
                             <Text style={s.pinnedPreview} numberOfLines={2}>{pinnedPost.content}</Text>
@@ -698,7 +698,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
 
     const emptyNode = (
         <View style={s.emptyState}>
-            <Ionicons name="document-outline" size={32} color="#D1CBC3" />
+            <Ionicons name="document-outline" size={32} color={C.textFaint} />
             <Text style={s.emptyText}>{t.noPostsHere}</Text>
         </View>
     );
@@ -710,7 +710,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
         const list = filterPosts(posts, tabKey);
         // Every pane keeps its own refresh control. (Toggling it on/off per active
         // tab makes RN recreate the scroll view, which caused a white flash on swipe.)
-        const refresh = <RefreshControl refreshing={refreshing} onRefresh={() => loadClub(true)} tintColor="#8C0327" progressViewOffset={paneTopPad} />;
+        const refresh = <RefreshControl refreshing={refreshing} onRefresh={() => loadClub(true)} tintColor={C.primary} progressViewOffset={paneTopPad} />;
         if (tabKey === "media") {
             const cellSize = Math.floor((screenWidth - 3) / 3);
             return (
@@ -788,12 +788,12 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                     <View style={{ flexDirection: "row", gap: 4 }}>
                         {isProfileTab ? (
                             <Pressable style={s.menuBtn} onPress={() => router.push("/settings" as any)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Settings">
-                                <Ionicons name="settings-outline" size={20} color="#C4BFB8" />
+                                <Ionicons name="settings-outline" size={20} color={C.textFaint} />
                             </Pressable>
                         ) : (
                             <>
                                 <Pressable style={s.menuBtn} onPress={handleShare} hitSlop={8} accessibilityRole="button" accessibilityLabel="Share club">
-                                    <Ionicons name="share-outline" size={20} color="#C4BFB8" />
+                                    <Ionicons name="share-outline" size={20} color={C.textFaint} />
                                 </Pressable>
                                 <Pressable
                                     style={s.menuBtn}
@@ -811,10 +811,10 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                                         }
                                         size={20}
                                         color={
-                                            !isFollowing          ? "#C4BFB8" :
-                                            notifPref === "NONE"  ? "#C4BFB8" :
+                                            !isFollowing          ? C.textFaint :
+                                            notifPref === "NONE"  ? C.textFaint :
                                             notifPref === "ALL"   ? BURGUNDY :
-                                            "#C4BFB8"
+                                            C.textFaint
                                         }
                                     />
                                 </Pressable>
@@ -862,7 +862,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                         <View style={s.modalHeader}>
                             <Text style={s.modalTitle}>{t.notificationsSection}</Text>
                             <Pressable onPress={() => closeSheet(notifSheetY, () => setNotifModalOpen(false))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close">
-                                <Ionicons name="close" size={20} color="#374151" />
+                                <Ionicons name="close" size={20} color={C.textBody} />
                             </Pressable>
                         </View>
                         <Text style={s.modalSubtitle}>FOR {pickText(club.clubName, club.clubNameFr, lang).toUpperCase()}</Text>
@@ -895,7 +895,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                                         }
                                     }}
                                 >
-                                    <Ionicons name={icon} size={18} color={selected ? BURGUNDY : "#9CA3AF"} />
+                                    <Ionicons name={icon} size={18} color={selected ? BURGUNDY : C.textLight} />
                                     <View style={{ flex: 1 }}>
                                         <Text style={[s.notifOptLabel, selected && { color: BURGUNDY }]}>{label}</Text>
                                         <Text style={s.notifOptDesc}>{desc}</Text>
@@ -919,7 +919,7 @@ const makeClubStyles = (C: AppColors) => StyleSheet.create({
         backgroundColor: C.bg,
     },
     backGroup: { width: 36, alignItems: "flex-start" },
-    topBarTitle: { flex: 1, textAlign: "center", fontSize: 12, fontWeight: "800", color: C.text, letterSpacing: 2 },
+    topBarTitle: { ...lbl(12, "bold", 0.12), flex: 1, textAlign: "center",   color: C.text },
     menuBtn: { width: 36, alignItems: "flex-end" },
     headerCard: { backgroundColor: C.surface, overflow: "hidden" },
     bannerArea: { height: 140, overflow: "hidden", backgroundColor: "#1a1a1a" },
@@ -929,47 +929,47 @@ const makeClubStyles = (C: AppColors) => StyleSheet.create({
     logoButtonRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginTop: -36, marginBottom: 10 },
     logoBigWrap: { width: 72, height: 72, borderWidth: 3, borderColor: C.surface, backgroundColor: C.primaryBg, alignItems: "center", justifyContent: "center", overflow: "hidden" },
     logoBig: { width: "100%" as any, height: "100%" as any },
-    clubNameNew: { fontSize: 26, fontWeight: "900", color: C.text, letterSpacing: -0.5, lineHeight: 30 },
-    categoryLabelNew: { fontSize: 10, fontWeight: "700", color: C.primary, letterSpacing: 2, marginTop: 4 },
+    clubNameNew: { fontFamily: fonts.displayBold, fontSize: 26, letterSpacing: -0.5, color: C.text,  lineHeight: 30 },
+    categoryLabelNew: { ...lbl(10, "bold", 0.12), color: C.primary,  marginTop: 4 },
     statsRow: { flexDirection: "row", alignItems: "center", marginTop: 16, paddingTop: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.borderWarm },
     statItem: { flex: 1, alignItems: "center", gap: 3 },
-    statValue: { fontSize: 16, fontWeight: "900", color: C.text },
-    statLabel: { fontSize: 9, fontWeight: "700", color: C.textLight, letterSpacing: 1.5 },
+    statValue: { ...meta(16, "bold"), color: C.text },
+    statLabel: { ...lbl(9, "bold", 0.12), color: C.textLight },
     statDivider: { width: 1, height: 28, backgroundColor: C.borderWarm },
     followBtn: { backgroundColor: C.primary, paddingVertical: 8, paddingHorizontal: 16, alignItems: "center", justifyContent: "center" },
     editProfileBtn: { flexDirection: "row", alignItems: "center", gap: 5, borderWidth: 1, borderColor: C.primary, paddingVertical: 7, paddingHorizontal: 12 },
-    editProfileBtnText: { fontSize: 11, fontWeight: "800", color: C.primary, letterSpacing: 1 },
+    editProfileBtnText: { ...lbl(11, "bold", 0.09), color: C.primary },
     followBtnActive: { backgroundColor: "transparent", borderWidth: 1.5, borderColor: C.primary },
-    followBtnText: { fontSize: 11, fontWeight: "800", color: "#fff", letterSpacing: 1.5 },
+    followBtnText: { ...lbl(11, "bold", 0.12), color: "#fff" },
     followBtnTextActive: { color: C.primary },
     aboutBlock: { backgroundColor: C.surface, paddingHorizontal: 20, paddingVertical: 18, marginTop: 8 },
-    aboutLabel: { fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 2, marginBottom: 10 },
-    aboutText: { fontSize: 14, lineHeight: 22, color: C.textBody },
-    aboutPlaceholder: { fontSize: 13, color: C.textLight, fontStyle: "italic" },
+    aboutLabel: { ...lbl(10, "bold", 0.12), color: C.primary,  marginBottom: 10 },
+    aboutText: { ...meta(14, "regular"), lineHeight: 22, color: C.textBody },
+    aboutPlaceholder: { ...meta(13, "regular"), color: C.textLight, fontStyle: "italic" },
     tagsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 },
     tagChip: { backgroundColor: C.surfaceAlt, paddingHorizontal: 12, paddingVertical: 6 },
-    tagChipText: { fontSize: 10, fontWeight: "700", color: C.textMuted, letterSpacing: 1 },
+    tagChipText: { ...lbl(10, "bold", 0.1), color: C.textMuted },
     socialBlock: { backgroundColor: C.surface, paddingHorizontal: 20, paddingVertical: 14, marginTop: 1, gap: 10 },
     socialRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-    socialText: { fontSize: 13, color: C.textBody, fontWeight: "500" },
+    socialText: { ...meta(13, "medium"), color: C.textBody },
     pinnedCard: { backgroundColor: C.surface, marginTop: 1, paddingHorizontal: 20, paddingVertical: 16, gap: 8, borderLeftWidth: 3, borderLeftColor: C.primary },
     pinnedHeader: { flexDirection: "row", alignItems: "center", gap: 6 },
-    pinnedLabel: { fontSize: 9, fontWeight: "800", color: C.primary, letterSpacing: 2 },
-    pinnedTitle: { fontSize: 15, fontWeight: "900", color: C.text, letterSpacing: 0.2, lineHeight: 21 },
-    pinnedPreview: { fontSize: 13, color: C.textMuted, lineHeight: 19 },
+    pinnedLabel: { ...lbl(9, "bold", 0.12), color: C.primary },
+    pinnedTitle: { ...meta(15, "bold"), color: C.text,  lineHeight: 21 },
+    pinnedPreview: { ...meta(13, "regular"), color: C.textMuted, lineHeight: 19 },
     pinnedFooter: { marginTop: 2 },
-    pinnedViewText: { fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 1.5 },
+    pinnedViewText: { ...lbl(10, "bold", 0.12), color: C.primary },
     pinnedEventCard: { marginTop: 8, marginHorizontal: 12, aspectRatio: 1, overflow: "hidden", backgroundColor: "#1a1a1a" },
     pinnedEventBody: { flex: 1, justifyContent: "flex-end", padding: 20, gap: 10 },
     pinnedTagRow: { flexDirection: "row", gap: 8, marginBottom: 4 },
     pinnedTagBurgundy: { backgroundColor: C.primary, paddingHorizontal: 10, paddingVertical: 4 },
     pinnedTagDark: { backgroundColor: "rgba(255,255,255,0.15)", paddingHorizontal: 10, paddingVertical: 4 },
-    pinnedTagText: { fontSize: 9, fontWeight: "800", color: "#fff", letterSpacing: 1.5 },
-    pinnedEventTitle: { fontSize: 26, fontWeight: "900", color: "#fff", letterSpacing: -0.5, lineHeight: 30 },
-    pinnedEventDesc: { fontSize: 13, color: "rgba(255,255,255,0.75)", lineHeight: 20 },
+    pinnedTagText: { ...lbl(9, "bold", 0.12), color: "#fff" },
+    pinnedEventTitle: { fontFamily: fonts.displayBold, fontSize: 26, letterSpacing: -0.5, color: "#fff",  lineHeight: 30 },
+    pinnedEventDesc: { ...meta(13, "regular"), color: "rgba(255,255,255,0.75)", lineHeight: 20 },
     pinnedEventCtaRow: { flexDirection: "row", gap: 8, marginTop: 4 },
     pinnedEventCta: { flex: 3, backgroundColor: C.primary, paddingVertical: 14, alignItems: "center", justifyContent: "center" },
-    pinnedEventCtaText: { fontSize: 12, fontWeight: "800", color: "#fff", letterSpacing: 2 },
+    pinnedEventCtaText: { ...lbl(12, "bold", 0.12), color: "#fff" },
     pinnedEventEditBtn: { flex: 1, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
     tabBar: { backgroundColor: C.surface, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderWarm },
     tabRow: { flexDirection: "row", paddingHorizontal: 20 },
@@ -979,12 +979,12 @@ const makeClubStyles = (C: AppColors) => StyleSheet.create({
         shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 4,
     },
     tabItem: { paddingRight: 24, paddingVertical: 14, position: "relative" },
-    tabLabel: { fontSize: 10, fontWeight: "800", color: C.textLight, letterSpacing: 1 },
+    tabLabel: { ...lbl(10, "bold", 0.1), color: C.textLight },
     tabLabelActive: { color: C.text },
     tabUnderline: { position: "absolute", bottom: 0, left: 0, right: 24, height: 2, backgroundColor: C.primary },
     postList: { backgroundColor: C.bg, marginTop: 1 },
     emptyState: { alignItems: "center", paddingVertical: 60, gap: 12 },
-    emptyText: { fontSize: 11, fontWeight: "700", color: C.textFaint, letterSpacing: 2 },
+    emptyText: { ...lbl(11, "bold", 0.12), color: C.textFaint },
     photoGrid: { flexDirection: "row", flexWrap: "wrap" },
     gridMultiIcon: {
         position: "absolute",
@@ -995,17 +995,17 @@ const makeClubStyles = (C: AppColors) => StyleSheet.create({
         borderRadius: 3,
     },
     loadArchive: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 24 },
-    loadArchiveText: { fontSize: 11, fontWeight: "800", color: C.primary, letterSpacing: 1.5 },
+    loadArchiveText: { ...lbl(11, "bold", 0.12), color: C.primary },
     modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
     modalSheet: { backgroundColor: C.bg, paddingHorizontal: 20, paddingBottom: 40, paddingTop: 12, gap: 8 },
     modalHandle: { width: 36, height: 4, backgroundColor: C.textFaint, alignSelf: "center", marginBottom: 8 },
     modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 2 },
-    modalTitle: { fontSize: 14, fontWeight: "900", color: C.text, letterSpacing: 2 },
-    modalSubtitle: { fontSize: 9, fontWeight: "800", color: C.primary, letterSpacing: 1.5, marginBottom: 8 },
+    modalTitle: { ...meta(14, "bold"), color: C.text },
+    modalSubtitle: { ...lbl(9, "bold", 0.12), color: C.primary,  marginBottom: 8 },
     notifOptRow: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 14, paddingHorizontal: 16, backgroundColor: C.surface, borderWidth: 1, borderColor: C.borderWarm, marginBottom: 6 },
     notifOptRowActive: { borderColor: C.primary },
-    notifOptLabel: { fontSize: 13, fontWeight: "700", color: C.text },
-    notifOptDesc: { fontSize: 11, color: C.textLight, marginTop: 2 },
+    notifOptLabel: { ...meta(13, "bold"), color: C.text },
+    notifOptDesc: { ...meta(11, "regular"), color: C.textLight, marginTop: 2 },
 
     editModalSheet: {
         backgroundColor: C.bg,
@@ -1014,22 +1014,16 @@ const makeClubStyles = (C: AppColors) => StyleSheet.create({
         paddingTop: 12,
         gap: 10,
     },
-    editFieldLabel: {
-        fontSize: 9,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 2,
-        marginTop: 4,
-    },
-    editInput: {
-        backgroundColor: C.surface,
+    editFieldLabel: { ...lbl(9, "bold", 0.12), color: C.primary,
+        
+        marginTop: 4 },
+    editInput: { ...meta(14, "regular"), backgroundColor: C.surface,
         borderWidth: 1,
         borderColor: C.borderWarm,
         paddingHorizontal: 14,
         paddingVertical: 12,
-        fontSize: 14,
-        color: C.text,
-    },
+        
+        color: C.text },
     editInputMultiline: {
         minHeight: 100,
         textAlignVertical: "top",
@@ -1040,5 +1034,5 @@ const makeClubStyles = (C: AppColors) => StyleSheet.create({
         alignItems: "center",
         marginTop: 8,
     },
-    editSaveBtnText: { fontSize: 12, fontWeight: "800", color: "#fff", letterSpacing: 2 },
+    editSaveBtnText: { ...lbl(12, "bold", 0.12), color: "#fff" },
 });

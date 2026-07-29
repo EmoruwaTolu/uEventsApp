@@ -1,5 +1,6 @@
 import React, { useRef } from "react";
 import { Pressable, Text, StyleProp, ViewStyle, ActivityIndicator, Animated } from "react-native";
+import { fonts, lbl, meta, lightColors } from "../styles/theme";
 
 export function LoginButton({
     title,
@@ -50,22 +51,17 @@ export function LoginButton({
                     alignItems: "center",
                     justifyContent: "center",
                     backgroundColor: filled
-                        ? pressed ? "#6B0220" : "#8C0327"
-                        : pressed ? "#F7F3EE" : "transparent",
+                        ? pressed ? lightColors.primaryDeep : lightColors.primary
+                        : pressed ? lightColors.bg : "transparent",
                     borderWidth: 1.5,
-                    borderColor: filled ? "#8C0327" : "#D1CBC3",
+                    borderColor: filled ? lightColors.primary : lightColors.textFaint,
                     opacity: loading ? 0.7 : 1,
                 })}
             >
                 {loading ? (
-                    <ActivityIndicator color={filled ? "#fff" : "#8C0327"} size="small" />
+                    <ActivityIndicator color={filled ? "#fff" : lightColors.primary} size="small" />
                 ) : (
-                    <Text style={{
-                        fontSize: 12,
-                        fontWeight: "800",
-                        letterSpacing: 2,
-                        color: filled ? "#ffffff" : "#374151",
-                    }}>
+                    <Text style={{ ...lbl(12, "bold", 0.12), color: filled ? "#ffffff" : lightColors.textBody }}>
                         {title}
                     </Text>
                 )}

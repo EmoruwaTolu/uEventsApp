@@ -1,6 +1,7 @@
 import React, { useState, forwardRef } from "react";
 import { View, Text, TextInput, Pressable, type TextInputProps, StyleProp, ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { fonts, lbl, meta, lightColors } from "../styles/theme";
 
 export const LoginInput = forwardRef<TextInput, TextInputProps & { style?: StyleProp<ViewStyle>; label?: string; showToggle?: boolean }>(
     function LoginInput({ style, label, showToggle, ...rest }, ref) {
@@ -12,13 +13,8 @@ export const LoginInput = forwardRef<TextInput, TextInputProps & { style?: Style
         return (
             <View style={[{ width: "100%" }, style]}>
                 {label && (
-                    <Text style={{
-                        fontSize: 10,
-                        fontWeight: "800",
-                        letterSpacing: 1.5,
-                        color: "#6B7280",
-                        marginBottom: 6,
-                    }}>
+                    <Text style={{ ...lbl(10, "bold", 0.12), color: lightColors.textMuted,
+                        marginBottom: 6 }}>
                         {label}
                     </Text>
                 )}
@@ -27,7 +23,7 @@ export const LoginInput = forwardRef<TextInput, TextInputProps & { style?: Style
                     alignItems: "center",
                     backgroundColor: "#fff",
                     borderWidth: 1,
-                    borderColor: focused ? "#8C0327" : "#DDD8D0",
+                    borderColor: focused ? lightColors.primary : lightColors.border,
                 }}>
                     <TextInput
                         ref={ref}
@@ -36,15 +32,12 @@ export const LoginInput = forwardRef<TextInput, TextInputProps & { style?: Style
                         secureTextEntry={isSecure}
                         onFocus={(e) => { setFocused(true); rest.onFocus?.(e); }}
                         onBlur={(e) => { setFocused(false); rest.onBlur?.(e); }}
-                        placeholderTextColor="#9CA3AF"
+                        placeholderTextColor={lightColors.textLight}
                         autoCapitalize="none"
-                        style={{
-                            flex: 1,
+                        style={{ fontFamily: fonts.body, fontSize: 15, flex: 1,
                             paddingVertical: 14,
                             paddingHorizontal: 16,
-                            color: "#111827",
-                            fontSize: 15,
-                        }}
+                            color: lightColors.text }}
                     />
                     {showToggle && (
                         <Pressable
@@ -57,7 +50,7 @@ export const LoginInput = forwardRef<TextInput, TextInputProps & { style?: Style
                             <Ionicons
                                 name={hidden ? "eye-outline" : "eye-off-outline"}
                                 size={20}
-                                color="#9CA3AF"
+                                color={lightColors.textLight}
                             />
                         </Pressable>
                     )}

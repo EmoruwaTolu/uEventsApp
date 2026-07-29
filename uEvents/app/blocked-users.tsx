@@ -11,7 +11,7 @@ import { useApi } from "../lib/useApi";
 import { useT } from "../lib/LangContext";
 import { useToast } from "../lib/ToastContext";
 import { useTheme } from "../lib/ThemeContext";
-import type { AppColors } from "../styles/theme";
+import { meta, lbl, fonts, AppColors } from "../styles/theme";
 
 type BlockedUser = {
     id: string;
@@ -131,10 +131,10 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
     safe: { flex: 1, backgroundColor: C.bg },
     topBar: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 12 },
     backGroup: { flexDirection: "row", alignItems: "center", gap: 6 },
-    backLabel: { fontSize: 14, fontWeight: "900", color: C.primary, letterSpacing: 2 },
+    backLabel: { ...meta(14, "bold"), color: C.primary },
     scroll: { paddingBottom: 32 },
     masthead: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 24 },
-    mastheadHeading: { fontSize: 40, fontWeight: "900", color: C.text, letterSpacing: -1.2, lineHeight: 44 },
+    mastheadHeading: { fontFamily: fonts.displayBold, fontSize: 40, letterSpacing: -1.2, color: C.text,  lineHeight: 44 },
     mastheadAccent: { width: 48, height: 3, backgroundColor: C.primary, marginTop: 14 },
 
     card: {
@@ -154,16 +154,16 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         overflow: "hidden", flexShrink: 0,
     },
     avatarImg: { width: 36, height: 36, borderRadius: 18 },
-    avatarInit: { fontSize: 14, fontWeight: "800", color: C.primary },
-    name: { flex: 1, fontSize: 14, fontWeight: "700", color: C.text },
+    avatarInit: { ...meta(14, "bold"), color: C.primary },
+    name: { ...meta(14, "bold"), flex: 1,   color: C.text },
 
     unblockBtn: {
         paddingVertical: 7, paddingHorizontal: 14,
         borderWidth: 1, borderColor: C.primary,
         minWidth: 84, alignItems: "center",
     },
-    unblockBtnText: { fontSize: 11, fontWeight: "900", color: C.primary, letterSpacing: 1.5 },
+    unblockBtnText: { ...lbl(11, "bold", 0.12), color: C.primary },
 
     emptyWrap: { alignItems: "center", gap: 12, marginTop: 40, paddingHorizontal: 40 },
-    emptyText: { fontSize: 14, color: C.textLight, textAlign: "center", marginTop: 40 },
+    emptyText: { ...meta(14, "regular"), color: C.textLight, textAlign: "center", marginTop: 40 },
 });

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
+import { lightColors, meta, lbl, fonts } from "../../styles/theme";
 import {
   View,
   Text,
@@ -35,14 +36,13 @@ export default function CategoriesSection({ tags, tagInput, setTagInput, onAddTa
                 marginBottom: 20,
                 }}
             >
-                <Ionicons name="pricetag" size={20} color="#8C0327" />
+                <Ionicons name="pricetag" size={20} color={lightColors.primary} />
                 <View style={{ transform: [{ scaleX: 0.78 }], transformOrigin: "left" }}>
                     <Text
                         style={{
                             fontSize: 24,
-                            fontWeight: "600",
-                            fontFamily: "Georgia",
-                            color: "#111827",
+                            fontFamily: fonts.displayBold,
+                            color: lightColors.text,
                             letterSpacing: -0.5,
                         }}
                     >
@@ -60,10 +60,10 @@ export default function CategoriesSection({ tags, tagInput, setTagInput, onAddTa
                         marginBottom: 8,
                     }}
                 >
-                    <Text style={{ fontSize: 14, fontWeight: "600", color: "#505050" }}>
+                    <Text style={{ ...meta(14, "semi"), color: "#505050" }}>
                         Add Tags
                     </Text>
-                    <Text style={{ fontSize: 12, color: "#505050" }}>
+                    <Text style={{ ...meta(12, "regular"), color: "#505050" }}>
                         {count}/3
                     </Text>
                 </View>
@@ -93,11 +93,11 @@ export default function CategoriesSection({ tags, tagInput, setTagInput, onAddTa
                                     paddingRight: 8,
                                 }}
                             >
-                                <Text style={{ fontSize: 14, fontWeight: "500", color: "#8C0327" }}>
+                                <Text style={{ ...meta(14, "medium"), color: lightColors.primary }}>
                                     {tag}
                                 </Text>
                                 <Pressable onPress={() => onRemoveTag(tag)} hitSlop={8}>
-                                    <Ionicons name="close-circle" size={18} color="#8C0327" />
+                                    <Ionicons name="close-circle" size={18} color={lightColors.primary} />
                                 </Pressable>
                             </View>
                         ))}
@@ -111,26 +111,24 @@ export default function CategoriesSection({ tags, tagInput, setTagInput, onAddTa
                             onChangeText={setTagInput}
                             onSubmitEditing={onAddTag}
                             placeholder="Type a tag and press enter"
-                            placeholderTextColor="#9CA3AF"
+                            placeholderTextColor={lightColors.textLight}
                             onFocus={() => setFocused(true)}
                             onBlur={() => setFocused(false)}
-                            style={{
-                                flex: 1,
+                            style={{ fontFamily: fonts.body, fontSize: 16, flex: 1,
                                 borderWidth: 1,
-                                borderColor: focused ? "#8C0327" : "#D0D0D0",
+                                borderColor: focused ? lightColors.primary : lightColors.border,
                                 paddingHorizontal: 16,
                                 paddingVertical: 12,
-                                fontSize: 16,
-                                color: "#111827",
-                                backgroundColor: "#ffffff",
-                            }}
+                                
+                                color: lightColors.text,
+                                backgroundColor: "#ffffff" }}
                             returnKeyType="done"
                         />
                         <Pressable
                             style={{
                                 width: 44,
                                 height: 44,
-                                backgroundColor: tagInput.trim() ? "#8C0327" : "#505050",
+                                backgroundColor: tagInput.trim() ? lightColors.primary : "#505050",
                                 alignItems: "center",
                                 justifyContent: "center",
                             }}

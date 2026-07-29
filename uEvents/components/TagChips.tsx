@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text } from "react-native";
+import { fonts, lbl, meta, lightColors } from "../styles/theme";
 
 export default function TagChips({ tags }: { tags: string[] }) {
     return (
@@ -16,7 +17,7 @@ export default function TagChips({ tags }: { tags: string[] }) {
                     borderColor: "#A8763E",
                 }}
                 >
-                    <Text style={{ color: "#fff", fontSize: 12 }}>
+                    <Text style={{ ...meta(12, "regular"), color: "#fff" }}>
                         {t}
                     </Text>
                 </View>

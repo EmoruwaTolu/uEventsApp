@@ -1,5 +1,6 @@
 import { StyleSheet } from "react-native";
 import { colors, radius, space } from "./theme";
+import { fonts, lbl, meta, lightColors } from "../styles/theme";
 
 const styles = StyleSheet.create({
     container: {
@@ -13,16 +14,9 @@ const styles = StyleSheet.create({
         paddingTop: 20,
         paddingBottom: 24,
     },
-    headerTitle: {
-        fontSize: 32,
-        fontWeight: "700",
-        color: "#111827",
-        marginBottom: 4,
-    },
-    headerSubtitle: {
-        fontSize: 16,
-        color: "#6B7280",
-    },
+    headerTitle: { fontFamily: fonts.displayBold, fontSize: 32, color: lightColors.text,
+        marginBottom: 4 },
+    headerSubtitle: { fontFamily: fonts.body, fontSize: 16, color: lightColors.textMuted },
     section: {
         backgroundColor: "#fff",
         borderRadius: 16,
@@ -40,35 +34,21 @@ const styles = StyleSheet.create({
         gap: 8,
         marginBottom: 20,
     },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: "700",
-        color: "#111827",
-    },
+    sectionTitle: { fontFamily: fonts.displayBold, fontSize: 18, color: lightColors.text },
     inputGroup: {
         marginBottom: 16,
     },
-    label: {
-        fontSize: 14,
-        fontWeight: "600",
-        color: "#374151",
-        marginBottom: 8,
-    },
-    optional: {
-        fontSize: 13,
-        fontWeight: "400",
-        color: "#9CA3AF",
-    },
-    input: {
-        borderWidth: 1.5,
-        borderColor: "#E5E7EB",
+    label: { ...meta(14, "semi"), color: lightColors.textBody,
+        marginBottom: 8 },
+    optional: { ...meta(13, "regular"), color: lightColors.textLight },
+    input: { fontFamily: fonts.body, fontSize: 16, borderWidth: 1.5,
+        borderColor: lightColors.border,
         borderRadius: 12,
         paddingHorizontal: 16,
         paddingVertical: 12,
-        fontSize: 16,
-        color: "#111827",
-        backgroundColor: "#fff",
-    },
+        
+        color: lightColors.text,
+        backgroundColor: "#fff" },
     textarea: {
         height: 120,
         textAlignVertical: "top",
@@ -77,13 +57,8 @@ const styles = StyleSheet.create({
     langSection: {
         marginBottom: 16,
     },
-    langSectionTitle: {
-        fontSize: 14,
-        fontWeight: "600",
-        color: "#6B7280",
-        marginBottom: 12,
-        textTransform: "uppercase",
-    },
+    langSectionTitle: { ...lbl(14, "semi", 0.08), color: lightColors.textMuted,
+        marginBottom: 12 },
     langTabs: {
         flexDirection: "row",
         gap: 12,
@@ -95,18 +70,14 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         backgroundColor: "#fff",
         borderWidth: 2,
-        borderColor: "#E5E7EB",
+        borderColor: lightColors.border,
         alignItems: "center",
     },
     langTabActive: {
-        backgroundColor: "#8C0327",
-        borderColor: "#8C0327",
+        backgroundColor: lightColors.primary,
+        borderColor: lightColors.primary,
     },
-    langTabText: {
-        fontSize: 15,
-        fontWeight: "600",
-        color: "#6B7280",
-    },
+    langTabText: { ...meta(15, "semi"), color: lightColors.textMuted },
     langTabTextActive: {
         color: "#fff",
     },
@@ -127,17 +98,13 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         borderRadius: 12,
         borderWidth: 1.5,
-        borderColor: "#E5E7EB",
+        borderColor: lightColors.border,
         backgroundColor: "#fff",
     },
-    changePosterText: {
-        fontSize: 15,
-        fontWeight: "600",
-        color: "#8C0327",
-    },
+    changePosterText: { ...meta(15, "semi"), color: lightColors.primary },
     uploadBtn: {
         borderWidth: 2,
-        borderColor: "#E5E7EB",
+        borderColor: lightColors.border,
         borderStyle: "dashed",
         borderRadius: 12,
         paddingVertical: 40,
@@ -145,15 +112,8 @@ const styles = StyleSheet.create({
         gap: 8,
         backgroundColor: "#F9FAFB",
     },
-    uploadText: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: "#374151",
-    },
-    uploadSubtext: {
-        fontSize: 14,
-        color: "#9CA3AF",
-    },
+    uploadText: { ...meta(16, "semi"), color: lightColors.textBody },
+    uploadSubtext: { ...meta(14, "regular"), color: lightColors.textLight },
     toggleContainer: {
         flexDirection: "row",
         alignItems: "center",
@@ -167,26 +127,19 @@ const styles = StyleSheet.create({
     toggleInfo: {
         flex: 1,
     },
-    toggleTitle: {
-        fontSize: 15,
-        fontWeight: "600",
-        color: "#111827",
-        marginBottom: 2,
-    },
-    toggleSubtitle: {
-        fontSize: 13,
-        color: "#6B7280",
-    },
+    toggleTitle: { ...meta(15, "semi"), color: lightColors.text,
+        marginBottom: 2 },
+    toggleSubtitle: { ...meta(13, "regular"), color: lightColors.textMuted },
     toggle: {
         width: 52,
         height: 32,
         borderRadius: 16,
-        backgroundColor: "#E5E7EB",
+        backgroundColor: lightColors.border,
         padding: 2,
         justifyContent: "center",
     },
     toggleActive: {
-        backgroundColor: "#8C0327",
+        backgroundColor: lightColors.primary,
     },
     toggleKnob: {
         width: 28,
@@ -217,13 +170,9 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         backgroundColor: "#fff",
         borderWidth: 1.5,
-        borderColor: "#E5E7EB",
+        borderColor: lightColors.border,
     },
-    draftBtnText: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: "#6B7280",
-    },
+    draftBtnText: { ...meta(16, "semi"), color: lightColors.textMuted },
     publishBtn: {
         flex: 1,
         flexDirection: "row",
@@ -232,14 +181,10 @@ const styles = StyleSheet.create({
         gap: 8,
         paddingVertical: 16,
         borderRadius: 12,
-        backgroundColor: "#8C0327",
+        backgroundColor: lightColors.primary,
         elevation: 4,
     },
-    publishBtnText: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: "#fff",
-    },
+    publishBtnText: { ...meta(16, "semi"), color: "#fff" },
     tagsContainer: {
         flexDirection: "row",
         flexWrap: "wrap",
@@ -258,11 +203,7 @@ const styles = StyleSheet.create({
         paddingLeft: 12,
         paddingRight: 8,
     },
-    tagChipText: {
-        fontSize: 14,
-        fontWeight: "500",
-        color: "#8C0327",
-    },
+    tagChipText: { ...meta(14, "medium"), color: lightColors.primary },
     tagInputContainer: {
         flexDirection: "row",
         gap: 8,
@@ -272,7 +213,7 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 12,
-        backgroundColor: "#8C0327",
+        backgroundColor: lightColors.primary,
         alignItems: "center",
         justifyContent: "center",
     },
@@ -289,11 +230,7 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         marginTop: 8,
     },
-    maxTagsText: {
-        fontSize: 13,
-        color: "#8C0327",
-        fontWeight: "500",
-    },
+    maxTagsText: { ...meta(13, "medium"), color: lightColors.primary },
 });
 
 export default styles;

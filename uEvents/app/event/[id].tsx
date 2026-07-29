@@ -23,7 +23,7 @@ import { useLang, pickLocale, pickText, useT } from "../../lib/LangContext";
 import { useToast } from "../../lib/ToastContext";
 import { PostDetailSkeleton, ErrorRetry } from "../../components/SkeletonLoader";
 import { useTheme } from "../../lib/ThemeContext";
-import type { AppColors } from "../../styles/theme";
+import { fonts, lbl, meta, type AppColors } from "../../styles/theme";
 import { translateCategory } from "../../lib/categories";
 import { timeAgo, localeFor } from "../../lib/datetime";
 
@@ -104,7 +104,7 @@ type RecapData = {
 function fmtDate(iso: string | undefined, lang: string) {
     if (!iso) return "";
     const d = new Date(iso);
-    return d.toLocaleDateString(localeFor(lang), { month: "short", day: "numeric", year: "numeric" }).toUpperCase();
+    return d.toLocaleDateString(localeFor(lang), { month: "short", day: "numeric", year: "numeric" });
 }
 
 function fmtTime(iso?: string) {
@@ -655,15 +655,15 @@ export default function EventPage() {
                     <ErrorRetry message="Couldn't load event" onRetry={() => loadEvent()} />
                 ) : (
                     <View style={styles.loadingWrap}>
-                        <Ionicons name="calendar-outline" size={40} color="#D1CBC3" />
-                        <Text style={{ marginTop: 12, fontSize: 13, fontWeight: "900", color: "#D1CBC3", letterSpacing: 2 }}>
+                        <Ionicons name="calendar-outline" size={40} color={C.textFaint} />
+                        <Text style={{ marginTop: 12, ...lbl(12.5, "bold", 0.12), color: C.textFaint }}>
                             {t.eventNotFound}
                         </Text>
                         <Pressable
                             onPress={() => router.replace("/(tabs)" as any)}
-                            style={{ marginTop: 16, backgroundColor: "#8C0327", paddingHorizontal: 24, paddingVertical: 10 }}
+                            style={{ marginTop: 16, backgroundColor: C.primary, paddingHorizontal: 24, paddingVertical: 10 }}
                         >
-                            <Text style={{ color: "#fff", fontSize: 11, fontWeight: "800", letterSpacing: 1.5 }}>{t.goHome}</Text>
+                            <Text style={{ color: "#fff", ...lbl(11, "bold", 0.1) }}>{t.goHome}</Text>
                         </Pressable>
                     </View>
                 )}
@@ -679,7 +679,7 @@ export default function EventPage() {
     const title = locale.title ?? "Untitled Event";
     const body = locale.body ?? "";
     const imageUrl = locale.posterUrl ?? locale.imageUrl;
-    const clubName = pickText(event?.club?.clubName, event?.club?.clubNameFr, lang).toUpperCase();
+    const clubName = pickText(event?.club?.clubName, event?.club?.clubNameFr, lang);
     const clubId = event?.club?.id ?? "";
     const location = event?.locationName ?? "";
     const date = fmtDate(event?.startAt, lang);
@@ -713,7 +713,7 @@ export default function EventPage() {
             <View style={styles.topBar}>
                 <View style={styles.topBarRow}>
                     <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)" as any)} style={styles.backBtn} hitSlop={8} accessibilityLabel={t.goBackLabel} accessibilityRole="button">
-                        <Ionicons name="arrow-back" size={18} color="#111827" />
+                        <Ionicons name="arrow-back" size={18} color={C.text} />
                     </Pressable>
                     <View style={styles.topBarActions}>
                         {isPostOwner && event.isDraft && event.previewToken && (
@@ -728,7 +728,7 @@ export default function EventPage() {
                             </Pressable>
                         )}
                         <Pressable onPress={() => Share.share({ title, message: `${title}\n\n${API_BASE}/share/event/${id}` })} style={styles.topBarBtn} hitSlop={8} accessibilityLabel={t.shareEventLabel} accessibilityRole="button">
-                            <Ionicons name="share-outline" size={19} color="#111827" />
+                            <Ionicons name="share-outline" size={19} color={C.text} />
                         </Pressable>
                         {isPostOwner ? (
                             <>
@@ -739,7 +739,7 @@ export default function EventPage() {
                                     accessibilityLabel="View event analytics"
                                     accessibilityRole="button"
                                 >
-                                    <Ionicons name="bar-chart-outline" size={19} color="#111827" />
+                                    <Ionicons name="bar-chart-outline" size={19} color={C.text} />
                                 </Pressable>
                                 <Pressable
                                     style={styles.topBarBtn}
@@ -748,7 +748,7 @@ export default function EventPage() {
                                     accessibilityLabel={t.editEventLabel}
                                     accessibilityRole="button"
                                 >
-                                    <Ionicons name="create-outline" size={19} color="#111827" />
+                                    <Ionicons name="create-outline" size={19} color={C.text} />
                                 </Pressable>
                             </>
                         ) : (
@@ -760,9 +760,9 @@ export default function EventPage() {
                                     accessibilityLabel={like.liked ? "Unlike event" : "Like event"}
                                     accessibilityRole="button"
                                 >
-                                    <Ionicons name={like.liked ? "heart" : "heart-outline"} size={20} color="#8C0327" />
+                                    <Ionicons name={like.liked ? "heart" : "heart-outline"} size={20} color={C.primary} />
                                     {like.count > 0 && !event.hideLikeCount && (
-                                        <Text style={{ fontSize: 13, fontWeight: "700", color: "#8C0327" }}>{like.count}</Text>
+                                        <Text style={{ ...meta(13, "bold"), color: C.primary }}>{like.count}</Text>
                                     )}
                                 </Pressable>
                                 <Pressable
@@ -772,7 +772,7 @@ export default function EventPage() {
                                     accessibilityLabel={bm ? "Remove bookmark" : "Bookmark event"}
                                     accessibilityRole="button"
                                 >
-                                    <Ionicons name={bm ? "bookmark" : "bookmark-outline"} size={19} color="#8C0327" />
+                                    <Ionicons name={bm ? "bookmark" : "bookmark-outline"} size={19} color={C.primary} />
                                 </Pressable>
                                 <Pressable
                                     style={styles.topBarBtn}
@@ -781,14 +781,14 @@ export default function EventPage() {
                                     accessibilityLabel={t.reportEventLabel}
                                     accessibilityRole="button"
                                 >
-                                    <Ionicons name="flag-outline" size={19} color="#9CA3AF" />
+                                    <Ionicons name="flag-outline" size={19} color={C.textLight} />
                                 </Pressable>
                             </>
                         )}
                     </View>
                 </View>
                 <Text style={styles.topBarLabel}>{t.eventDetails}</Text>
-                <Text style={styles.topBarHeading} numberOfLines={2}>{title.toUpperCase()}</Text>
+                <Text style={styles.topBarHeading} numberOfLines={2}>{title}</Text>
                 <View style={styles.topBarAccent} />
                 {((event.categories ?? []).length > 0 || !!event.freeFood || !!event.seriesId || event.followersOnly) && (
                     <ScrollView
@@ -810,7 +810,7 @@ export default function EventPage() {
                         )}
                         {!!event.seriesId && (
                             <View style={[styles.categoryPill, styles.recurringPill]}>
-                                <Ionicons name="repeat" size={9} color="#8C0327" />
+                                <Ionicons name="repeat" size={9} color={C.primary} />
                                 <Text style={[styles.categoryPillText, styles.recurringPillText]}>{t.recurringEventBadge}</Text>
                             </View>
                         )}
@@ -827,7 +827,7 @@ export default function EventPage() {
             {/* Expiry banner */}
             {isExpired && (
                 <View style={styles.expiryBanner}>
-                    <Ionicons name="archive-outline" size={14} color="#9CA3AF" />
+                    <Ionicons name="archive-outline" size={14} color={C.textLight} />
                     <Text style={styles.expiryBannerText}>{t.postExpired}</Text>
                 </View>
             )}
@@ -841,7 +841,7 @@ export default function EventPage() {
             )}
 
             <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}>
-            <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} style={{ backgroundColor: C.bg }} contentContainerStyle={styles.scrollContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadEvent(true)} tintColor="#8C0327" />}>
+            <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} style={{ backgroundColor: C.bg }} contentContainerStyle={styles.scrollContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadEvent(true)} tintColor={C.primary} />}>
                 {/* ── Hero image ── */}
                 {(event?.images?.length ?? 0) > 1 ? (
                     <View style={{ marginHorizontal: 12 }}>
@@ -926,14 +926,14 @@ export default function EventPage() {
                         <>
                             <View style={styles.hairline} />
                             <Pressable style={styles.locationRow} onPress={() => openMaps(event?.address || location)} accessibilityRole="button" accessibilityLabel={t.getDirectionsLabel}>
-                                <Ionicons name="location-outline" size={16} color="#8C0327" style={{ marginTop: 2 }} />
+                                <Ionicons name="location-outline" size={16} color={C.primary} style={{ marginTop: 2 }} />
                                 <View style={{ flex: 1, gap: 2 }}>
                                     <Text style={styles.locationLabel}>{t.location}</Text>
-                                    <Text style={styles.locationName}>{location.toUpperCase()}</Text>
+                                    <Text style={styles.locationName}>{location}</Text>
                                     {!!event?.address && <Text style={styles.locationSub}>{event.address}</Text>}
                                     <Text style={styles.directionsLink}>{t.getDirections} ↗</Text>
                                 </View>
-                                <Ionicons name="navigate-outline" size={16} color="#8C0327" />
+                                <Ionicons name="navigate-outline" size={16} color={C.primary} />
                             </Pressable>
                         </>
                     )}
@@ -943,7 +943,7 @@ export default function EventPage() {
                 {!!body && (
                     <View style={[styles.card, styles.briefingSection]}>
                         <Text style={styles.sectionLabel}>{t.eventBriefing}</Text>
-                        <Text style={styles.briefingHeadline}>{title.toUpperCase()}</Text>
+                        <Text style={styles.briefingHeadline}>{title}</Text>
                         <Text style={styles.briefingBody}>{body}</Text>
                     </View>
                 )}
@@ -1005,7 +1005,7 @@ export default function EventPage() {
                         {/* RSVP button — adapts to closed/approval/waitlist states */}
                         {rsvpBlocked && !isRsvped(id!) ? (
                             <View style={[styles.rsvpBtn, styles.rsvpBtnClosed]}>
-                                <Ionicons name="ban-outline" size={17} color="#9CA3AF" />
+                                <Ionicons name="ban-outline" size={17} color={C.textLight} />
                                 <Text style={[styles.rsvpBtnText, styles.rsvpBtnTextClosed]}>
                                     {isPast ? "EVENT ENDED" : rsvpClosed ? "RSVP CLOSED" : isExpired ? "EVENT EXPIRED" : "SOLD OUT"}
                                 </Text>
@@ -1028,7 +1028,7 @@ export default function EventPage() {
                             }
                         >
                             {rsvpLoading ? (
-                                <ActivityIndicator color={isRsvped(id!) ? "#8C0327" : "#fff"} />
+                                <ActivityIndicator color={isRsvped(id!) ? C.primary : "#fff"} />
                             ) : (
                                 <>
                                     <Ionicons
@@ -1039,7 +1039,7 @@ export default function EventPage() {
                                             : "ticket-outline"
                                         }
                                         size={17}
-                                        color={isRsvped(id!) ? "#8C0327" : pendingRsvp ? "#92400E" : "#fff"}
+                                        color={isRsvped(id!) ? C.primary : pendingRsvp ? "#92400E" : "#fff"}
                                     />
                                     <Text style={[
                                         styles.rsvpBtnText,
@@ -1069,7 +1069,7 @@ export default function EventPage() {
                             accessibilityRole="button"
                             accessibilityLabel={calNeedsUpdate ? "Update calendar entry" : calEntry ? "Already in calendar" : "Add to calendar"}
                         >
-                            <Ionicons name={calNeedsUpdate ? "sync-outline" : calEntry ? "checkmark-circle-outline" : "calendar-outline"} size={16} color={calNeedsUpdate ? "#8C0327" : "#374151"} />
+                            <Ionicons name={calNeedsUpdate ? "sync-outline" : calEntry ? "checkmark-circle-outline" : "calendar-outline"} size={16} color={calNeedsUpdate ? C.primary : C.textBody} />
                             <Text style={styles.calendarBtnText}>{calNeedsUpdate ? t.updateCalendar : calEntry ? t.inCalendar : t.addToCalendar}</Text>
                         </Pressable>
                         {!isPast && !isExpired && (
@@ -1080,7 +1080,7 @@ export default function EventPage() {
                                 <Ionicons
                                     name={hasReminder ? "notifications" : "notifications-outline"}
                                     size={16}
-                                    color={hasReminder ? "#8C0327" : "#374151"}
+                                    color={hasReminder ? C.primary : C.textBody}
                                 />
                                 <Text style={[styles.remindBtnText, hasReminder && styles.remindBtnTextActive]}>
                                     {hasReminder ? t.reminderSet : t.remindMe}
@@ -1154,7 +1154,7 @@ export default function EventPage() {
                                         <Text style={styles.recapPhotosLabel}>{t.photosLabel}</Text>
                                         {recap.canContribute && (
                                             <Pressable onPress={addRecapPhoto} disabled={recapUploading} style={styles.recapAddBtn} accessibilityRole="button" accessibilityLabel="Add a photo">
-                                                <Ionicons name="camera-outline" size={14} color="#8C0327" />
+                                                <Ionicons name="camera-outline" size={14} color={C.primary} />
                                                 <Text style={styles.recapAddText}>{recapUploading ? "ADDING…" : "ADD PHOTO"}</Text>
                                             </Pressable>
                                         )}
@@ -1210,14 +1210,14 @@ export default function EventPage() {
                         </Pressable>
                     </View>
                     {recommended.length === 0 ? (
-                        <Text style={{ fontSize: 13, color: "#9CA3AF" }}>{t.noUpcomingEvents}</Text>
+                        <Text style={{ fontSize: 13, color: C.textLight }}>{t.noUpcomingEvents}</Text>
                     ) : (
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recommendedScroll}>
                         {recommended.map((rec) => {
                             const recLocale = pickLocale(rec.locales, lang);
                             const recTitle = recLocale.title ?? "Untitled Event";
                             const recDate = rec.startAt
-                                ? new Date(rec.startAt).toLocaleDateString(localeFor(lang), { month: "short", day: "numeric" }).toUpperCase()
+                                ? new Date(rec.startAt).toLocaleDateString(localeFor(lang), { month: "short", day: "numeric" })
                                 : "";
                             const recAttending = rec._count?.rsvps ?? 0;
                             const recClub = (rec.clubName ?? rec.club?.clubName ?? "EVENT").toUpperCase();
@@ -1236,15 +1236,15 @@ export default function EventPage() {
                                     </View>
                                     <View style={styles.recInfo}>
                                         <Text style={styles.recCategory}>{recClub}</Text>
-                                        <Text style={styles.recTitle} numberOfLines={2}>{recTitle.toUpperCase()}</Text>
+                                        <Text style={styles.recTitle} numberOfLines={2}>{recTitle}</Text>
                                         <View style={styles.recMeta}>
                                             {!!recDate && <>
-                                                <Ionicons name="calendar-outline" size={11} color="#9CA3AF" />
+                                                <Ionicons name="calendar-outline" size={11} color={C.textLight} />
                                                 <Text style={styles.recMetaText}>{recDate}</Text>
                                             </>}
                                             {recAttending > 0 && <>
-                                                <Ionicons name="people-outline" size={11} color="#9CA3AF" />
-                                                <Text style={styles.recMetaText}>{recAttending} GOING</Text>
+                                                <Ionicons name="people-outline" size={11} color={C.textLight} />
+                                                <Text style={styles.recMetaText}>{t.goingCount(recAttending)}</Text>
                                             </>}
                                         </View>
                                     </View>
@@ -1276,27 +1276,14 @@ export default function EventPage() {
 
                     {/* ── Comments ── */}
                     <View style={[styles.card, styles.commentsSection]} onLayout={(e) => { commentsSectionY.current = e.nativeEvent.layout.y; }}>
-                        <Text style={styles.sectionLabel}>{t.comments}</Text>
-                        <Text style={styles.commentsCount}>
-                            {t.commentCount(comments.length)}
-                        </Text>
-
-                        {/* Filter + sort row */}
-                        {comments.length > 0 && (
-                            <View style={styles.commentControls}>
-                                <View style={styles.commentFilters}>
-                                    {(["all", "clubs", "students"] as const).map((f) => (
-                                        <Pressable
-                                            key={f}
-                                            style={[styles.filterPill, commentFilter === f && styles.filterPillActive]}
-                                            onPress={() => setCommentFilter(f)}
-                                        >
-                                            <Text style={[styles.filterPillText, commentFilter === f && styles.filterPillTextActive]}>
-                                                {f === "all" ? t.all : f === "clubs" ? t.clubs : t.students}
-                                            </Text>
-                                        </Pressable>
-                                    ))}
-                                </View>
+                        {/* Heading and sort share one line; the count already reads
+                            "N comments", so a separate section eyebrow would double up. */}
+                        <View style={styles.commentsHeaderRow}>
+                            <Text style={styles.commentsCount}>
+                                {t.commentCount(comments.length)}
+                            </Text>
+                            <View style={styles.commentsHeaderSpacer} />
+                            {comments.length > 0 && (
                                 <Pressable
                                     style={styles.sortToggle}
                                     onPress={() => setCommentSort((s) => s === "newest" ? "oldest" : "newest")}
@@ -1310,6 +1297,23 @@ export default function EventPage() {
                                     <Text style={styles.sortToggleText}>{commentSort === "newest" ? t.newest : t.oldest}</Text>
                                     <Ionicons name={commentSort === "newest" ? "arrow-down" : "arrow-up"} size={11} color={C.primary} />
                                 </Pressable>
+                            )}
+                        </View>
+
+                        {/* Audience filter — three pills need their own line */}
+                        {comments.length > 0 && (
+                            <View style={styles.commentFilters}>
+                                {(["all", "clubs", "students"] as const).map((f) => (
+                                    <Pressable
+                                        key={f}
+                                        style={[styles.filterPill, commentFilter === f && styles.filterPillActive]}
+                                        onPress={() => setCommentFilter(f)}
+                                    >
+                                        <Text style={[styles.filterPillText, commentFilter === f && styles.filterPillTextActive]}>
+                                            {f === "all" ? t.all : f === "clubs" ? t.clubs : t.students}
+                                        </Text>
+                                    </Pressable>
+                                ))}
                             </View>
                         )}
 
@@ -1366,12 +1370,12 @@ export default function EventPage() {
                                                     {!isPostOwner && (
                                                         <Pressable onPress={() => moderateComment(c)} hitSlop={8}
                                                             accessibilityRole="button" accessibilityLabel="Comment options">
-                                                            <Ionicons name="ellipsis-horizontal" size={13} color="#9CA3AF" />
+                                                            <Ionicons name="ellipsis-horizontal" size={13} color={C.textLight} />
                                                         </Pressable>
                                                     )}
                                                     {isPostOwner && (
                                                         <Pressable onPress={() => deleteComment(c.id)} hitSlop={8} accessibilityLabel="Delete comment" accessibilityRole="button">
-                                                            <Ionicons name="trash-outline" size={13} color="#9CA3AF" />
+                                                            <Ionicons name="trash-outline" size={13} color={C.textLight} />
                                                         </Pressable>
                                                     )}
                                                 </View>
@@ -1422,12 +1426,12 @@ export default function EventPage() {
                                                                     {!isPostOwner && (
                                                                         <Pressable onPress={() => moderateComment(r)} hitSlop={8}
                                                                             accessibilityRole="button" accessibilityLabel="Reply options">
-                                                                            <Ionicons name="ellipsis-horizontal" size={12} color="#9CA3AF" />
+                                                                            <Ionicons name="ellipsis-horizontal" size={12} color={C.textLight} />
                                                                         </Pressable>
                                                                     )}
                                                                     {isPostOwner && (
                                                                         <Pressable onPress={() => deleteComment(r.id, c.id)} hitSlop={8} accessibilityLabel="Delete reply" accessibilityRole="button">
-                                                                            <Ionicons name="trash-outline" size={12} color="#9CA3AF" />
+                                                                            <Ionicons name="trash-outline" size={12} color={C.textLight} />
                                                                         </Pressable>
                                                                     )}
                                                                 </View>
@@ -1469,7 +1473,7 @@ export default function EventPage() {
                         ref={commentInputRef}
                         style={styles.commentInput}
                         placeholder={t.addCommentPlaceholder}
-                        placeholderTextColor="#9CA3AF"
+                        placeholderTextColor={C.textLight}
                         value={commentText}
                         onChangeText={setCommentText}
                         onFocus={() => scrollRef.current?.scrollToEnd({ animated: true })}
@@ -1552,30 +1556,37 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
     page: { flex: 1, backgroundColor: C.bg },
     loadingWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
     scrollContent: { paddingBottom: 32, gap: 8, paddingTop: 0 },
-    card: { backgroundColor: C.surface, marginLeft: 12, marginRight: 12, overflow: "hidden", borderWidth: 1, borderColor: C.borderWarm },
+    card: {
+        backgroundColor: C.surface,
+        marginHorizontal: 11,
+        overflow: "hidden",
+        borderWidth: 1,
+        borderColor: C.border,
+        borderRadius: 6,
+    },
 
     // Check-in button + scanner
     checkInBtn: {
         flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
         backgroundColor: "#1F2937", paddingVertical: 14, marginBottom: 8,
     },
-    checkInBtnText: { fontSize: 12, fontWeight: "800", color: "#fff", letterSpacing: 1.5 },
+    checkInBtnText: { ...lbl(12, "bold", 0.1), color: "#fff" },
     scannerSafe: { flex: 1, backgroundColor: "#000" },
     scannerTopBar: {
         flexDirection: "row", alignItems: "center", justifyContent: "space-between",
         paddingHorizontal: 16, paddingVertical: 12,
     },
     scannerClose: { width: 36, alignItems: "flex-start" },
-    scannerTitle: { fontSize: 12, fontWeight: "800", color: "#fff", letterSpacing: 2 },
+    scannerTitle: { ...lbl(11, "bold", 0.12), color: "#fff" },
     scanner: { flex: 1 },
     scannerOverlay: { flex: 1, alignItems: "center", justifyContent: "center", gap: 32 },
     scannerFrame: { width: 240, height: 240, borderWidth: 3, borderColor: "#fff", borderRadius: 4 },
-    scannerHint: { fontSize: 13, color: "rgba(255,255,255,0.7)", textAlign: "center", paddingHorizontal: 40, lineHeight: 20 },
+    scannerHint: { fontFamily: fonts.body, fontSize: 13.5, lineHeight: 20, color: "rgba(255,255,255,0.7)", textAlign: "center", paddingHorizontal: 40 },
     scannerResult: { flex: 1, alignItems: "center", justifyContent: "center", gap: 16, paddingHorizontal: 40 },
-    scannerResultTitle: { fontSize: 24, fontWeight: "900", color: "#fff", letterSpacing: 1 },
-    scannerResultSub: { fontSize: 14, color: "rgba(255,255,255,0.6)", textAlign: "center", lineHeight: 22 },
+    scannerResultTitle: { fontFamily: fonts.displayBold, fontSize: 24, letterSpacing: -0.2, color: "#fff" },
+    scannerResultSub: { fontFamily: fonts.body, fontSize: 14, lineHeight: 22, color: "rgba(255,255,255,0.6)", textAlign: "center" },
     scannerDoneBtn: { backgroundColor: "#fff", paddingHorizontal: 32, paddingVertical: 14, marginTop: 8 },
-    scannerDoneBtnText: { fontSize: 12, fontWeight: "800", color: "#111827", letterSpacing: 2 },
+    scannerDoneBtnText: { ...lbl(12, "bold", 0.12), color: C.text },
 
     // Top bar
     topBar: {
@@ -1591,20 +1602,9 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         marginBottom: 16,
     },
     backBtn: { padding: 8, marginLeft: -8 },
-    topBarLabel: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 2,
-        marginBottom: 6,
-    },
-    topBarHeading: {
-        fontSize: 36,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: -1,
-        lineHeight: 40,
-    },
+    topBarLabel: { ...lbl(10.5, "bold", 0.12), color: C.primary,
+        marginBottom: 6 },
+    topBarHeading: { fontFamily: fonts.displayBold, fontSize: 36, letterSpacing: -0.9, lineHeight: 40, color: C.text },
     topBarAccent: {
         width: 48,
         height: 3,
@@ -1619,7 +1619,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         borderWidth: 1, borderColor: C.textFaint,
         backgroundColor: C.bg,
     },
-    categoryPillText: { fontSize: 9, fontWeight: "800", color: C.textMuted, letterSpacing: 1 },
+    categoryPillText: { ...lbl(9.5, "bold", 0.08), color: C.textMuted },
     followersOnlyPill: { borderColor: "#BFDBFE", backgroundColor: "#EFF6FF" },
     followersOnlyPillText: { color: "#1D4ED8" },
     freeFoodPill: { borderColor: "#A8763E", backgroundColor: "#FBF6EE" },
@@ -1635,11 +1635,11 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingVertical: 10,
         backgroundColor: C.surfaceAlt,
     },
-    expiryBannerText: { fontSize: 10, fontWeight: "800", color: C.textLight, letterSpacing: 1.5 },
+    expiryBannerText: { ...lbl(10, "bold", 0.1), color: C.textLight },
     expiryBannerWarn: { backgroundColor: "#FFFBEB" },
     expiryBannerWarnText: { color: "#D97706" },
 
-    hiddenListNote: { fontSize: 11, color: C.textLight, fontStyle: "italic", marginBottom: 8 },
+    hiddenListNote: { ...meta(11.5), color: C.textLight, marginBottom: 8 },
 
     rsvpBtnClosed: { backgroundColor: C.surfaceAlt },
     rsvpBtnTextClosed: { color: C.textLight },
@@ -1651,7 +1651,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
     // Hero (image bg stays dark — poster placeholder)
     hero: { overflow: "hidden", backgroundColor: "#111" },
     carouselCounter: { position: "absolute", top: 10, right: 10, backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
-    carouselCounterText: { color: "#fff", fontSize: 12, fontWeight: "600" },
+    carouselCounterText: { ...meta(12, "semi"), color: "#fff" },
     heroPlaceholder: { backgroundColor: "#2a2a2a" },
     heroBottom: {
         position: "absolute",
@@ -1672,12 +1672,12 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         alignSelf: "flex-start",
     },
     liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#fff" },
-    liveBadgeText: { fontSize: 10, fontWeight: "800", color: "#fff", letterSpacing: 1.5 },
+    liveBadgeText: { ...lbl(10, "bold", 0.12), color: "#fff" },
     liveCountdownBadge: {
         backgroundColor: "rgba(0,0,0,0.55)",
         paddingHorizontal: 8, paddingVertical: 4,
     },
-    liveCountdownText: { fontSize: 9, fontWeight: "800", color: "#fff", letterSpacing: 1 },
+    liveCountdownText: { ...lbl(9.5, "bold", 0.08), color: "#fff" },
 
     hairline: { height: StyleSheet.hairlineWidth, backgroundColor: C.border, marginHorizontal: 16 },
 
@@ -1700,8 +1700,8 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         flexShrink: 0,
     },
     organizerAvatarImg: { width: 36, height: 36, borderRadius: 8 },
-    organizedByLabel: { fontSize: 10, fontWeight: "600", color: C.textLight, letterSpacing: 1 },
-    organizerName: { fontSize: 13, fontWeight: "800", color: C.text, letterSpacing: 0.3 },
+    organizedByLabel: { ...lbl(10, "semi", 0.1), color: C.textLight },
+    organizerName: { fontFamily: fonts.displayBold, fontSize: 14, color: C.text },
 
     // Date / Time
     dateTimeRow: {
@@ -1711,8 +1711,8 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
     },
     dateTimeCol: { flex: 1, gap: 4 },
     dateTimeDivider: { width: StyleSheet.hairlineWidth, backgroundColor: C.border, marginHorizontal: 16 },
-    dateTimeLabel: { fontSize: 10, fontWeight: "700", color: C.textLight, letterSpacing: 1 },
-    dateTimeValue: { fontSize: 16, fontWeight: "800", color: C.text, letterSpacing: -0.3 },
+    dateTimeLabel: { ...lbl(10, "bold", 0.1), color: C.textLight },
+    dateTimeValue: { fontFamily: fonts.displayBold, fontSize: 16.5, letterSpacing: -0.2, color: C.text },
 
     // Location
     locationRow: {
@@ -1722,10 +1722,10 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 14,
     },
-    locationLabel: { fontSize: 10, fontWeight: "700", color: C.textLight, letterSpacing: 1 },
-    locationName: { fontSize: 13, fontWeight: "800", color: C.text, lineHeight: 18 },
-    locationSub: { fontSize: 12, color: C.textMuted, lineHeight: 17, marginTop: 2 },
-    directionsLink: { fontSize: 11, fontWeight: "800", letterSpacing: 0.5, color: C.primary, marginTop: 4 },
+    locationLabel: { ...lbl(10, "bold", 0.1), color: C.textLight },
+    locationName: { fontFamily: fonts.displayBold, fontSize: 14, lineHeight: 19, color: C.text },
+    locationSub: { ...meta(12.5), lineHeight: 17, color: C.textMuted, marginTop: 2 },
+    directionsLink: { ...lbl(11, "bold", 0.06), color: C.primary, marginTop: 4 },
 
     // Event briefing
     briefingSection: {
@@ -1734,24 +1734,9 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingBottom: 8,
         gap: 10,
     },
-    sectionLabel: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 2,
-    },
-    briefingHeadline: {
-        fontSize: 22,
-        fontWeight: "900",
-        color: C.text,
-        lineHeight: 27,
-        letterSpacing: -0.5,
-    },
-    briefingBody: {
-        fontSize: 14,
-        color: C.textBody,
-        lineHeight: 22,
-    },
+    sectionLabel: { ...lbl(10.5, "bold", 0.12), color: C.primary },
+    briefingHeadline: { fontFamily: fonts.displayBold, fontSize: 22, lineHeight: 28, letterSpacing: -0.3, color: C.text },
+    briefingBody: { fontFamily: fonts.body, fontSize: 15, lineHeight: 23, color: C.textBody },
 
     // CTA
     ctaSection: {
@@ -1773,16 +1758,11 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         borderWidth: 1.5,
         borderColor: C.border,
     },
-    rsvpBtnText: {
-        fontSize: 13,
-        fontWeight: "800",
-        color: "#fff",
-        letterSpacing: 2,
-    },
+    rsvpBtnText: { ...lbl(13, "bold", 0.1), color: "#fff" },
     rsvpBtnTextDone: { color: C.primary },
     rsvpBtnTextWaitlist: { color: "#92400E" },
     waitlistPosRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, marginTop: 8 },
-    waitlistPosText: { color: "#92400E", fontSize: 13, fontWeight: "600" },
+    waitlistPosText: { ...meta(13, "semi"), color: "#92400E" },
     capacityWrap: {
         paddingHorizontal: 16,
         paddingTop: 14,
@@ -1799,12 +1779,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         backgroundColor: C.primary,
     },
     capacityBarFull: { backgroundColor: "#DC2626" },
-    capacityText: {
-        fontSize: 10,
-        fontWeight: "700",
-        color: C.textMuted,
-        letterSpacing: 0.8,
-    },
+    capacityText: { ...meta(11.5, "semi"), color: C.textMuted },
     calendarBtn: {
         flexDirection: "row",
         alignItems: "center",
@@ -1815,22 +1790,12 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingVertical: 13,
         backgroundColor: C.surfaceAlt,
     },
-    calendarBtnText: {
-        fontSize: 12,
-        fontWeight: "700",
-        color: C.textBody,
-        letterSpacing: 1.5,
-    },
+    calendarBtnText: { ...lbl(12, "bold", 0.1), color: C.textBody },
 
     // Recommended
     recommendedSection: { paddingTop: 16, paddingBottom: 8 },
-    recommendedLabel: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 2,
-        marginBottom: 6,
-    },
+    recommendedLabel: { ...lbl(10.5, "bold", 0.12), color: C.primary,
+        marginBottom: 6 },
     recapSection: {
         backgroundColor: C.surface,
         marginHorizontal: 12,
@@ -1841,34 +1806,34 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingTop: 16,
         paddingBottom: 18,
     },
-    recapEyebrow: { fontSize: 10, fontWeight: "800", letterSpacing: 2, color: C.primary },
+    recapEyebrow: { ...lbl(10.5, "bold", 0.12), color: C.primary },
     recapAccent: { width: 32, height: 2, backgroundColor: C.primary, marginTop: 8, marginBottom: 14 },
     recapRatingRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-    recapAvg: { fontSize: 22, fontWeight: "900", color: C.text, letterSpacing: -0.5 },
-    recapCount: { fontSize: 12, fontWeight: "600", color: C.textMuted },
+    recapAvg: { fontFamily: fonts.displayBold, fontSize: 22, letterSpacing: -0.3, color: C.text },
+    recapCount: { ...meta(12.5), color: C.textMuted },
     recapRateBox: { marginTop: 16, gap: 8 },
-    recapRateLabel: { fontSize: 10, fontWeight: "800", letterSpacing: 1.5, color: C.textMuted },
+    recapRateLabel: { ...lbl(10, "bold", 0.1), color: C.textMuted },
     recapPhotosHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 20, marginBottom: 10 },
-    recapPhotosLabel: { fontSize: 10, fontWeight: "800", letterSpacing: 1.5, color: C.textMuted },
+    recapPhotosLabel: { ...lbl(10, "bold", 0.1), color: C.textMuted },
     recapAddBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 5, paddingHorizontal: 10, borderWidth: 1, borderColor: C.borderWarm },
-    recapAddText: { fontSize: 10, fontWeight: "800", letterSpacing: 1, color: C.primary },
-    recapEmpty: { fontSize: 13, color: C.textMuted, lineHeight: 19 },
+    recapAddText: { ...lbl(10, "bold", 0.08), color: C.primary },
+    recapEmpty: { fontFamily: fonts.body, fontSize: 13.5, lineHeight: 20, color: C.textMuted },
     recapEmptyBox: { marginTop: 18, borderWidth: 1.5, borderColor: C.borderWarm, borderStyle: "dashed", borderRadius: 10, paddingVertical: 22, paddingHorizontal: 16, alignItems: "center", gap: 8 },
-    recapEmptyTitle: { fontSize: 15, fontWeight: "800", color: C.text, textAlign: "center" },
-    recapEmptySub: { fontSize: 13, color: C.textMuted, textAlign: "center", marginBottom: 4 },
+    recapEmptyTitle: { fontFamily: fonts.displayBold, fontSize: 16, color: C.text, textAlign: "center" },
+    recapEmptySub: { ...meta(13.5), color: C.textMuted, textAlign: "center", marginBottom: 4 },
     recapEmptyBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: C.primary, paddingHorizontal: 20, paddingVertical: 12 },
-    recapEmptyBtnText: { fontSize: 12, fontWeight: "800", letterSpacing: 0.6, color: "#fff" },
+    recapEmptyBtnText: { ...lbl(12, "bold", 0.06), color: "#fff" },
     recapGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
     recapThumbWrap: { width: "31.7%", aspectRatio: 1, position: "relative" },
     recapThumb: { width: "100%", height: "100%", backgroundColor: C.skeleton },
     recapDelete: { position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: 10, backgroundColor: "rgba(0,0,0,0.55)", alignItems: "center", justifyContent: "center" },
     recapPendingBadge: { position: "absolute", bottom: 4, left: 4, flexDirection: "row", alignItems: "center", gap: 2, backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2 },
-    recapPendingText: { color: "#fff", fontSize: 9, fontWeight: "700" },
+    recapPendingText: { ...meta(9.5, "bold"), color: "#fff" },
     recapModRow: { position: "absolute", top: 4, right: 4, flexDirection: "row", gap: 4 },
     recapModBtn: { width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center" },
     recapApproveBtn: { backgroundColor: "rgba(22,163,74,0.9)" },
     recapRejectBtn: { backgroundColor: "rgba(220,38,38,0.9)" },
-    recapPendingNote: { fontSize: 12, color: "#92400E", fontWeight: "600", marginBottom: 8 },
+    recapPendingNote: { ...meta(12.5, "semi"), color: "#92400E", marginBottom: 8 },
     recommendedHeader: {
         flexDirection: "row",
         alignItems: "center",
@@ -1877,18 +1842,8 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingTop: 16,
         marginBottom: 14,
     },
-    recommendedTitle: {
-        fontSize: 20,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: -0.5,
-    },
-    viewAllText: {
-        fontSize: 12,
-        fontWeight: "700",
-        color: C.primary,
-        letterSpacing: 0.5,
-    },
+    recommendedTitle: { fontFamily: fonts.displayBold, fontSize: 20, letterSpacing: -0.3, color: C.text },
+    viewAllText: { ...meta(12.5, "bold"), color: C.primary },
     recommendedScroll: { paddingHorizontal: 16, paddingBottom: 16, gap: 10 },
     recCard: {
         width: 170,
@@ -1906,12 +1861,12 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingHorizontal: 7,
         paddingVertical: 3,
     },
-    freeBadgeText: { fontSize: 9, fontWeight: "800", color: C.text, letterSpacing: 0.5 },
+    freeBadgeText: { ...lbl(9.5, "bold", 0.06), color: C.text },
     recInfo: { padding: 10, gap: 3 },
-    recCategory: { fontSize: 9, fontWeight: "700", color: C.primary, letterSpacing: 1 },
-    recTitle: { fontSize: 13, fontWeight: "800", color: C.text, lineHeight: 17, letterSpacing: -0.2 },
+    recCategory: { ...lbl(9.5, "bold", 0.1), color: C.primary },
+    recTitle: { fontFamily: fonts.displayBold, fontSize: 13.5, lineHeight: 17.5, letterSpacing: -0.1, color: C.text },
     recMeta: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4, flexWrap: "wrap" },
-    recMetaText: { fontSize: 10, color: C.textLight, fontWeight: "500", letterSpacing: 0.3 },
+    recMetaText: { ...meta(10.5), color: C.textLight },
 
     // Who's going
     goingRow: {
@@ -1935,11 +1890,11 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         overflow: "hidden",
     },
     goingAvatarImg: { width: 30, height: 30, borderRadius: 15 },
-    goingAvatarText: { fontSize: 11, fontWeight: "800", color: "#fff" },
-    goingLabel: { fontSize: 13, color: C.textMuted, fontWeight: "500" },
-    goingCount: { fontWeight: "800", color: C.text },
+    goingAvatarText: { ...lbl(11, "bold", 0.02), color: "#fff" },
+    goingLabel: { ...meta(13), color: C.textMuted },
+    goingCount: { fontFamily: fonts.bodyBold, color: C.text },
     mutualGoingRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 },
-    mutualGoingText: { flex: 1, fontSize: 12, color: C.gold, fontWeight: "700" },
+    mutualGoingText: { ...meta(12.5, "semi"), flex: 1, color: C.gold },
 
     // Remind Me
     remindBtn: {
@@ -1948,14 +1903,16 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingVertical: 13, backgroundColor: C.surfaceAlt,
     },
     remindBtnActive: { borderColor: C.primary, backgroundColor: C.primaryBg },
-    remindBtnText: { fontSize: 12, fontWeight: "700", color: C.textBody, letterSpacing: 1.5 },
+    remindBtnText: { ...lbl(12, "bold", 0.1), color: C.textBody },
     remindBtnTextActive: { color: C.primary },
 
     // Comments
     commentsSection: { padding: 16 },
-    commentsCount: { fontSize: 20, fontWeight: "900", color: C.text, letterSpacing: -0.5, marginTop: 4, marginBottom: 12 },
+    commentsCount: { fontFamily: fonts.displayBold, fontSize: 20, letterSpacing: -0.3, color: C.text },
+    commentsHeaderRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
+    commentsHeaderSpacer: { flex: 1 },
     commentsEmpty: { paddingVertical: 24, alignItems: "center" },
-    commentsEmptyText: { fontSize: 13, color: C.textLight, fontWeight: "500" },
+    commentsEmptyText: { ...meta(13.5), color: C.textLight },
     commentRow: {
         flexDirection: "row", gap: 10, paddingVertical: 12,
         borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border,
@@ -1971,30 +1928,26 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         overflow: "hidden", flexShrink: 0,
     },
     commentAvatarImg: { width: 32, height: 32, borderRadius: 16 },
-    commentAvatarText: { fontSize: 12, fontWeight: "800", color: "#fff" },
+    commentAvatarText: { ...lbl(12, "bold", 0.02), color: "#fff" },
     commentBody: { flex: 1, gap: 3 },
     commentMeta: { flexDirection: "row", alignItems: "center", gap: 8 },
-    commentName: { fontSize: 12, fontWeight: "700", color: C.text },
-    commentTime: { fontSize: 11, color: C.textLight, fontWeight: "400" },
-    commentText: { fontSize: 13, color: C.textBody, lineHeight: 19 },
+    commentName: { ...meta(13.5, "bold"), color: C.text },
+    commentTime: { ...meta(11.5), color: C.textLight },
+    commentText: { fontFamily: fonts.body, fontSize: 14.5, lineHeight: 21, color: C.textBody },
 
     // Reply UI
     replyActionRow: {
         flexDirection: "row", alignItems: "center", gap: 12, marginTop: 6,
     },
-    replyBtn: {
-        fontSize: 9, fontWeight: "800", color: C.textMuted, letterSpacing: 1,
-    },
+    replyBtn: { ...lbl(10, "bold", 0.08), color: C.textMuted },
     replyBtnActive: { color: C.primary },
-    replyToggle: {
-        fontSize: 9, fontWeight: "800", color: C.primary, letterSpacing: 1,
-    },
+    replyToggle: { ...lbl(10, "bold", 0.08), color: C.primary },
     replyingBanner: {
         flexDirection: "row", alignItems: "center", justifyContent: "space-between",
         paddingHorizontal: 16, paddingVertical: 8,
         backgroundColor: C.surfaceAlt, borderTopWidth: 1, borderTopColor: C.borderWarm,
     },
-    replyingBannerText: { flex: 1, fontSize: 12, color: C.textMuted, marginRight: 8 },
+    replyingBannerText: { ...meta(12.5), flex: 1, color: C.textMuted, marginRight: 8 },
     replyRow: {
         flexDirection: "row", gap: 8, marginTop: 10,
         paddingLeft: 4,
@@ -2007,7 +1960,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         overflow: "hidden", flexShrink: 0,
     },
     replyAvatarImg: { width: 24, height: 24, borderRadius: 12 },
-    replyAvatarText: { fontSize: 9, fontWeight: "800", color: "#fff" },
+    replyAvatarText: { ...lbl(9, "bold", 0.02), color: "#fff" },
 
     // Comment filter + sort
     commentControls: {
@@ -2017,7 +1970,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         marginBottom: 12,
         gap: 8,
     },
-    commentFilters: { flexDirection: "row", gap: 6 },
+    commentFilters: { flexDirection: "row", gap: 6, marginBottom: 12 },
     filterPill: {
         paddingHorizontal: 10,
         paddingVertical: 5,
@@ -2026,7 +1979,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         backgroundColor: C.surfaceAlt,
     },
     filterPillActive: { borderColor: C.primary, backgroundColor: C.primaryBg },
-    filterPillText: { fontSize: 9, fontWeight: "800", color: C.textLight, letterSpacing: 1 },
+    filterPillText: { ...lbl(9.5, "bold", 0.08), color: C.textLight },
     filterPillTextActive: { color: C.primary },
     sortToggle: {
         flexDirection: "row",
@@ -2038,14 +1991,14 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         borderColor: C.primary,
         backgroundColor: C.primaryBg,
     },
-    sortToggleText: { fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 0.8 },
+    sortToggleText: { ...lbl(10, "bold", 0.08), color: C.primary },
     commentAvatarClub: { backgroundColor: "#1D4ED8" },
     clubBadge: {
         backgroundColor: "#1D4ED8",
         paddingHorizontal: 5,
         paddingVertical: 2,
     },
-    clubBadgeText: { fontSize: 7, fontWeight: "800", color: "#fff", letterSpacing: 0.8 },
+    clubBadgeText: { ...lbl(8, "bold", 0.08), color: "#fff" },
 
     // Comment input bar
     commentBar: {
@@ -2054,11 +2007,8 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border,
         backgroundColor: C.surface,
     },
-    commentInput: {
-        flex: 1, backgroundColor: C.surfaceAlt, borderRadius: 20,
-        paddingHorizontal: 14, paddingVertical: 9,
-        fontSize: 14, color: C.text, maxHeight: 100,
-    },
+    commentInput: { fontFamily: fonts.body, fontSize: 14.5, flex: 1, backgroundColor: C.surfaceAlt, borderRadius: 20,
+        paddingHorizontal: 14, paddingVertical: 9, color: C.text, maxHeight: 100 },
     commentSend: {
         width: 36, height: 36, borderRadius: 18,
         backgroundColor: C.primary, alignItems: "center", justifyContent: "center",
@@ -2081,6 +2031,6 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         flexShrink: 0,
     },
     checkInBannerBody: { flex: 1, gap: 3 },
-    checkInBannerTitle: { fontSize: 14, fontWeight: "900", color: "#fff", letterSpacing: 1 },
-    checkInBannerSub: { fontSize: 11, color: "rgba(255,255,255,0.5)", fontWeight: "500" },
+    checkInBannerTitle: { ...lbl(13, "bold", 0.08), color: "#fff" },
+    checkInBannerSub: { ...meta(12), color: "rgba(255,255,255,0.5)" },
 });

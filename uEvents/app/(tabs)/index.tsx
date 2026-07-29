@@ -3,11 +3,11 @@ import { View, Text, ScrollView, Pressable, ActivityIndicator, RefreshControl, A
 import { Ionicons } from "@expo/vector-icons";
 import { makeHomeStyles } from "../../styles/home.styles";
 import { useTheme } from "../../lib/ThemeContext";
-import type { AppColors } from "../../styles/theme";
+import { meta, lbl, fonts, AppColors } from "../../styles/theme";
 import FollowedAccounts, { type Account } from "../../components/FollowedAccounts";
 import { useAuth } from "../../auth/AuthContext";
 import { useApi } from "../../lib/useApi";
-import SocialFeed, { type FeedPost } from "../../components/SocialFeed";
+import SocialFeed, { type FeedPost, type RecapPhoto } from "../../components/SocialFeed";
 import { useRouter } from "expo-router";
 import { useState, useCallback, useRef, useMemo } from "react";
 import { useReduceMotion } from "../../lib/useReduceMotion";
@@ -50,7 +50,9 @@ type ApiFeedPost = {
     reason?: string;
     isPast?: boolean;
     hasRecap?: boolean;
-    recapPhotos?: string[];
+    // Older API builds returned bare URL strings; newer ones credit the
+    // uploader. Both shapes are accepted — see normalizeRecapPhotos.
+    recapPhotos?: (string | { url: string; by?: string | null })[];
     recapPhotoCount?: number;
     recapContributors?: { name: string; avatarUrl?: string | null }[];
     recapContributorCount?: number;
@@ -66,6 +68,17 @@ type ApiFeedPost = {
     } | null;
 };
 
+
+/**
+ * Recap photos arrive either as bare URL strings (older API) or as objects
+ * crediting the uploader (newer API). Normalize to the object form so the card
+ * renders correctly against a server that hasn't deployed the change yet —
+ * shipped clients always outlive a given backend version.
+ */
+function normalizeRecapPhotos(photos: ApiFeedPost["recapPhotos"]): RecapPhoto[] | undefined {
+    if (!photos) return undefined;
+    return photos.map((p) => (typeof p === "string" ? { url: p } : p));
+}
 
 function mapPost(p: ApiFeedPost, lang: "en" | "fr"): FeedPost {
     const locale = pickLocale(p.locales, lang);
@@ -111,7 +124,7 @@ function mapPost(p: ApiFeedPost, lang: "en" | "fr"): FeedPost {
         isFollowing: p.isFollowing ?? false,
         reason: p.reason,
         hasRecap: p.hasRecap,
-        recapPhotos: p.recapPhotos,
+        recapPhotos: normalizeRecapPhotos(p.recapPhotos),
         recapPhotoCount: p.recapPhotoCount,
         recapContributors: p.recapContributors,
         recapContributorCount: p.recapContributorCount,
@@ -586,7 +599,7 @@ export default function HomeScreen() {
                     accessibilityLabel="Verify your email"
                 >
                     <Ionicons name="mail-unread-outline" size={16} color={C.primary} />
-                    <Text style={{ flex: 1, fontSize: 12, fontWeight: "700", color: C.primary }} numberOfLines={2} maxFontSizeMultiplier={1.4}>
+                    <Text style={{ ...meta(12, "bold"), flex: 1,   color: C.primary }} numberOfLines={2} maxFontSizeMultiplier={1.4}>
                         Verify your email to secure your account
                     </Text>
                     <Pressable onPress={() => setVerifyDismissed(true)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Dismiss">
@@ -652,7 +665,7 @@ export default function HomeScreen() {
                                                     backgroundColor: feedFilter === f.value ? C.primary : C.surface,
                                                 }}
                                             >
-                                                <Text numberOfLines={1} maxFontSizeMultiplier={1.4} style={{ fontSize: 10, fontWeight: "800", letterSpacing: 1, color: feedFilter === f.value ? "#fff" : C.textMuted }}>
+                                                <Text numberOfLines={1} maxFontSizeMultiplier={1.4} style={{ ...lbl(10, "bold", 0.1), color: feedFilter === f.value ? "#fff" : C.textMuted }}>
                                                     {f.label}
                                                 </Text>
                                             </Pressable>
@@ -668,13 +681,13 @@ export default function HomeScreen() {
                                     >
                                         <View style={{ width: 3, backgroundColor: C.primary }} />
                                         <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, paddingHorizontal: 14 }}>
-                                            <Text style={{ fontSize: 20 }}>🍕</Text>
+                                            <Text style={{ fontFamily: fonts.displayBold, fontSize: 20 }}>🍕</Text>
                                             <View style={{ flex: 1, gap: 4 }}>
-                                                <Text style={{ fontSize: 9, fontWeight: "800", letterSpacing: 1.5, color: C.primary }} maxFontSizeMultiplier={1.3}>{t.freeFoodAlertTitle}</Text>
-                                                <Text style={{ fontSize: 13, fontWeight: "700", color: C.text }} maxFontSizeMultiplier={1.3}>{t.freeFoodAlertPrompt}</Text>
+                                                <Text style={{ ...lbl(9, "bold", 0.12), color: C.primary }} maxFontSizeMultiplier={1.3}>{t.freeFoodAlertTitle}</Text>
+                                                <Text style={{ ...meta(13, "bold"), color: C.text }} maxFontSizeMultiplier={1.3}>{t.freeFoodAlertPrompt}</Text>
                                             </View>
                                             <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                                                <Text style={{ fontSize: 10, fontWeight: "800", letterSpacing: 1, color: C.primary }} maxFontSizeMultiplier={1.2}>{t.openBtn}</Text>
+                                                <Text style={{ ...lbl(10, "bold", 0.1), color: C.primary }} maxFontSizeMultiplier={1.2}>{t.openBtn}</Text>
                                                 <Ionicons name="open-outline" size={14} color={C.primary} />
                                             </View>
                                         </View>
@@ -699,7 +712,7 @@ export default function HomeScreen() {
                             ) : (
                                 <View style={{ alignItems: "center", paddingVertical: 40, gap: 8 }}>
                                     <Ionicons name="filter-outline" size={28} color={C.textFaint} />
-                                    <Text style={{ fontSize: 11, fontWeight: "700", color: C.textFaint, letterSpacing: 2 }}>
+                                    <Text style={{ ...lbl(11, "bold", 0.12), color: C.textFaint }}>
                                         {({ event: t.noEventsFilter, announcement: t.noAnnouncementsFilter, poll: t.noPollsFilter } as Record<string, string>)[feedFilter] ?? t.noPostsYet}
                                     </Text>
                                 </View>
@@ -762,7 +775,7 @@ export default function HomeScreen() {
                                             accessibilityState={{ selected: forYouFilter === f.value }}
                                             style={{ paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1.5, borderColor: forYouFilter === f.value ? C.primary : C.borderWarm, backgroundColor: forYouFilter === f.value ? C.primary : C.surface }}
                                         >
-                                            <Text numberOfLines={1} maxFontSizeMultiplier={1.4} style={{ fontSize: 10, fontWeight: "800", letterSpacing: 1, color: forYouFilter === f.value ? "#fff" : C.textMuted }}>{f.label}</Text>
+                                            <Text numberOfLines={1} maxFontSizeMultiplier={1.4} style={{ ...lbl(10, "bold", 0.1), color: forYouFilter === f.value ? "#fff" : C.textMuted }}>{f.label}</Text>
                                         </Pressable>
                                     ))}
                                 </ScrollView>
@@ -879,32 +892,21 @@ function makeObStyles(C: AppColors) {
             marginTop: 12,
             marginBottom: 20,
         },
-        title: {
-            fontSize: 22,
-            fontWeight: "900",
-            color: C.text,
-            letterSpacing: -0.5,
-            paddingHorizontal: 20,
-        },
-        subtitle: {
-            fontSize: 13,
-            color: C.textMuted,
+        title: { fontFamily: fonts.displayBold, fontSize: 22, letterSpacing: -0.5, color: C.text,
+            
+            paddingHorizontal: 20 },
+        subtitle: { ...meta(13, "regular"), color: C.textMuted,
             paddingHorizontal: 20,
             marginTop: 4,
-            marginBottom: 16,
-        },
+            marginBottom: 16 },
         catSection: {
             marginBottom: 8,
         },
-        catLabel: {
-            fontSize: 10,
-            fontWeight: "800",
-            color: C.primary,
-            letterSpacing: 1.5,
+        catLabel: { ...lbl(10, "bold", 0.12), color: C.primary,
+            
             paddingHorizontal: 20,
             paddingVertical: 8,
-            backgroundColor: C.bg,
-        },
+            backgroundColor: C.bg },
         row: {
             flexDirection: "row",
             alignItems: "center",
@@ -926,10 +928,10 @@ function makeObStyles(C: AppColors) {
             flexShrink: 0,
         },
         logoImg: { width: 40, height: 40 },
-        logoText: { fontSize: 15, fontWeight: "800", color: "#fff" },
+        logoText: { ...meta(15, "bold"), color: "#fff" },
         info: { flex: 1, gap: 2 },
-        clubName: { fontSize: 14, fontWeight: "700", color: C.text },
-        followers: { fontSize: 11, color: C.textLight, fontWeight: "500" },
+        clubName: { ...meta(14, "bold"), color: C.text },
+        followers: { ...meta(11, "medium"), color: C.textLight },
         followBtn: {
             paddingHorizontal: 14,
             paddingVertical: 7,
@@ -937,7 +939,7 @@ function makeObStyles(C: AppColors) {
             borderColor: C.primary,
         },
         followBtnActive: { backgroundColor: C.primary },
-        followBtnText: { fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 1 },
+        followBtnText: { ...lbl(10, "bold", 0.1), color: C.primary },
         followBtnTextActive: { color: "#fff" },
         doneBtn: {
             marginHorizontal: 20,
@@ -947,6 +949,6 @@ function makeObStyles(C: AppColors) {
             alignItems: "center",
         },
         doneBtnMuted: { backgroundColor: C.textBody },
-        doneBtnText: { fontSize: 12, fontWeight: "800", color: "#fff", letterSpacing: 1.5 },
+        doneBtnText: { ...lbl(12, "bold", 0.12), color: "#fff" },
     });
 }

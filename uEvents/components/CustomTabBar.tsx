@@ -2,6 +2,7 @@ import { View, TouchableOpacity, StyleSheet, Text } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
+import { fonts, lbl, meta, lightColors } from "../styles/theme";
 
 export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     const insets = useSafeAreaInsets();
@@ -67,7 +68,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: '#6B0220',
+        backgroundColor: lightColors.primaryDeep,
     },
     topBorder: {
         height: StyleSheet.hairlineWidth,
@@ -83,11 +84,8 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         gap: 3,
     },
-    label: {
-        fontSize: 10,
-        fontWeight: '500',
-        color: 'rgba(255,255,255,0.45)',
-    },
+    label: { ...meta(10, "regular"), fontWeight: '500',
+        color: 'rgba(255,255,255,0.45)' },
     labelActive: {
         color: '#C0C0C0',
         fontWeight: '600',

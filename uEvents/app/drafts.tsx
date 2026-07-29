@@ -18,7 +18,7 @@ import { useT, useLang } from "../lib/LangContext";
 import { timeAgo } from "../lib/datetime";
 import type { DraftType } from "../lib/draftsStore";
 import { useTheme } from "../lib/ThemeContext";
-import type { AppColors } from "../styles/theme";
+import { lightColors, meta, lbl, fonts, AppColors } from "../styles/theme";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -58,8 +58,8 @@ function fmtScheduled(iso: string): string {
 }
 
 const TYPE_META: Record<DraftType, { label: string; icon: any; color: string; bg: string }> = {
-    event:        { label: "EVENT",        icon: "calendar-sharp", color: "#8C0327", bg: "#FEE2E2" },
-    announcement: { label: "ANNOUNCEMENT", icon: "megaphone",      color: "#374151", bg: "#E5E7EB" },
+    event:        { label: "EVENT",        icon: "calendar-sharp", color: lightColors.primary, bg: "#FEE2E2" },
+    announcement: { label: "ANNOUNCEMENT", icon: "megaphone",      color: lightColors.textBody, bg: lightColors.border },
     poll:         { label: "POLL",         icon: "grid",           color: "#1D4ED8", bg: "#DBEAFE" },
 };
 
@@ -87,27 +87,23 @@ const makeDraftsStyles = (C: AppColors) => StyleSheet.create({
         paddingVertical: 12,
     },
     backGroup: { flexDirection: "row", alignItems: "center", gap: 6 },
-    backLabel: { fontSize: 14, fontWeight: "900", color: C.primary, letterSpacing: 2 },
-    topBarCount: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 1.5,
+    backLabel: { ...meta(14, "bold"), color: C.primary },
+    topBarCount: { ...lbl(10, "bold", 0.12), color: C.primary,
+        
         backgroundColor: C.primaryBg,
         paddingHorizontal: 10,
-        paddingVertical: 5,
-    },
+        paddingVertical: 5 },
 
     scroll: { paddingHorizontal: 20 },
     hero: { paddingTop: 8, paddingBottom: 24 },
-    heroLabel: { fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 2, marginBottom: 8 },
-    heroHeading: { fontSize: 42, fontWeight: "900", color: C.text, letterSpacing: -1, lineHeight: 46 },
+    heroLabel: { ...lbl(10, "bold", 0.12), color: C.primary,  marginBottom: 8 },
+    heroHeading: { fontFamily: fonts.displayBold, fontSize: 42, letterSpacing: -1, color: C.text,  lineHeight: 46 },
     heroAccent: { width: 48, height: 3, backgroundColor: C.primary, marginTop: 14 },
 
     filterRow: { flexDirection: "row", gap: 8, paddingBottom: 24 },
     filterPill: { paddingHorizontal: 14, paddingVertical: 7, backgroundColor: C.surfaceAlt },
     filterPillActive: { backgroundColor: "#1F2937" },
-    filterPillText: { fontSize: 10, fontWeight: "800", color: C.textLight, letterSpacing: 1 },
+    filterPillText: { ...lbl(10, "bold", 0.1), color: C.textLight },
     filterPillTextActive: { color: "#fff" },
 
     list: { gap: 10 },
@@ -117,32 +113,28 @@ const makeDraftsStyles = (C: AppColors) => StyleSheet.create({
     cardBody: { flex: 1, padding: 16, gap: 8 },
     cardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     typeBadge: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 8, paddingVertical: 4 },
-    typeBadgeText: { fontSize: 9, fontWeight: "800", letterSpacing: 1 },
-    editedAt: { fontSize: 10, color: C.textLight, fontWeight: "600" },
-    cardTitle: { fontSize: 16, fontWeight: "900", color: C.primary, letterSpacing: 0.2, lineHeight: 22 },
-    cardPreview: { fontSize: 13, color: C.textMuted, lineHeight: 19 },
+    typeBadgeText: { ...lbl(9, "bold", 0.11) },
+    editedAt: { ...meta(10, "semi"), color: C.textLight },
+    cardTitle: { ...meta(16, "bold"), color: C.primary,  lineHeight: 22 },
+    cardPreview: { ...meta(13, "regular"), color: C.textMuted, lineHeight: 19 },
     cardFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
     draftStatusRow: { flexDirection: "row", alignItems: "center", gap: 5 },
     draftDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.primary },
-    draftStatusText: { fontSize: 9, fontWeight: "700", color: C.textLight, letterSpacing: 1.2 },
+    draftStatusText: { ...lbl(9, "bold", 0.12), color: C.textLight },
     cardActions: { flexDirection: "row", alignItems: "center", gap: 8 },
     deleteBtn: { width: 32, height: 32, backgroundColor: C.surfaceAlt, alignItems: "center", justifyContent: "center" },
     editBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#1F2937", paddingHorizontal: 12, paddingVertical: 8 },
-    editBtnText: { fontSize: 10, fontWeight: "800", color: "#fff", letterSpacing: 1 },
+    editBtnText: { ...lbl(10, "bold", 0.1), color: "#fff" },
 
     emptyState: { alignItems: "center", paddingVertical: 60, gap: 12 },
-    emptyText: { fontSize: 11, fontWeight: "700", color: C.textFaint, letterSpacing: 2 },
+    emptyText: { ...meta(13.5), color: C.textMuted },
     errorRetry: { borderWidth: 1.5, borderColor: C.primary, paddingHorizontal: 20, paddingVertical: 10 },
-    errorRetryText: { fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 1.5 },
+    errorRetryText: { ...lbl(10, "bold", 0.12), color: C.primary },
 
-    sectionLabel: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.textLight,
-        letterSpacing: 2,
+    sectionLabel: { ...lbl(10, "bold", 0.12), color: C.textLight,
+        
         paddingTop: 20,
-        paddingBottom: 10,
-    },
+        paddingBottom: 10 },
     scheduledBadge: {
         flexDirection: "row",
         alignItems: "center",
@@ -151,12 +143,7 @@ const makeDraftsStyles = (C: AppColors) => StyleSheet.create({
         paddingHorizontal: 8,
         paddingVertical: 4,
     },
-    scheduledBadgeText: {
-        fontSize: 9,
-        fontWeight: "800",
-        color: "#1D4ED8",
-        letterSpacing: 0.5,
-    },
+    scheduledBadgeText: { ...meta(9, "bold"), color: "#1D4ED8" },
 });
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -360,7 +347,7 @@ export default function DraftsScreen() {
                                     <Ionicons name="document-outline" size={32} color={C.textFaint} />
                                     <Text style={styles.emptyText}>{t.noDraftsHere}</Text>
                                     <Pressable onPress={() => router.push("/(tabs)/create" as any)} style={{ marginTop: 4, backgroundColor: C.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 6 }} accessibilityRole="button" accessibilityLabel="Create a post">
-                                        <Text style={{ fontSize: 11, fontWeight: "800", color: "#fff", letterSpacing: 1.5 }}>{t.createAPost}</Text>
+                                        <Text style={{ ...lbl(11, "bold", 0.12), color: "#fff" }}>{t.createAPost}</Text>
                                     </Pressable>
                                 </View>
                             ) : (

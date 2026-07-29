@@ -8,6 +8,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { useApi } from "../../lib/useApi";
 import { useT, useLang } from "../../lib/LangContext";
 import { localeFor } from "../../lib/datetime";
+import { fonts, lbl, meta, lightColors } from "../../styles/theme";
 
 type RsvpEvent = {
     id: string;
@@ -105,7 +106,7 @@ export default function AllEventsModal() {
             {/* Top bar */}
             <View style={s.topBar}>
                 <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={12} accessibilityRole="button" accessibilityLabel={t.goBackLabel}>
-                    <Ionicons name="arrow-back" size={18} color="#111827" />
+                    <Ionicons name="arrow-back" size={18} color={lightColors.text} />
                 </Pressable>
                 <Text style={s.topBarTitle}>{browse ? "ALL EVENTS" : "MY SCHEDULE"}</Text>
                 <View style={{ width: 32 }} />
@@ -119,17 +120,17 @@ export default function AllEventsModal() {
             </View>
 
             {loading ? (
-                <ActivityIndicator color="#8C0327" style={{ marginTop: 40 }} />
+                <ActivityIndicator color={lightColors.primary} style={{ marginTop: 40 }} />
             ) : groups.length === 0 ? (
                 <View style={s.empty}>
-                    <Ionicons name="calendar-outline" size={40} color="#D1CBC3" />
+                    <Ionicons name="calendar-outline" size={40} color={lightColors.textFaint} />
                     <Text style={s.emptyText}>{t.noUpcomingEvents}</Text>
                     <Text style={s.emptySub}>{browse ? "Nothing scheduled for this view." : "RSVP to events to see them here."}</Text>
                 </View>
             ) : (
                 <ScrollView
                     showsVerticalScrollIndicator={false}
-                    style={{ backgroundColor: "#F7F3EE" }}
+                    style={{ backgroundColor: lightColors.bg }}
                     contentContainerStyle={{ paddingBottom: 60, paddingTop: 8, gap: 8 }}
                 >
                     {groups.map((group) => (
@@ -186,13 +187,13 @@ export default function AllEventsModal() {
                                             <Text style={s.eventTitle} numberOfLines={2}>{title.toUpperCase()}</Text>
                                             {!!event.locationName && (
                                                 <View style={s.metaRow}>
-                                                    <Ionicons name="location-outline" size={11} color="#8C0327" />
+                                                    <Ionicons name="location-outline" size={11} color={lightColors.primary} />
                                                     <Text style={s.metaText} numberOfLines={1}>{event.locationName}</Text>
                                                 </View>
                                             )}
                                         </View>
 
-                                        <Ionicons name="chevron-forward" size={13} color="#D1CBC3" style={{ alignSelf: "center" }} />
+                                        <Ionicons name="chevron-forward" size={13} color={lightColors.textFaint} style={{ alignSelf: "center" }} />
                                     </Pressable>
                                 );
                             })}
@@ -204,10 +205,10 @@ export default function AllEventsModal() {
     );
 }
 
-const BURGUNDY = "#8C0327";
+const BURGUNDY = lightColors.primary;
 
 const s = StyleSheet.create({
-    page: { flex: 1, backgroundColor: "#F7F3EE" },
+    page: { flex: 1, backgroundColor: lightColors.bg },
 
     topBar: {
         flexDirection: "row",
@@ -215,26 +216,16 @@ const s = StyleSheet.create({
         justifyContent: "space-between",
         paddingHorizontal: 16,
         paddingVertical: 12,
-        backgroundColor: "#F7F3EE",
+        backgroundColor: lightColors.bg,
     },
     backBtn: { width: 32 },
-    topBarTitle: {
-        fontSize: 12,
-        fontWeight: "900",
-        color: "#111827",
-        letterSpacing: 2,
-    },
+    topBarTitle: { ...lbl(12, "bold", 0.12), color: lightColors.text },
 
     countRow: {
         paddingHorizontal: 20,
         paddingBottom: 12,
     },
-    countText: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: "#9CA3AF",
-        letterSpacing: 2,
-    },
+    countText: { ...lbl(10, "bold", 0.12), color: lightColors.textLight },
 
     empty: {
         flex: 1,
@@ -242,17 +233,9 @@ const s = StyleSheet.create({
         justifyContent: "center",
         gap: 10,
     },
-    emptyText: {
-        fontSize: 12,
-        fontWeight: "800",
-        color: "#D1CBC3",
-        letterSpacing: 2,
-    },
-    emptySub: {
-        fontSize: 13,
-        color: "#9CA3AF",
-        textAlign: "center",
-    },
+    emptyText: { ...lbl(12, "bold", 0.12), color: lightColors.textFaint },
+    emptySub: { ...meta(13, "regular"), color: lightColors.textLight,
+        textAlign: "center" },
 
     // Floating card per day
     card: {
@@ -260,7 +243,7 @@ const s = StyleSheet.create({
         marginLeft: 12,
         marginRight: 12,
         borderWidth: 1,
-        borderColor: "#E5E0D8",
+        borderColor: lightColors.border,
     },
 
     dayHeader: {
@@ -270,28 +253,16 @@ const s = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 14,
         borderBottomWidth: 1,
-        borderBottomColor: "#E5E0D8",
+        borderBottomColor: lightColors.border,
     },
-    dayNum: {
-        fontSize: 36,
-        fontWeight: "900",
-        color: BURGUNDY,
+    dayNum: { fontFamily: fonts.displayBold, fontSize: 36, color: BURGUNDY,
         lineHeight: 38,
         minWidth: 52,
-        textAlign: "center",
-    },
-    dayLabel: {
-        fontSize: 12,
-        fontWeight: "800",
-        color: "#111827",
-        letterSpacing: 0.5,
-    },
-    dayCount: {
-        fontSize: 11,
-        color: "#9CA3AF",
-        fontWeight: "500",
-        marginTop: 1,
-    },
+        textAlign: "center" },
+    dayLabel: { ...meta(12, "bold"), color: lightColors.text },
+    dayCount: { ...meta(11, "medium"), color: lightColors.textLight,
+        
+        marginTop: 1 },
 
     row: {
         flexDirection: "row",
@@ -302,7 +273,7 @@ const s = StyleSheet.create({
     },
     rowBorder: {
         borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: "#E5E0D8",
+        borderTopColor: lightColors.border,
     },
 
     timeCol: {
@@ -310,18 +281,11 @@ const s = StyleSheet.create({
         alignItems: "center",
         flexShrink: 0,
     },
-    timeMain: {
-        fontSize: 12,
-        fontWeight: "800",
-        color: "#111827",
+    timeMain: { ...meta(12, "bold"), color: lightColors.text,
+        textAlign: "center" },
+    timeSub: { ...meta(10, "regular"), color: lightColors.textLight,
         textAlign: "center",
-    },
-    timeSub: {
-        fontSize: 10,
-        color: "#9CA3AF",
-        textAlign: "center",
-        marginTop: 1,
-    },
+        marginTop: 1 },
 
     accentBar: {
         width: 2,
@@ -340,19 +304,9 @@ const s = StyleSheet.create({
     posterPlaceholder: { backgroundColor: "#2a2a2a" },
 
     details: { flex: 1, gap: 2, minWidth: 0 },
-    clubLabel: {
-        fontSize: 9,
-        fontWeight: "800",
-        color: BURGUNDY,
-        letterSpacing: 1,
-    },
-    eventTitle: {
-        fontSize: 13,
-        fontWeight: "800",
-        color: "#111827",
-        lineHeight: 17,
-        letterSpacing: -0.2,
-    },
+    clubLabel: { ...lbl(9, "bold", 0.11), color: BURGUNDY },
+    eventTitle: { ...meta(13, "bold"), letterSpacing: -0.2, color: lightColors.text,
+        lineHeight: 17 },
     metaRow: { flexDirection: "row", alignItems: "center", gap: 3, marginTop: 2 },
-    metaText: { fontSize: 11, color: "#6B7280", flex: 1 },
+    metaText: { ...meta(11, "regular"), color: lightColors.textMuted, flex: 1 },
 });

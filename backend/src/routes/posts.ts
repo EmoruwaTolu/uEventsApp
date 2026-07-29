@@ -1268,7 +1268,13 @@ router.get("/for-you", requireAuth, async (req, res, next) => {
                 // For You enrichments
                 isPast: isPastEvent,
                 hasRecap,
-                recapPhotos: (p.recapPhotos ?? []).map((ph) => ph.url),
+                // `by` credits the uploader on each carousel slide. The name is
+                // already loaded for the contributor row above, so this costs
+                // nothing extra.
+                recapPhotos: (p.recapPhotos ?? []).map((ph) => ({
+                    url: ph.url,
+                    by: ph.user.type === "CLUB" ? (ph.user.clubName ?? null) : (ph.user.firstName ?? null),
+                })),
                 recapPhotoCount: p._count.recapPhotos,
                 recapContributors: contributors.slice(0, 3),
                 recapContributorCount: contributors.length,

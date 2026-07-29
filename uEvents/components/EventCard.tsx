@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, Pressable, useWindowDimensions } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { useRouter } from "expo-router";
+import { fonts, lbl, meta, lightColors } from "../styles/theme";
 
 type Event = {
     id: string;
@@ -31,7 +32,7 @@ export default function EventCard({ event }: { event: Event }) {
             height: cardH,
             padding: pad,
             borderRadius: radius,
-            backgroundColor: "#8C0327",
+            backgroundColor: lightColors.primary,
             borderWidth: 1,
             borderColor: "#A8763E",
         }}
@@ -62,7 +63,7 @@ export default function EventCard({ event }: { event: Event }) {
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4 }}>
                 {event.tags?.map((t, i) => (
                 <View key={i} style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, backgroundColor: "rgba(255,255,255,0.15)" }}>
-                    <Text style={{ color: "#fff", fontSize: 12 }}>{t}</Text>
+                    <Text style={{ ...meta(12, "regular"), color: "#fff" }}>{t}</Text>
                 </View>
                 ))}
             </View>

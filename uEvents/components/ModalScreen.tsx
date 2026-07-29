@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../lib/ThemeContext";
 import { useT } from "../lib/LangContext";
-import type { AppColors } from "../styles/theme";
+import { meta, lbl, fonts, AppColors } from "../styles/theme";
 
 type Props = {
     visible: boolean;
@@ -65,10 +65,10 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
     safe: { flex: 1, backgroundColor: C.bg },
     topBar: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 12 },
     backGroup: { flexDirection: "row", alignItems: "center", gap: 6 },
-    backLabel: { fontSize: 14, fontWeight: "900", color: C.primary, letterSpacing: 2 },
+    backLabel: { ...meta(14, "bold"), color: C.primary },
     scroll: { paddingBottom: 40 },
     masthead: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 24 },
-    heading: { fontSize: 40, fontWeight: "900", color: C.text, letterSpacing: -1.2, lineHeight: 44 },
-    subtitle: { fontSize: 13, fontWeight: "600", color: C.textMuted, letterSpacing: 1, marginTop: 8 },
+    heading: { fontFamily: fonts.displayBold, fontSize: 40, letterSpacing: -1.2, color: C.text,  lineHeight: 44 },
+    subtitle: { ...lbl(13, "semi", 0.08), color: C.textMuted,  marginTop: 8 },
     accent: { width: 48, height: 3, backgroundColor: C.primary, marginTop: 14 },
 });

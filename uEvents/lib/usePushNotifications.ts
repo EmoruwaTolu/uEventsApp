@@ -4,6 +4,7 @@ import { AppState, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { useApi } from "./useApi";
 import { useAuth } from "../auth/AuthContext";
+import { lightColors } from "../styles/theme";
 
 const PROJECT_ID = "5c09391b-15e2-46b6-b6f6-b883d62135c6";
 
@@ -103,7 +104,7 @@ async function registerForPushNotifications(): Promise<string | null> {
                 name: "uEvents",
                 importance: Notifications.AndroidImportance.MAX,
                 vibrationPattern: [0, 250, 250, 250],
-                lightColor: "#8C0327",
+                lightColor: lightColors.primary,
             });
         }
 

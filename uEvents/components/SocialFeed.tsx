@@ -15,6 +15,7 @@ import { useTheme } from "../lib/ThemeContext";
 import { useReduceMotion } from "../lib/useReduceMotion";
 import { useLang } from "../lib/LangContext";
 import { localeFor } from "../lib/datetime";
+import { fonts, lbl, meta } from "../styles/theme";
 
 function SafeImage({ uri, style, resizeMode, label }: { uri: string; style: StyleProp<ImageStyle>; resizeMode?: "cover" | "contain"; label?: string }) {
     const { colors: C } = useTheme();
@@ -54,7 +55,7 @@ function AutoHeightImage({ uri, label }: { uri: string; label?: string }) {
     );
 }
 
-type PostType = "event" | "announcement" | "update" | "poll";
+export type PostType = "event" | "announcement" | "update" | "poll";
 
 type PollOption = {
     id: string;
@@ -70,6 +71,9 @@ type Poll = {
     endsAt?: string;
     closed?: boolean;
 };
+
+/** A recap gallery photo. `by` is the uploader's first name, when known. */
+export type RecapPhoto = { url: string; by?: string | null };
 
 export type FeedPost = {
     id: string;
@@ -104,7 +108,7 @@ export type FeedPost = {
     isBookmarked?: boolean;
     reason?: string;
     hasRecap?: boolean;
-    recapPhotos?: string[];
+    recapPhotos?: RecapPhoto[];
     recapPhotoCount?: number;
     recapContributors?: { name: string; avatarUrl?: string | null }[];
     recapContributorCount?: number;
@@ -120,78 +124,249 @@ function isEventPast(post: FeedPost): boolean {
     return new Date(post.eventEndAt) < new Date();
 }
 
-// ─── Poll option (animated progress bar) ───────────────────────────────────
+// ─── Description that collapses to 3 lines with an inline "Read more" ───────
+// The affordance only appears once onTextLayout confirms the copy actually
+// overflowed, so short descriptions don't get a dead link under them.
+const DESC_LINES = 3;
 
-function AnimatedPollOption({
-    postId,
-    option,
-    poll,
-    onPollVote,
-}: {
-    postId: string;
-    option: PollOption;
-    poll: Poll;
-    onPollVote: (postId: string, optionId: string) => void;
-}) {
+function ExpandableText({ text }: { text: string }) {
     const { colors: C } = useTheme();
     const t = useT();
     const s = useMemo(() => makeFeedStyles(C), [C]);
-    const percentage = poll.totalVotes > 0 ? Math.round((option.votes / poll.totalVotes) * 100) : 0;
-    const isUserVote = poll.userVote === option.id;
-    const hasVoted = !!poll.userVote;
-    // A closed poll can't be voted on any more, so surface its results the same
-    // way a voted poll does — otherwise the options look tappable but every tap
-    // is rejected by the server ("Vote failed").
-    const closed = !!poll.closed;
-    const showResults = hasVoted || closed;
-
-    const reduceMotion = useReduceMotion();
-    const progressWidth = useRef(new Animated.Value(0)).current;
-    const fadeIn = useRef(new Animated.Value(showResults ? 1 : 0)).current;
-
-    useEffect(() => {
-        if (showResults) {
-            // Respect the OS "Reduce Motion" setting: fill/fade instantly instead of sliding.
-            Animated.timing(progressWidth, { toValue: percentage, duration: reduceMotion ? 0 : 800, useNativeDriver: false }).start();
-            Animated.timing(fadeIn, { toValue: 1, duration: reduceMotion ? 0 : 400, delay: reduceMotion ? 0 : 200, useNativeDriver: true }).start();
-        }
-    }, [showResults, percentage, reduceMotion]);
+    const [expanded, setExpanded] = useState(false);
+    const [fullLines, setFullLines] = useState(0);
 
     return (
-        <Pressable
-            style={[s.fcPollOption, showResults && s.fcPollOptionVoted, isUserVote && s.fcPollOptionSelected]}
-            onPress={() => !hasVoted && !closed && onPollVote(postId, option.id)}
-            disabled={hasVoted || closed}
-            accessibilityRole="button"
-            accessibilityLabel={closed ? `${option.text}, poll closed` : `Vote for ${option.text}`}
-        >
-            {showResults && (
-                <Animated.View
-                    style={[
-                        s.fcPollFill,
-                        { width: progressWidth.interpolate({ inputRange: [0, 100], outputRange: ["0%", "100%"] }) },
-                        isUserVote && s.fcPollFillSelected,
-                    ]}
-                />
+        <View>
+            {/* Measurer. onTextLayout on the visible copy would only ever report
+                the clamped line count, so the true height is measured here on an
+                absolutely-positioned twin that contributes nothing to layout. */}
+            <Text
+                style={[s.fcDesc, { position: "absolute", left: 0, right: 0, opacity: 0 }]}
+                pointerEvents="none"
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                onTextLayout={(e) => setFullLines(e.nativeEvent.lines.length)}
+            >
+                {text}
+            </Text>
+
+            <Text style={s.fcDesc} numberOfLines={expanded ? undefined : DESC_LINES}>{text}</Text>
+
+            {fullLines > DESC_LINES && !expanded && (
+                <Pressable onPress={() => setExpanded(true)} hitSlop={6} accessibilityRole="button">
+                    <Text style={[s.fcReadMore, { marginTop: 4 }]}>{t.readMore}</Text>
+                </Pressable>
             )}
+        </View>
+    );
+}
+
+// Ease-out count-up for poll percentages; snaps to the final value when the OS
+// asks for reduced motion.
+function useCountUp(target: number, run: boolean): number {
+    const reduceMotion = useReduceMotion();
+    const [value, setValue] = useState(reduceMotion ? target : 0);
+    const raf = useRef<number | null>(null);
+
+    useEffect(() => {
+        if (reduceMotion || !run) {
+            setValue(target);
+            return;
+        }
+        const start = Date.now();
+        const tick = () => {
+            const p = Math.min((Date.now() - start) / 650, 1);
+            setValue(Math.round(target * (1 - Math.pow(1 - p, 3))));
+            if (p < 1) raf.current = requestAnimationFrame(tick);
+        };
+        raf.current = requestAnimationFrame(tick);
+        return () => {
+            if (raf.current != null) cancelAnimationFrame(raf.current);
+        };
+    }, [target, run, reduceMotion]);
+
+    return value;
+}
+
+// ─── Poll: open state ──────────────────────────────────────────────────────
+// A radio row. Selection is local until "Submit vote" commits it, so a mistap
+// is recoverable — the previous build voted on first touch, irreversibly.
+
+function PollChoice({
+    option,
+    selected,
+    onSelect,
+}: {
+    option: PollOption;
+    selected: boolean;
+    onSelect: () => void;
+}) {
+    const { colors: C } = useTheme();
+    const s = useMemo(() => makeFeedStyles(C), [C]);
+    return (
+        <Pressable
+            style={[s.fcPollOption, selected && s.fcPollOptionSelected]}
+            onPress={onSelect}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: selected }}
+            accessibilityLabel={option.text}
+        >
             <View style={s.fcPollOptionContent}>
                 <View style={s.fcPollOptionLeft}>
-                    {showResults && isUserVote && (
-                        <Animated.View style={{ opacity: fadeIn }}>
-                            <Ionicons name="checkmark" size={16} color={C.primary} />
-                        </Animated.View>
-                    )}
-                    <Text style={[s.fcPollOptionText, isUserVote && s.fcPollOptionTextSelected]} numberOfLines={1}>
+                    <View style={[s.fcPollRadio, selected && s.fcPollRadioOn]} />
+                    <Text style={[s.fcPollOptionText, selected && s.fcPollOptionTextSelected]} numberOfLines={2}>
                         {option.text}
                     </Text>
                 </View>
-                {showResults && (
-                    <Animated.Text style={[s.fcPollPct, isUserVote && s.fcPollPctSelected, { opacity: fadeIn }]}>
-                        {percentage}%
-                    </Animated.Text>
-                )}
             </View>
         </Pressable>
+    );
+}
+
+// ─── Poll: results ─────────────────────────────────────────────────────────
+
+type PollRow = PollOption & { pct: number; rank: number; rankLabel: string; mine: boolean };
+
+// Ranks options by votes, marking ties with a "T" prefix the way the mockup does.
+function tallyPoll(poll: Poll): { total: number; rows: PollRow[] } {
+    const total = poll.options.reduce((sum, o) => sum + o.votes, 0);
+    const sorted = [...poll.options].sort((a, b) => b.votes - a.votes);
+    const rows = poll.options.map((o) => {
+        const rank = sorted.findIndex((x) => x.votes === o.votes) + 1;
+        const tied = sorted.filter((x) => x.votes === o.votes).length > 1;
+        return {
+            ...o,
+            pct: total > 0 ? Math.round((o.votes / total) * 100) : 0,
+            rank,
+            rankLabel: `${tied ? "T" : ""}${rank}`,
+            mine: poll.userVote === o.id,
+        };
+    });
+    return { total, rows };
+}
+
+function PollWinner({ row, total, run }: { row: PollRow; total: number; run: boolean }) {
+    const { colors: C } = useTheme();
+    const t = useT();
+    const s = useMemo(() => makeFeedStyles(C), [C]);
+    const reduceMotion = useReduceMotion();
+    const shown = useCountUp(row.pct, run);
+    const width = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        if (!run) return;
+        Animated.timing(width, {
+            toValue: row.pct,
+            duration: reduceMotion ? 0 : 700,
+            delay: reduceMotion ? 0 : 120,
+            useNativeDriver: false,
+        }).start();
+    }, [run, row.pct, reduceMotion]);
+
+    return (
+        <View style={s.fcPollWinner}>
+            <View style={s.fcPollWinnerTop}>
+                <Ionicons name="trophy-outline" size={15} color={C.primary} />
+                <Text style={s.fcPollWinnerLabel}>{t.pollWinner}</Text>
+                {row.mine && <Text style={s.fcPollWinnerMine}>· {t.pollYourPick}</Text>}
+                <View style={{ flex: 1 }} />
+                <Text style={s.fcPollWinnerPct}>
+                    {shown}<Text style={s.fcPollWinnerPctSign}>%</Text>
+                </Text>
+            </View>
+            <Text style={s.fcPollWinnerText}>{row.text}</Text>
+            <Text style={s.fcPollWinnerVotes}>{t.pollWinnerVotes(row.votes, total)}</Text>
+            <View style={s.fcPollWinnerTrack}>
+                <Animated.View
+                    style={[s.fcPollWinnerFill, { width: width.interpolate({ inputRange: [0, 100], outputRange: ["0%", "100%"] }) }]}
+                />
+            </View>
+        </View>
+    );
+}
+
+function PollResultRow({ row, index, run }: { row: PollRow; index: number; run: boolean }) {
+    const { colors: C } = useTheme();
+    const t = useT();
+    const s = useMemo(() => makeFeedStyles(C), [C]);
+    const reduceMotion = useReduceMotion();
+    const shown = useCountUp(row.pct, run);
+    const width = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        if (!run) return;
+        Animated.timing(width, {
+            toValue: row.pct,
+            duration: reduceMotion ? 0 : 700,
+            delay: reduceMotion ? 0 : 120 + index * 80,
+            useNativeDriver: false,
+        }).start();
+    }, [run, row.pct, index, reduceMotion]);
+
+    return (
+        <View style={s.fcPollRow}>
+            <View style={s.fcPollRowTop}>
+                <Text style={s.fcPollRank}>{row.rankLabel}</Text>
+                <Text style={[s.fcPollRowText, row.mine && s.fcPollRowTextMine]} numberOfLines={2}>
+                    {row.text}
+                    {row.mine && <Text style={s.fcPollRowMineTag}>  {t.pollYourPick}</Text>}
+                </Text>
+                <Text style={s.fcPollRowPct}>
+                    {shown}<Text style={s.fcPollRowPctSign}>%</Text>
+                </Text>
+            </View>
+            <View style={s.fcPollRowTrack}>
+                <Animated.View
+                    style={[
+                        s.fcPollRowFill,
+                        row.mine && s.fcPollRowFillMine,
+                        { width: width.interpolate({ inputRange: [0, 100], outputRange: ["0%", "100%"] }) },
+                    ]}
+                />
+            </View>
+        </View>
+    );
+}
+
+// Full results block: tally rule, promoted winner, then the ranked remainder.
+function PollResults({ poll }: { poll: Poll }) {
+    const { colors: C } = useTheme();
+    const t = useT();
+    const s = useMemo(() => makeFeedStyles(C), [C]);
+    const { total, rows } = useMemo(() => tallyPoll(poll), [poll]);
+    const [run, setRun] = useState(false);
+
+    useEffect(() => {
+        const id = setTimeout(() => setRun(true), 250);
+        return () => clearTimeout(id);
+    }, []);
+
+    if (total === 0) return null;
+    const winner = rows.find((r) => r.rank === 1);
+    const rest = rows.filter((r) => r.rank !== 1);
+
+    return (
+        <View>
+            <View style={s.fcPollTallyRow}>
+                {!!poll.userVote && (
+                    <>
+                        <Ionicons name="checkmark" size={14} color={C.primary} />
+                        <Text style={s.fcPollTallyLabel}>{t.voteCounted}</Text>
+                    </>
+                )}
+                <View style={{ flex: 1 }} />
+                <Text style={s.fcPollTallyTotal}>{total}</Text>
+                <Text style={s.fcPollTallyUnit}>{t.votesUnit}</Text>
+            </View>
+
+            {winner && <PollWinner row={winner} total={total} run={run} />}
+
+            {rest.length > 0 && <Text style={s.fcPollRestLabel}>{t.pollRestOfField}</Text>}
+            {rest.map((row, i) => <PollResultRow key={row.id} row={row} index={i} run={run} />)}
+
+            {!!poll.userVote && <Text style={s.fcPollVotedNote}>{t.pollYouVoted}</Text>}
+        </View>
     );
 }
 
@@ -304,13 +479,13 @@ function CardActions({
         <View style={s.fcActions}>
             {!onEdit && onLike && (
                 <Pressable style={s.fcAction} onPress={onLike} hitSlop={8} accessibilityRole="button" accessibilityLabel={post.isLiked ? t.unlikeLabel : t.likeLabel}>
-                    <Ionicons name={post.isLiked ? "heart" : "heart-outline"} size={20} color={post.isLiked ? C.primary : C.textMuted} />
+                    <Ionicons name={post.isLiked ? "heart" : "heart-outline"} size={19} color={post.isLiked ? C.primary : C.textMuted} />
                     {(post.likes || 0) > 0 && <Text style={[s.fcActionText, post.isLiked && s.fcActionTextActive]}>{post.likes}</Text>}
                 </Pressable>
             )}
             {!onEdit && onComment && (
                 <Pressable style={s.fcAction} onPress={onComment} hitSlop={8} accessibilityRole="button" accessibilityLabel={t.commentsLabel}>
-                    <Ionicons name="chatbubble-outline" size={18} color={C.textMuted} />
+                    <Ionicons name="chatbubble-outline" size={19} color={C.textMuted} />
                     {(post.comments || 0) > 0 && <Text style={s.fcActionText}>{post.comments}</Text>}
                 </Pressable>
             )}
@@ -387,28 +562,28 @@ function TopCommentPreview({ post, onCommentPress }: {
                     <ExpoImage source={{ uri: tc.avatarUrl }} style={{ width: 34, height: 34, borderRadius: 17 }} contentFit="cover" transition={150} />
                 ) : (
                     <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: C.gold, alignItems: "center", justifyContent: "center" }}>
-                        <Text style={{ fontSize: 12, fontWeight: "900", color: "#fff" }}>{tc.author.slice(0, 1).toUpperCase()}</Text>
+                        <Text style={{ ...meta(12, "bold"), color: "#fff" }}>{tc.author.slice(0, 1).toUpperCase()}</Text>
                     </View>
                 )}
                 <View style={{ flex: 1, minWidth: 0 }}>
                     <Pressable onPress={() => onCommentPress?.(target, post.type, { commentId: tc.id })}>
-                        <Text style={{ fontSize: 14, color: C.textBody, lineHeight: 20 }} numberOfLines={3}>
-                            <Text style={{ fontWeight: "800", color: C.text }}>{tc.author} </Text>
+                        <Text style={{ ...meta(14, "regular"), color: C.textBody, lineHeight: 20 }} numberOfLines={3}>
+                            <Text style={{ ...meta(13, "bold"), color: C.text }}>{tc.author} </Text>
                             {tc.content}
                         </Text>
                     </Pressable>
                     <View style={{ flexDirection: "row", alignItems: "center", marginTop: 8 }}>
                         <Pressable onPress={toggleUpvote} hitSlop={8} style={{ flexDirection: "row", alignItems: "center", gap: 5 }} accessibilityRole="button" accessibilityLabel={upvoted ? t.unlikeComment : t.likeComment}>
                             <Ionicons name={upvoted ? "heart" : "heart-outline"} size={16} color={upvoted ? C.primary : C.textMuted} />
-                            {count > 0 && <Text style={{ fontSize: 13, fontWeight: "600", color: upvoted ? C.primary : C.textMuted }}>{count}</Text>}
+                            {count > 0 && <Text style={{ ...meta(13, "semi"), color: upvoted ? C.primary : C.textMuted }}>{count}</Text>}
                         </Pressable>
                         <Pressable onPress={() => onCommentPress?.(target, post.type, { commentId: tc.id, focus: true })} hitSlop={6} style={{ marginLeft: 18 }}>
-                            <Text style={{ fontSize: 13, fontWeight: "700", color: C.textMuted }}>{t.replyAction}</Text>
+                            <Text style={{ ...meta(13, "bold"), color: C.textMuted }}>{t.replyAction}</Text>
                         </Pressable>
                         <View style={{ flex: 1 }} />
                         {totalComments > 1 && (
                             <Pressable onPress={() => onCommentPress?.(target, post.type, { focus: true })} hitSlop={6} style={{ flexDirection: "row", alignItems: "center", gap: 3 }} accessibilityRole="button" accessibilityLabel={t.viewAllCount(totalComments)}>
-                                <Text style={{ fontSize: 13, fontWeight: "700", color: C.primary }}>{t.viewAllCount(totalComments)}</Text>
+                                <Text style={{ ...meta(13, "bold"), color: C.primary }}>{t.viewAllCount(totalComments)}</Text>
                                 <Ionicons name="arrow-forward" size={13} color={C.primary} />
                             </Pressable>
                         )}
@@ -553,7 +728,7 @@ function HeroCard({
 
 // ─── Announcement card ──────────────────────────────────────────────────────
 
-function AnnouncementCard({
+export function AnnouncementCard({
     post,
     onPress,
     onClubPress,
@@ -631,17 +806,16 @@ function AnnouncementCard({
     return (
         <Animated.View style={{ opacity: deleteOpacity, transform: [{ scale: deleteScale }] }}>
             <Pressable onPress={handleDoubleTap} style={s.fcCard}>
-                {/* Header — avatar, name, "Announcement · time", type pill */}
+                {/* Crimson masthead rule — the announcement's tell at a glance */}
+                <View style={s.fcAnnRule} />
+
+                {/* Header — avatar, name, "Announcement · time" */}
                 <CardHeader
                     post={post}
-                    subtitle={`${typeLabel} · ${post.timestamp}`}
+                    subtitle={post.timestamp}
                     right={showFollow ? (
                         <FollowButton isFollowing={post.isFollowing} onPress={() => onFollowToggle?.(post.clubId)} />
-                    ) : (
-                        <View style={s.fcTypePill}>
-                            <Text style={s.fcTypePillText}>{pillLabel}</Text>
-                        </View>
-                    )}
+                    ) : undefined}
                     onClubPress={onClubPress}
                 />
 
@@ -652,13 +826,17 @@ function AnnouncementCard({
                     </View>
                 )}
 
-                {/* Body — title (if any) + content */}
-                {(!!post.eventTitle || !!post.content) && (
-                    <View style={s.fcBody}>
-                        {!!post.eventTitle && <Text style={s.fcTitle} numberOfLines={3}>{post.eventTitle}</Text>}
-                        {!!post.content && <Text style={s.fcContent} numberOfLines={5}>{post.content}</Text>}
+                {/* Body — ruled "ANNOUNCEMENT" ornament, then title + content */}
+                <View style={s.fcBody}>
+                    <View style={s.fcAnnDividerRow}>
+                        <View style={s.fcAnnDividerLine} />
+                        <Ionicons name="megaphone-outline" size={14} color={C.primary} />
+                        <Text style={s.fcAnnDividerLabel}>{pillLabel}</Text>
+                        <View style={s.fcAnnDividerLine} />
                     </View>
-                )}
+                    {!!post.eventTitle && <Text style={s.fcTitle} numberOfLines={3}>{post.eventTitle}</Text>}
+                    {!!post.content && <Text style={s.fcContent} numberOfLines={5}>{post.content}</Text>}
+                </View>
 
                 {/* Action bar */}
                 <CardActions
@@ -808,11 +986,35 @@ function TextArticleCard({
 
 // ─── Event feed card ────────────────────────────────────────────────────────
 
+// Star row with fractional fill — a 4.6 average shows the fifth star 60% full
+// rather than rounding it up to a whole star.
+function StarRow({ value, size, gap = 3 }: { value: number; size: number; gap?: number }) {
+    const { colors: C } = useTheme();
+    return (
+        <View style={{ flexDirection: "row", gap }}>
+            {[0, 1, 2, 3, 4].map((i) => {
+                const fill = Math.max(0, Math.min(1, value - i));
+                return (
+                    <View key={i} style={{ width: size, height: size }}>
+                        <Ionicons name="star" size={size} color={C.track} />
+                        {fill > 0 && (
+                            <View style={{ position: "absolute", left: 0, top: 0, height: size, width: size * fill, overflow: "hidden" }}>
+                                <Ionicons name="star" size={size} color={C.primary} />
+                            </View>
+                        )}
+                    </View>
+                );
+            })}
+        </View>
+    );
+}
+
 // In-feed star rating for past events (recaps). Read-only average for everyone;
 // tappable to submit a rating for attendees who checked in (canRate).
 function RecapStars({ postId, rating, canRate, bare }: { postId: string; rating?: { avg: number | null; count: number; mine: number }; canRate: boolean; bare?: boolean }) {
     const { colors: C } = useTheme();
     const t = useT();
+    const s = useMemo(() => makeFeedStyles(C), [C]);
     const authApi = useApi();
     const [avg, setAvg] = useState<number | null>(rating?.avg ?? null);
     const [count, setCount] = useState(rating?.count ?? 0);
@@ -838,30 +1040,28 @@ function RecapStars({ postId, rating, canRate, bare }: { postId: string; rating?
     }, [saving, canRate, mine, avg, count, postId, authApi]);
 
     return (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingTop: bare ? 0 : 10, borderTopWidth: bare ? 0 : StyleSheet.hairlineWidth, borderTopColor: C.borderWarm }}>
+        <View style={[s.fcRecapRating, bare && { borderTopWidth: 0, backgroundColor: "transparent", paddingHorizontal: 0, paddingVertical: 0 }]}>
             {/* Left: read-only average */}
             {avg != null && (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <Text style={{ fontSize: 24, fontWeight: "900", color: C.text, lineHeight: 26 }}>{avg.toFixed(1)}</Text>
-                    <View>
-                        <View style={{ flexDirection: "row", gap: 1 }}>
-                            {[1, 2, 3, 4, 5].map((i) => (
-                                <Ionicons key={i} name={i <= Math.round(avg) ? "star" : "star-outline"} size={13} color={C.gold} />
-                            ))}
-                        </View>
-                        <Text style={{ fontSize: 10, fontWeight: "800", letterSpacing: 1, color: C.textMuted, marginTop: 2 }}>{count} REVIEW{count === 1 ? "" : "S"}</Text>
+                <View>
+                    <View style={s.fcRecapAvgRow}>
+                        <Text style={s.fcRecapAvg}>{avg.toFixed(1)}</Text>
+                        <StarRow value={avg} size={16} />
                     </View>
+                    <Text style={s.fcRecapReviews}>{t.reviewsCount(count)}</Text>
                 </View>
             )}
-            <View style={{ flex: 1 }} />
+
+            {avg != null && canRate && <View style={s.fcRecapDivider} />}
+
             {/* Right: personal tap-to-rate (attendees only) */}
             {canRate && (
-                <View style={{ alignItems: "flex-end" }}>
-                    <Text style={{ fontSize: 11, fontWeight: "700", color: C.text, marginBottom: 5 }}>{mine ? t.youRatedFeed(mine) : t.tapToRateFeed}</Text>
+                <View style={{ flex: 1 }}>
+                    <Text style={s.fcRecapYourLabel}>{t.yourRating}</Text>
                     <View style={{ flexDirection: "row", gap: 4 }}>
                         {[1, 2, 3, 4, 5].map((i) => (
                             <Pressable key={i} disabled={saving} onPress={() => submit(i)} hitSlop={5} accessibilityRole="button" accessibilityLabel={`Rate ${i} star${i > 1 ? "s" : ""}`}>
-                                <Ionicons name={i <= mine ? "star" : "star-outline"} size={22} color={C.gold} />
+                                <Ionicons name="star" size={24} color={i <= mine ? C.primary : C.track} />
                             </Pressable>
                         ))}
                     </View>
@@ -874,71 +1074,112 @@ function RecapStars({ postId, rating, canRate, bare }: { postId: string; rating?
 // Swipeable recap gallery: paged main image with a counter, plus a tappable
 // thumbnail strip. When there are more photos than thumbnail slots, the last
 // tile shows a "+N" overflow that opens the full post.
-function RecapCarousel({ photos, onOverflow }: { photos: string[]; onOverflow?: () => void }) {
+function RecapCarousel({ photos, onOverflow }: { photos: RecapPhoto[]; onOverflow?: () => void }) {
     const { colors: C } = useTheme();
+    const t = useT();
+    const s = useMemo(() => makeFeedStyles(C), [C]);
     const { width } = useWindowDimensions();
-    const CW = width - 30; // card inner width: 14px side margins + 1px borders
-    const MAX_THUMBS = 5;
-    const GAP = 4;
-    const PAD = 10;
+    const CW = width - 24; // card inner width: 11px side margins + 1px borders
+    const HERO_H = 250;
+    const MAX_THUMBS = 4;
     const [active, setActive] = useState(0);
-    const listRef = useRef<FlatList<string>>(null);
+    const listRef = useRef<FlatList<RecapPhoto>>(null);
 
     const total = photos.length;
     const overflow = total - MAX_THUMBS;
     const thumbs = photos.slice(0, MAX_THUMBS);
-    const tileCount = overflow > 0 ? MAX_THUMBS + 1 : Math.min(total, MAX_THUMBS);
-    const thumbSize = tileCount > 0 ? (CW - PAD * 2 - GAP * (tileCount - 1)) / tileCount : 0;
 
     const goTo = (i: number) => {
         listRef.current?.scrollToOffset({ offset: i * CW, animated: true });
         setActive(i);
     };
+    // Arrows wrap, matching the mockup — swiping past the last photo is a
+    // dead end otherwise, and the thumbnail strip is the only way back.
+    const step = (d: number) => goTo((active + d + total) % total);
+
+    const by = photos[active]?.by;
 
     return (
         <View>
-            <View style={{ width: CW, aspectRatio: 4 / 3, backgroundColor: "#111" }}>
+            <View style={[s.fcRecapHero, { width: CW }]}>
                 <FlatList
                     ref={listRef}
                     data={photos}
                     horizontal
                     pagingEnabled
                     showsHorizontalScrollIndicator={false}
-                    keyExtractor={(u, i) => `${u}-${i}`}
+                    keyExtractor={(p, i) => `${p.url}-${i}`}
                     getItemLayout={(_, i) => ({ length: CW, offset: CW * i, index: i })}
                     onMomentumScrollEnd={(e) => setActive(Math.round(e.nativeEvent.contentOffset.x / CW))}
+                    // Both the list and the slide need an explicit height — a
+                    // percentage height inside a horizontal FlatList resolves
+                    // against the content, not the fixed-height parent, which
+                    // leaves the image collapsed against the bottom edge.
+                    style={{ height: HERO_H }}
                     renderItem={({ item }) => (
-                        <ExpoImage source={{ uri: item }} style={{ width: CW, height: "100%" }} contentFit="cover" transition={150} />
+                        <ExpoImage source={{ uri: item.url }} style={{ width: CW, height: HERO_H }} contentFit="cover" transition={150} />
                     )}
                 />
+
                 {total > 1 && (
-                    <View style={{ position: "absolute", right: 10, bottom: 10, backgroundColor: "rgba(0,0,0,0.6)", paddingHorizontal: 8, paddingVertical: 3 }}>
-                        <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>{active + 1} / {total}</Text>
+                    <>
+                        <Pressable
+                            onPress={() => step(-1)}
+                            style={[s.fcRecapArrow, { left: 12 }]}
+                            hitSlop={6}
+                            accessibilityRole="button"
+                            accessibilityLabel={t.previousPhoto}
+                        >
+                            <Ionicons name="chevron-back" size={18} color="#fff" />
+                        </Pressable>
+                        <Pressable
+                            onPress={() => step(1)}
+                            style={[s.fcRecapArrow, { right: 12 }]}
+                            hitSlop={6}
+                            accessibilityRole="button"
+                            accessibilityLabel={t.nextPhoto}
+                        >
+                            <Ionicons name="chevron-forward" size={18} color="#fff" />
+                        </Pressable>
+                    </>
+                )}
+
+                {!!by && (
+                    <View style={s.fcRecapTag}>
+                        <Ionicons name="camera-outline" size={13} color="#fff" />
+                        <Text style={s.fcRecapTagText} numberOfLines={1}>{by}</Text>
+                    </View>
+                )}
+
+                {total > 1 && (
+                    <View style={s.fcRecapCounter}>
+                        <Text style={s.fcRecapCounterText}>{active + 1} / {total}</Text>
                     </View>
                 )}
             </View>
 
             {total > 1 && (
-                <View style={{ flexDirection: "row", gap: GAP, paddingHorizontal: PAD, paddingVertical: 8 }}>
-                    {thumbs.map((u, i) => (
+                <View style={s.fcRecapThumbRow}>
+                    {thumbs.map((p, i) => (
                         <Pressable
                             key={i}
                             onPress={() => goTo(i)}
-                            style={{ width: thumbSize, height: thumbSize, overflow: "hidden", borderWidth: active === i ? 2 : 0, borderColor: C.primary }}
+                            style={[s.fcRecapThumb, active === i && s.fcRecapThumbOn]}
                             accessibilityRole="button"
+                            accessibilityState={{ selected: active === i }}
                             accessibilityLabel={`Photo ${i + 1}`}
                         >
-                            <ExpoImage source={{ uri: u }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={150} />
+                            <ExpoImage source={{ uri: p.url }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={150} />
                         </Pressable>
                     ))}
                     {overflow > 0 && (
                         <Pressable
                             onPress={onOverflow}
-                            style={{ width: thumbSize, height: thumbSize, backgroundColor: "#1a1a2e", alignItems: "center", justifyContent: "center" }}
+                            style={[s.fcRecapThumb, s.fcRecapThumbMore]}
                             accessibilityRole="button"
                             accessibilityLabel={`View ${overflow} more photos`}
                         >
-                            <Text style={{ color: "#fff", fontSize: 14, fontWeight: "800" }}>+{overflow}</Text>
+                            <Text style={s.fcRecapThumbMoreText}>+{overflow}</Text>
                         </Pressable>
                     )}
                 </View>
@@ -1062,149 +1303,134 @@ function EventFeedCard({
             {/* Recap cards are sectioned: header → title+photos → add photo → ratings → footer. */}
             {post.hasRecap ? (
                 <>
-                    {/* 1. Header */}
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderWarm }}>
-                        <Pressable onPress={() => onClubPress?.(post.clubId)}>
-                            {post.clubAvatar ? (
-                                <ExpoImage source={{ uri: post.clubAvatar }} style={{ width: 34, height: 34, borderRadius: 17 }} contentFit="cover" transition={200} />
+                    {/* 1. Header — ruled off from the title below it */}
+                    <View style={s.fcRecapHeaderRule}>
+                        <CardHeader
+                            post={post}
+                            subtitle={post.timestamp ? `${t.recapLabel} · ${post.timestamp}` : t.recapLabel}
+                            right={showFollow ? (
+                                <FollowButton isFollowing={post.isFollowing} onPress={() => onFollowToggle?.(post.clubId)} />
                             ) : (
-                                <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: C.primaryBg, alignItems: "center", justifyContent: "center" }}>
-                                    <Text style={{ fontSize: 11, fontWeight: "900", color: C.primary }}>{clubInitials.toUpperCase()}</Text>
+                                <View style={s.fcRecapPill}>
+                                    <Text style={s.fcRecapPillText}>{t.recapBadge}</Text>
                                 </View>
                             )}
-                        </Pressable>
-                        <View style={{ flex: 1, minWidth: 0 }}>
-                            <Text style={{ fontSize: 14, fontWeight: "800", color: C.text }} numberOfLines={1}>{post.clubName}</Text>
-                            <Text style={{ fontSize: 12, color: C.textLight, marginTop: 1 }} numberOfLines={1}>
-                                {post.timestamp ? `${t.recapLabel} · ${post.timestamp}` : t.recapLabel}
-                            </Text>
-                        </View>
-                        {showFollow ? (
-                            <Pressable onPress={() => onFollowToggle?.(post.clubId)} hitSlop={8} style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: C.primary, paddingHorizontal: 12, paddingVertical: 7 }} accessibilityRole="button" accessibilityLabel={t.followClubLabel}>
-                                <Ionicons name="add" size={13} color="#fff" />
-                                <Text style={{ fontSize: 11, fontWeight: "800", letterSpacing: 1.5, color: "#fff" }}>{t.follow}</Text>
-                            </Pressable>
-                        ) : (
-                            <View style={{ borderWidth: 1.5, borderColor: C.primary, paddingHorizontal: 8, paddingVertical: 3 }}>
-                                <Text style={{ fontSize: 9, fontWeight: "800", letterSpacing: 1.2, color: C.primary }}>{t.recapBadge}</Text>
-                            </View>
-                        )}
+                            onClubPress={onClubPress}
+                        />
                     </View>
+
+                    {/* 2. Title — sits above the gallery it introduces */}
+                    {!!post.eventTitle && (
+                        <Text style={s.fcRecapTitle} numberOfLines={2}>{post.eventTitle}</Text>
+                    )}
 
                     {hasRecapPhotos ? (
                         <>
-                            {/* 2. Title + photos (photos run edge-to-edge) */}
-                            <View style={{ paddingTop: 12, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderWarm }}>
-                                {!!post.eventTitle && (
-                                    <Text style={{ fontSize: 22, fontWeight: "900", color: C.text, letterSpacing: -0.5, lineHeight: 26, paddingHorizontal: 16 }} numberOfLines={2}>{post.eventTitle.toUpperCase()}</Text>
-                                )}
-                                <RecapCarousel photos={post.recapPhotos ?? []} onOverflow={() => onPress?.()} />
-                            </View>
+                            {/* 3. Gallery (runs edge-to-edge) */}
+                            <RecapCarousel photos={post.recapPhotos ?? []} onOverflow={() => onPress?.()} />
 
-                            {/* 3. Add photo row — contributor stack + names + outlined button */}
+                            {/* 4. Contributor stack + names + "Add yours" */}
                             {(() => {
                                 const contribs = post.recapContributors ?? [];
                                 const count = post.recapContributorCount ?? contribs.length;
-                                const photoTotal = post.recapPhotoCount ?? (post.recapPhotos?.length ?? 0);
                                 const extra = count - 2;
                                 let who = "";
                                 if (count > 2) who = `${contribs.slice(0, 2).map((c) => c.name).join(", ")} & ${extra} other${extra === 1 ? "" : "s"}`;
                                 else if (contribs.length > 0) who = contribs.map((c) => c.name).join(" & ");
                                 return (
-                                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 8, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderWarm }}>
+                                    <View style={s.fcRecapContribRow}>
                                         {contribs.length > 0 && (
                                             <View style={{ flexDirection: "row" }}>
                                                 {contribs.slice(0, 3).map((c, i) => (
-                                                    <View key={i} style={{ width: 24, height: 24, borderRadius: 12, marginLeft: i === 0 ? 0 : -8, borderWidth: 1.5, borderColor: C.surface, overflow: "hidden", backgroundColor: C.primary, alignItems: "center", justifyContent: "center" }}>
+                                                    <View key={i} style={[s.fcRecapContribAvatar, { marginLeft: i === 0 ? 0 : -9 }]}>
                                                         {c.avatarUrl ? (
                                                             <ExpoImage source={{ uri: c.avatarUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={150} />
                                                         ) : (
-                                                            <Text style={{ fontSize: 9, fontWeight: "900", color: "#fff" }}>{c.name.slice(0, 1).toUpperCase()}</Text>
+                                                            <Text style={s.fcRecapContribInit}>{c.name.slice(0, 1).toUpperCase()}</Text>
                                                         )}
                                                     </View>
                                                 ))}
                                             </View>
                                         )}
-                                        <Text style={{ flex: 1, fontSize: 12, color: C.textMuted }} numberOfLines={1}>
-                                            {who ? <Text style={{ fontWeight: "800", color: C.text }}>{who} </Text> : null}
-                                            {who ? t.addedWord : ""}{t.photosCount(photoTotal)}
+                                        <Text style={s.fcRecapContribText} numberOfLines={2}>
+                                            {who ? <Text style={s.fcRecapContribStrong}>{who} </Text> : null}
+                                            {t.addedPhotosWord}
                                         </Text>
                                         <Pressable
                                             onPress={triggerAddRecap}
-                                            style={{ flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1.5, borderColor: C.primary, backgroundColor: recapAdded ? C.primary : "transparent", paddingHorizontal: 14, paddingVertical: 7 }}
+                                            style={[s.fcRecapAddBtn, recapAdded && s.fcRecapAddBtnDone]}
                                             accessibilityRole="button" accessibilityLabel={t.addYourPhotosLabel}
                                         >
-                                            {recapAdded && <Ionicons name="checkmark" size={12} color="#fff" />}
-                                            <Text style={{ fontSize: 11, fontWeight: "800", letterSpacing: 0.6, color: recapAdded ? "#fff" : C.primary }}>{recapAdded ? t.addedLabel : t.addYours}</Text>
+                                            {recapAdded
+                                                ? <Ionicons name="checkmark" size={13} color="#fff" />
+                                                : <Ionicons name="add" size={13} color={C.primary} />}
+                                            <Text style={[s.fcRecapAddBtnText, recapAdded && s.fcRecapAddBtnTextDone]}>
+                                                {recapAdded ? t.addedLabel : t.addYours}
+                                            </Text>
                                         </Pressable>
                                     </View>
                                 );
                             })()}
                         </>
                     ) : (
-                        /* 2b. No photos yet — invite the first upload, then title + body */
-                        <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16, gap: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderWarm }}>
+                        /* 3b. No photos yet — invite the first upload */
+                        <View style={{ paddingHorizontal: 17, paddingBottom: 16, gap: 14 }}>
                             <Pressable
                                 onPress={triggerAddRecap}
-                                style={{ borderWidth: 1.5, borderColor: C.borderWarm, borderStyle: "dashed", borderRadius: 10, paddingVertical: 22, paddingHorizontal: 16, alignItems: "center", gap: 8 }}
+                                style={s.fcRecapEmpty}
                                 accessibilityRole="button" accessibilityLabel={t.addFirstPhotosLabel}
                             >
                                 <Ionicons name="camera-outline" size={30} color={C.textMuted} />
-                                <Text style={{ fontSize: 15, fontWeight: "800", color: C.text, textAlign: "center" }}>
+                                <Text style={s.fcRecapEmptyTitle}>
                                     {recapAdded ? t.thanksAdding : t.noPhotosYet}
                                 </Text>
-                                <Text style={{ fontSize: 13, color: C.textMuted, textAlign: "center", marginBottom: 4 }}>
+                                <Text style={s.fcRecapEmptyBody}>
                                     {post.eventTitle ? t.beFirstPhotos(post.eventTitle) : t.beFirstPhotosGeneric}
                                 </Text>
-                                <View style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: recapAdded ? C.text : C.primary, paddingHorizontal: 20, paddingVertical: 12 }}>
+                                <View style={s.fcRecapEmptyBtn}>
                                     <Ionicons name={recapAdded ? "checkmark" : "add"} size={15} color="#fff" />
-                                    <Text style={{ fontSize: 12, fontWeight: "800", letterSpacing: 0.6, color: "#fff" }}>{recapAdded ? t.addedLabel : t.addPhotos}</Text>
+                                    <Text style={s.fcRecapEmptyBtnText}>{recapAdded ? t.addedLabel : t.addPhotos}</Text>
                                 </View>
                             </Pressable>
-                            {!!post.eventTitle && (
-                                <Text style={{ fontSize: 20, fontWeight: "900", color: C.text, letterSpacing: -0.4, lineHeight: 25 }} numberOfLines={2}>{post.eventTitle}</Text>
-                            )}
                             {!!post.content && (
-                                <Text style={{ fontSize: 15, color: C.textMuted, lineHeight: 21 }} numberOfLines={4}>{post.content}</Text>
+                                <Text style={s.fcContent} numberOfLines={4}>{post.content}</Text>
                             )}
                         </View>
                     )}
 
-                    {/* 4. Ratings — shown when there's something to rate or an average to display */}
+                    {/* 5. Ratings — shown when there's something to rate or an average to display */}
                     {showRecapRating && (
-                        <View style={{ backgroundColor: C.surfaceWarm, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderWarm }}>
-                            <RecapStars postId={post.id} rating={post.rating} canRate={!!post.canRate} bare />
-                        </View>
+                        <RecapStars postId={post.id} rating={post.rating} canRate={!!post.canRate} />
                     )}
 
-                    {/* 5. Footer — likes / comments / share / bookmark */}
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 18, paddingHorizontal: 16, paddingVertical: 10 }}>
-                        <Pressable style={s.articleAction} onPress={handleLike} hitSlop={8} accessibilityRole="button" accessibilityLabel={post.isLiked ? t.unlikeLabel : t.likeLabel}>
-                            <Ionicons name={post.isLiked ? "heart" : "heart-outline"} size={18} color={post.isLiked ? C.primary : C.textLight} />
-                            {(post.likes || 0) > 0 && <Text style={[s.articleActionText, post.isLiked && s.articleActionTextActive]}>{post.likes}</Text>}
+                    {/* 6. Footer — likes / comments / photos / share / bookmark */}
+                    <View style={s.fcActions}>
+                        <Pressable style={s.fcAction} onPress={handleLike} hitSlop={8} accessibilityRole="button" accessibilityLabel={post.isLiked ? t.unlikeLabel : t.likeLabel}>
+                            <Ionicons name={post.isLiked ? "heart" : "heart-outline"} size={19} color={post.isLiked ? C.primary : C.textMuted} />
+                            {(post.likes || 0) > 0 && <Text style={[s.fcActionText, post.isLiked && s.fcActionTextActive]}>{post.likes}</Text>}
                         </Pressable>
-                        <Pressable style={s.articleAction} onPress={() => onCommentPress?.(post.eventId ?? post.id, post.type, { focus: true })} hitSlop={8} accessibilityRole="button" accessibilityLabel={t.commentsLabel}>
-                            <Ionicons name="chatbubble-outline" size={17} color={C.textLight} />
-                            {(post.comments || 0) > 0 && <Text style={s.articleActionText}>{post.comments}</Text>}
+                        <Pressable style={s.fcAction} onPress={() => onCommentPress?.(post.eventId ?? post.id, post.type, { focus: true })} hitSlop={8} accessibilityRole="button" accessibilityLabel={t.commentsLabel}>
+                            <Ionicons name="chatbubble-outline" size={19} color={C.textMuted} />
+                            {(post.comments || 0) > 0 && <Text style={s.fcActionText}>{post.comments}</Text>}
                         </Pressable>
                         {(post.recapPhotoCount ?? 0) > 0 && (
                             <Pressable
-                                style={s.articleAction}
+                                style={s.fcAction}
                                 onPress={() => onViewRecapPhotos ? onViewRecapPhotos(post.eventId ?? post.id) : onPress?.()}
                                 hitSlop={8}
                                 accessibilityRole="button"
                                 accessibilityLabel={t.photosCount(post.recapPhotoCount ?? 0)}
                             >
-                                <Ionicons name="images-outline" size={16} color={C.textLight} />
-                                <Text style={s.articleActionText}>{t.photosCount(post.recapPhotoCount ?? 0)}</Text>
+                                <Ionicons name="images-outline" size={18} color={C.textMuted} />
+                                <Text style={s.fcActionText}>{t.photosCount(post.recapPhotoCount ?? 0)}</Text>
                             </Pressable>
                         )}
-                        <Pressable style={s.articleAction} onPress={() => Share.share({ message: post.eventTitle || post.content || "" })} hitSlop={8} accessibilityRole="button" accessibilityLabel={t.shareLabel}>
-                            <Ionicons name="share-outline" size={18} color={C.textLight} />
+                        <View style={s.fcActionsSpacer} />
+                        <Pressable style={s.fcAction} onPress={handleBookmark} hitSlop={8} accessibilityRole="button" accessibilityLabel={isBookmarked ? t.removeBookmarkLabel : t.bookmarkLabel}>
+                            <Ionicons name={isBookmarked ? "bookmark" : "bookmark-outline"} size={19} color={isBookmarked ? C.primary : C.textMuted} />
                         </Pressable>
-                        <View style={{ flex: 1 }} />
-                        <Pressable style={s.articleAction} onPress={handleBookmark} hitSlop={8} accessibilityRole="button" accessibilityLabel={isBookmarked ? t.removeBookmarkLabel : t.bookmarkLabel}>
-                            <Ionicons name={isBookmarked ? "bookmark" : "bookmark-outline"} size={18} color={isBookmarked ? C.text : C.textLight} />
+                        <Pressable style={s.fcAction} onPress={() => Share.share({ message: post.eventTitle || post.content || "" })} hitSlop={8} accessibilityRole="button" accessibilityLabel={t.shareLabel}>
+                            <Ionicons name="arrow-redo-outline" size={20} color={C.textMuted} />
                         </Pressable>
                     </View>
                 </>
@@ -1213,10 +1439,14 @@ function EventFeedCard({
                 {/* Header — avatar, name, "Event · time", follow state */}
                 <CardHeader
                     post={post}
-                    subtitle={`Event · ${post.timestamp}`}
+                    subtitle={post.timestamp}
                     right={showFollow ? (
                         <FollowButton isFollowing={post.isFollowing} onPress={() => onFollowToggle?.(post.clubId)} />
-                    ) : undefined}
+                    ) : (
+                        <View style={s.fcTypePill}>
+                            <Text style={s.fcTypePillText}>{t.eventType}</Text>
+                        </View>
+                    )}
                     onClubPress={onClubPress}
                 />
 
@@ -1256,15 +1486,39 @@ function EventFeedCard({
             {/* ── Body (non-recap cards; recaps render their own sections above) ── */}
             {!post.hasRecap && (
             <View style={s.fcBody}>
+                {/* Category kicker above the headline */}
+                {(post.eventTags?.length ?? 0) > 0 && (
+                    <Text style={s.fcKicker} numberOfLines={1}>{post.eventTags!.join(" · ")}</Text>
+                )}
+
                 {/* Title */}
                 {!!post.eventTitle && (
                     <Text style={s.fcTitle} numberOfLines={2}>{post.eventTitle}</Text>
                 )}
 
-                {/* Meta line — date · time · location */}
+                {/* Meta line — clock/pin glyphs, date · time · location */}
                 {(() => {
-                    const parts = [post.eventDate, post.eventTime, post.eventLocation].filter(Boolean) as string[];
-                    return parts.length > 0 ? <Text style={s.fcMeta} numberOfLines={1}>{parts.join(" · ")}</Text> : null;
+                    const parts = [post.eventDate, post.eventTime].filter(Boolean) as string[];
+                    if (parts.length === 0 && !post.eventLocation) return null;
+                    // Each glyph is grouped with its own label so a wrap can't
+                    // strand the pin on the line above its location.
+                    return (
+                        <View style={s.fcMetaRow}>
+                            {parts.length > 0 && (
+                                <View style={s.fcMetaItem}>
+                                    <Ionicons name="time-outline" size={13} color={C.textMuted} />
+                                    <Text style={s.fcMeta} numberOfLines={1}>{parts.join(" · ")}</Text>
+                                </View>
+                            )}
+                            {parts.length > 0 && !!post.eventLocation && <Text style={s.fcMetaSep}>·</Text>}
+                            {!!post.eventLocation && (
+                                <View style={s.fcMetaItem}>
+                                    <Ionicons name="location-outline" size={13} color={C.textMuted} />
+                                    <Text style={[s.fcMeta, { flexShrink: 1 }]} numberOfLines={1}>{post.eventLocation}</Text>
+                                </View>
+                            )}
+                        </View>
+                    );
                 })()}
 
                 {/* Who's going — attendee avatar stack + "Maya, Jordan +N going" */}
@@ -1297,25 +1551,17 @@ function EventFeedCard({
                     </View>
                 )}
 
-                {/* Description */}
-                {!!post.content && (
-                    <Text style={s.fcDesc} numberOfLines={3}>{post.content}</Text>
-                )}
+                {/* Description — collapsed to 3 lines with an inline "Read more" */}
+                {!!post.content && <ExpandableText text={post.content} />}
 
-                {/* Tags + capacity nudge */}
+                {/* Capacity nudge — categories are carried by the kicker above */}
                 {(() => {
-                    const tags = post.eventTags ?? [];
                     const cap = post.capacity ?? null;
                     const left = cap != null ? cap - (post.rsvpCount ?? 0) : null;
                     const showSpots = cap != null && !isPast && left != null && left <= 10;
-                    if (tags.length === 0 && !showSpots) return null;
+                    if (!showSpots) return null;
                     return (
                         <View style={s.fcTagsRow}>
-                            {tags.map((tag, i) => (
-                                <View key={i} style={s.fcTag}>
-                                    <Text style={s.fcTagText}>{tag.toUpperCase()}</Text>
-                                </View>
-                            ))}
                             {showSpots && (left ?? 0) > 0 && (
                                 <View style={s.evSpotsLeftBadge}>
                                     <Ionicons name="flame" size={11} color="#B45309" />
@@ -1331,8 +1577,16 @@ function EventFeedCard({
                     );
                 })()}
 
-                {/* Full-width RSVP button */}
-                {!onEditPress && !isPast && !isOwner && (
+                {/* In-feed rating for rated past events */}
+                {(post.rating?.count ?? 0) > 0 && (
+                    <RecapStars postId={post.id} rating={post.rating} canRate={!!post.canRate} />
+                )}
+            </View>
+            )}
+
+            {/* RSVP sits in its own ruled footer, between body and engagement */}
+            {!post.hasRecap && !onEditPress && !isPast && !isOwner && (
+                <View style={s.fcActionFooter}>
                     <Pressable
                         style={[s.fcRsvpBtn, going && s.fcRsvpBtnGoing]}
                         onPress={handleRsvp}
@@ -1343,13 +1597,10 @@ function EventFeedCard({
                         {going && <Ionicons name="checkmark-circle" size={15} color={C.primary} />}
                         <Text style={[s.fcRsvpText, going && s.fcRsvpTextGoing]}>{going ? t.youreGoing : t.rsvpGoingPrompt}</Text>
                     </Pressable>
-                )}
-
-                {/* In-feed rating for rated past events */}
-                {(post.rating?.count ?? 0) > 0 && (
-                    <RecapStars postId={post.id} rating={post.rating} canRate={!!post.canRate} />
-                )}
-            </View>
+                    {going && (post.rsvpCount ?? 0) > 0 && (
+                        <Text style={s.fcRsvpCaption}>{t.goingSummary([], post.rsvpCount ?? 0)}</Text>
+                    )}
+                </View>
             )}
 
             {/* Action bar */}
@@ -1500,7 +1751,7 @@ function ImageArticleCard({
 
 // ─── Poll card ──────────────────────────────────────────────────────────────
 
-function PollCard({
+export function PollCard({
     post,
     onLikePress,
     onCommentPress,
@@ -1541,10 +1792,20 @@ function PollCard({
         return () => clearInterval(t);
     }, [onPollRefresh, post.id]);
 
-    const subtitle = ["Poll", post.timestamp, poll.endsAt].filter(Boolean).join(" · ");
-    const votesMeta = poll.totalVotes > 0
-        ? `${t.votesCount(poll.totalVotes)}${poll.userVote ? t.youVotedSuffix : ""}`
-        : "";
+    const subtitle = [post.timestamp, poll.endsAt].filter(Boolean).join(" · ");
+
+    // A closed poll can't be voted on any more, so surface its results the same
+    // way a voted poll does — otherwise the options look tappable but every tap
+    // is rejected by the server ("Vote failed").
+    const showResults = !!poll.userVote || !!poll.closed;
+
+    // Selection is held locally until "Submit vote" — see PollChoice.
+    const [choice, setChoice] = useState<string | null>(null);
+    const submitVote = useCallback(() => {
+        if (!choice) return;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        onPollVote(post.id, choice);
+    }, [choice, onPollVote, post.id]);
 
     const lastTap = useRef<number>(0);
     const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1603,7 +1864,11 @@ function PollCard({
                 subtitle={subtitle}
                 right={showFollow ? (
                     <FollowButton isFollowing={post.isFollowing} onPress={() => onFollowToggle?.(post.clubId)} />
-                ) : undefined}
+                ) : (
+                    <View style={s.fcTypePill}>
+                        <Text style={s.fcTypePillText}>{t.pollType}</Text>
+                    </View>
+                )}
                 onClubPress={onClubPress}
             />
 
@@ -1614,22 +1879,42 @@ function PollCard({
                 </View>
             )}
 
-            {/* Question + options */}
+            {/* Question, then either the ballot or the results */}
             <View style={s.fcBody}>
                 {!!poll.question && <Text style={s.fcTitle}>{poll.question}</Text>}
                 {!!post.content && <Text style={s.fcDesc}>{post.content}</Text>}
-                <View style={s.fcPollOptions}>
-                    {poll.options.map((option) => (
-                        <AnimatedPollOption
-                            key={option.id}
-                            postId={post.id}
-                            option={option}
-                            poll={poll}
-                            onPollVote={onPollVote}
-                        />
-                    ))}
-                </View>
-                {!!votesMeta && <Text style={s.fcPollMeta}>{votesMeta}</Text>}
+                {showResults ? (
+                    <PollResults poll={poll} />
+                ) : (
+                    <>
+                        <View style={s.fcPollOptions}>
+                            {poll.options.map((option) => (
+                                <PollChoice
+                                    key={option.id}
+                                    option={option}
+                                    selected={choice === option.id}
+                                    onSelect={() => {
+                                        Haptics.selectionAsync();
+                                        setChoice(option.id);
+                                    }}
+                                />
+                            ))}
+                        </View>
+                        <View style={s.fcPollSubmitRow}>
+                            <Pressable
+                                style={[s.fcPollSubmitBtn, !choice && s.fcPollSubmitBtnDisabled]}
+                                onPress={submitVote}
+                                disabled={!choice}
+                                accessibilityRole="button"
+                                accessibilityState={{ disabled: !choice }}
+                                accessibilityLabel={t.submitVote}
+                            >
+                                <Text style={[s.fcPollSubmitText, !choice && s.fcPollSubmitTextDisabled]}>{t.submitVote}</Text>
+                            </Pressable>
+                            <Text style={s.fcPollMeta}>{t.votedCount(poll.totalVotes)}</Text>
+                        </View>
+                    </>
+                )}
             </View>
 
             {/* Action bar */}

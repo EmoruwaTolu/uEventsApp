@@ -17,7 +17,7 @@ import CreateEventForm from "../../components/create/CreateEventForm";
 import CreatePollForm from "../../components/create/CreatePollForm";
 import CreateAnnouncementForm from "../../components/create/CreateAnnouncementForm";
 import { useTheme } from "../../lib/ThemeContext";
-import type { AppColors } from "../../styles/theme";
+import { meta, lbl, fonts, AppColors } from "../../styles/theme";
 
 type ContentType = "event" | "announcement" | "poll";
 
@@ -55,32 +55,19 @@ const makeCreateStyles = (C: AppColors) => StyleSheet.create({
         paddingVertical: 14,
     },
     topBarIcon: { width: 32 },
-    topBarTitle: {
-        fontSize: 13,
-        fontWeight: "800",
-        color: C.text,
-        letterSpacing: 2,
-    },
+    topBarTitle: { ...lbl(13, "bold", 0.12), color: C.text },
 
     // ── Hero ─────────────────────────────────────────────────────────────────
     hero: {
         paddingHorizontal: 20,
         paddingBottom: 28,
     },
-    heroLabel: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 2,
-        marginBottom: 8,
-    },
-    heroHeading: {
-        fontSize: 42,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: -1,
-        lineHeight: 46,
-    },
+    heroLabel: { ...lbl(10, "bold", 0.12), color: C.primary,
+        
+        marginBottom: 8 },
+    heroHeading: { fontFamily: fonts.displayBold, fontSize: 42, letterSpacing: -1, color: C.text,
+        
+        lineHeight: 46 },
     heroAccent: {
         width: 48,
         height: 3,
@@ -104,13 +91,9 @@ const makeCreateStyles = (C: AppColors) => StyleSheet.create({
         alignItems: "center",
         gap: 5,
     },
-    quickLinkText: {
-        fontSize: 9,
-        fontWeight: "800",
-        color: C.textBody,
-        letterSpacing: 1,
-        textAlign: "center",
-    },
+    quickLinkText: { ...lbl(9, "bold", 0.11), color: C.textBody,
+        
+        textAlign: "center" },
 
     // ── Approval banner ──────────────────────────────────────────────────────
     approvalBanner: {
@@ -126,17 +109,10 @@ const makeCreateStyles = (C: AppColors) => StyleSheet.create({
     approvalBannerRejected: {
         backgroundColor: "#FEE2E2",
     },
-    approvalTitle: {
-        fontSize: 14,
-        fontWeight: "800",
-        color: C.text,
-    },
-    approvalBody: {
-        fontSize: 12,
-        color: C.textBody,
+    approvalTitle: { ...meta(14, "bold"), color: C.text },
+    approvalBody: { ...meta(12, "regular"), color: C.textBody,
         lineHeight: 17,
-        marginTop: 2,
-    },
+        marginTop: 2 },
     cardsDisabled: {
         opacity: 0.45,
     },
@@ -167,30 +143,17 @@ const makeCreateStyles = (C: AppColors) => StyleSheet.create({
     cardIconFeatured: {
         backgroundColor: C.primary,
     },
-    cardLabel: {
-        fontSize: 16,
-        fontWeight: "800",
-        color: C.text,
-        letterSpacing: 0.5,
-    },
-    cardDesc: {
-        fontSize: 13,
-        color: C.textMuted,
+    cardLabel: { ...meta(16, "bold"), color: C.text },
+    cardDesc: { ...meta(13, "regular"), color: C.textMuted,
         lineHeight: 19,
-        marginTop: 2,
-    },
+        marginTop: 2 },
     cardFooter: {
         flexDirection: "row",
         alignItems: "center",
         gap: 5,
         marginTop: 10,
     },
-    cardCta: {
-        fontSize: 11,
-        fontWeight: "700",
-        color: C.textLight,
-        letterSpacing: 1,
-    },
+    cardCta: { ...lbl(11, "bold", 0.09), color: C.textLight },
     cardCtaFeatured: {
         color: C.primary,
     },
@@ -226,18 +189,10 @@ const makeCreateStyles = (C: AppColors) => StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-    draftsTitle: {
-        fontSize: 14,
-        fontWeight: "800",
-        color: "#fff",
-        letterSpacing: 0.5,
-    },
-    draftsSubtitle: {
-        fontSize: 12,
-        color: "rgba(255,255,255,0.55)",
+    draftsTitle: { ...meta(14, "bold"), color: "#fff" },
+    draftsSubtitle: { ...meta(12, "regular"), color: "rgba(255,255,255,0.55)",
         lineHeight: 17,
-        marginTop: 3,
-    },
+        marginTop: 3 },
     draftsActions: {
         flexDirection: "row",
         alignItems: "center",
@@ -248,27 +203,17 @@ const makeCreateStyles = (C: AppColors) => StyleSheet.create({
         paddingHorizontal: 10,
         paddingVertical: 5,
     },
-    draftsBadgeText: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: "#fff",
-        letterSpacing: 1,
-    },
+    draftsBadgeText: { ...lbl(10, "bold", 0.1), color: "#fff" },
     draftsBtn: {
         flex: 1,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
         gap: 6,
-        backgroundColor: "#111827",
+        backgroundColor: C.text,
         paddingVertical: 10,
     },
-    draftsBtnText: {
-        fontSize: 11,
-        fontWeight: "700",
-        color: "#fff",
-        letterSpacing: 1,
-    },
+    draftsBtnText: { ...lbl(11, "bold", 0.09), color: "#fff" },
 
     // ── Form top bar ─────────────────────────────────────────────────────────
     formTopBar: {
@@ -282,12 +227,7 @@ const makeCreateStyles = (C: AppColors) => StyleSheet.create({
         backgroundColor: C.surface,
     },
     backBtn: { width: 32 },
-    formTopBarTitle: {
-        fontSize: 12,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 2,
-    },
+    formTopBarTitle: { ...lbl(12, "bold", 0.12), color: C.primary },
 
     // ── Form ────────────────────────────────────────────────────────────────
     formContainer: {
@@ -307,12 +247,7 @@ const makeCreateStyles = (C: AppColors) => StyleSheet.create({
         alignItems: "center",
         gap: 8,
     },
-    langSectionTitle: {
-        fontSize: 11,
-        fontWeight: "700",
-        color: C.textBody,
-        letterSpacing: 1.5,
-    },
+    langSectionTitle: { ...lbl(11, "bold", 0.12), color: C.textBody },
     langRow: {
         flexDirection: "row",
         gap: 10,
@@ -329,11 +264,7 @@ const makeCreateStyles = (C: AppColors) => StyleSheet.create({
         backgroundColor: C.primary,
         borderColor: C.primary,
     },
-    langLabel: {
-        fontSize: 13,
-        fontWeight: "600",
-        color: C.textMuted,
-    },
+    langLabel: { ...meta(13, "semi"), color: C.textMuted },
     langLabelActive: {
         color: "#ffffff",
     },
@@ -353,12 +284,7 @@ const makeCreateStyles = (C: AppColors) => StyleSheet.create({
         borderColor: C.border,
         backgroundColor: C.surface,
     },
-    btnDraftText: {
-        fontSize: 13,
-        fontWeight: "700",
-        color: C.textBody,
-        letterSpacing: 0.5,
-    },
+    btnDraftText: { ...meta(13, "bold"), color: C.textBody },
     btnPublish: {
         flex: 1,
         flexDirection: "row",
@@ -368,12 +294,7 @@ const makeCreateStyles = (C: AppColors) => StyleSheet.create({
         paddingVertical: 13,
         backgroundColor: C.primary,
     },
-    btnPublishText: {
-        fontSize: 13,
-        fontWeight: "700",
-        color: "#ffffff",
-        letterSpacing: 0.5,
-    },
+    btnPublishText: { ...meta(13, "bold"), color: "#ffffff" },
 });
 
 export default function CreateContentScreen() {

@@ -13,7 +13,7 @@ import { uploadImage } from "../../lib/uploadImage";
 import { useToast } from "../../lib/ToastContext";
 import { useT } from "../../lib/LangContext";
 import { useTheme } from "../../lib/ThemeContext";
-import type { AppColors } from "../../styles/theme";
+import { meta, lbl, fonts, AppColors } from "../../styles/theme";
 
 type ClubProfile = {
     clubName?: string;
@@ -41,8 +41,8 @@ const makeEditProfileStyles = (C: AppColors) => StyleSheet.create({
         backgroundColor: C.bg,
     },
     backGroup: { flexDirection: "row", alignItems: "center", gap: 6, width: 80 },
-    backLabel: { fontSize: 14, fontWeight: "900", color: C.primary, letterSpacing: 1 },
-    topBarTitle: { fontSize: 13, fontWeight: "900", color: C.text, letterSpacing: 2 },
+    backLabel: { ...meta(14, "bold"), color: C.primary },
+    topBarTitle: { ...lbl(13, "bold", 0.12), color: C.text },
     saveBtn: {
         backgroundColor: C.primary,
         paddingHorizontal: 16,
@@ -50,35 +50,25 @@ const makeEditProfileStyles = (C: AppColors) => StyleSheet.create({
         width: 80,
         alignItems: "center",
     },
-    saveBtnText: { fontSize: 12, fontWeight: "900", color: "#fff", letterSpacing: 1.5 },
+    saveBtnText: { ...lbl(12, "bold", 0.12), color: "#fff" },
 
     scroll: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40 },
 
     section: { marginBottom: 28 },
-    sectionLabel: {
-        fontSize: 11,
-        fontWeight: "900",
-        color: C.primary,
-        letterSpacing: 2,
-        marginBottom: 14,
-    },
-    label: {
-        fontSize: 10,
-        fontWeight: "700",
-        color: C.textMuted,
-        letterSpacing: 1,
+    sectionLabel: { ...lbl(11, "bold", 0.12), color: C.primary,
+        
+        marginBottom: 14 },
+    label: { ...lbl(10, "bold", 0.1), color: C.textMuted,
+        
         marginTop: 12,
-        marginBottom: 4,
-    },
-    input: {
-        backgroundColor: C.surface,
+        marginBottom: 4 },
+    input: { ...meta(14, "regular"), backgroundColor: C.surface,
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: C.borderWarm,
         paddingVertical: 11,
         paddingHorizontal: 12,
-        fontSize: 14,
-        color: C.text,
-    },
+        
+        color: C.text },
     multiline: { minHeight: 88, paddingTop: 10 },
 
     logoPicker: {
@@ -104,9 +94,9 @@ const makeEditProfileStyles = (C: AppColors) => StyleSheet.create({
         justifyContent: "center",
     },
     logoPickerRight: { flex: 1, gap: 3 },
-    logoPickerTitle: { fontSize: 12, fontWeight: "800", color: C.text, letterSpacing: 0.5 },
-    logoPickerSub: { fontSize: 11, color: C.textLight },
-    logoRemove: { fontSize: 11, color: C.primary, fontWeight: "600", marginTop: 4 },
+    logoPickerTitle: { ...meta(12, "bold"), color: C.text },
+    logoPickerSub: { ...meta(11, "regular"), color: C.textLight },
+    logoRemove: { ...meta(11, "semi"), color: C.primary,  marginTop: 4 },
 
     prefixRow: {
         flexDirection: "row",
@@ -115,19 +105,14 @@ const makeEditProfileStyles = (C: AppColors) => StyleSheet.create({
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: C.borderWarm,
     },
-    prefix: {
-        paddingHorizontal: 12,
-        fontSize: 14,
-        color: C.textLight,
-        fontWeight: "600",
-    },
-    prefixField: {
-        flex: 1,
+    prefix: { ...meta(14, "semi"), paddingHorizontal: 12,
+        
+        color: C.textLight },
+    prefixField: { ...meta(14, "regular"), flex: 1,
         paddingVertical: 11,
         paddingRight: 12,
-        fontSize: 14,
-        color: C.text,
-    },
+        
+        color: C.text },
 });
 
 export default function EditClubProfile() {
@@ -247,7 +232,7 @@ export default function EditClubProfile() {
                 </View>
                 <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, padding: 32 }}>
                     <Ionicons name="cloud-offline-outline" size={36} color={C.textFaint} />
-                    <Text style={{ fontSize: 13, fontWeight: "700", color: C.textMuted, textAlign: "center" }}>
+                    <Text style={{ ...meta(13, "bold"), color: C.textMuted, textAlign: "center" }}>
                         COULDN'T LOAD PROFILE
                     </Text>
                     <Pressable
@@ -271,7 +256,7 @@ export default function EditClubProfile() {
                         }}
                         style={{ borderWidth: 1.5, borderColor: C.primary, paddingHorizontal: 24, paddingVertical: 10 }}
                     >
-                        <Text style={{ fontSize: 11, fontWeight: "800", color: C.primary, letterSpacing: 1.5 }}>{t.tryAgainBtn}</Text>
+                        <Text style={{ ...lbl(11, "bold", 0.12), color: C.primary }}>{t.tryAgainBtn}</Text>
                     </Pressable>
                 </View>
             </SafeAreaView>

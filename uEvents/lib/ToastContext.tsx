@@ -3,6 +3,7 @@ import { Animated, Text, StyleSheet, Platform, Pressable, View } from "react-nat
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "./ThemeContext";
+import { fonts, lbl, meta } from "../styles/theme";
 
 type ToastType = "success" | "error" | "info";
 
@@ -139,19 +140,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: 14,
         paddingVertical: 12,
     },
-    text: {
-        flexShrink: 1,
-        fontSize: 13.5,
-        fontWeight: "600",
-        letterSpacing: 0.1,
-    },
+    text: { ...meta(13.5, "semi"), flexShrink: 1 },
     actionBtn: {
         paddingLeft: 8,
         marginLeft: "auto",
     },
-    actionText: {
-        fontSize: 11,
-        fontWeight: "800",
-        letterSpacing: 1.2,
-    },
+    actionText: { ...lbl(11, "bold", 0.11) },
 });

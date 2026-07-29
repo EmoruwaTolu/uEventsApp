@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../lib/ThemeContext";
 import { useT } from "../lib/LangContext";
 import { useReduceMotion } from "../lib/useReduceMotion";
+import { fonts, lbl, meta } from "../styles/theme";
 
 export function SkeletonBox({ width, height, style }: { width?: DimensionValue; height: number; style?: ViewStyle }) {
     const { colors: C } = useTheme();
@@ -131,7 +132,7 @@ export function ErrorRetry({ message = "Something went wrong", onRetry }: { mess
     return (
         <View style={{ alignItems: "center", paddingVertical: 48, gap: 12 }}>
             <Ionicons name="cloud-offline-outline" size={32} color={C.textFaint} />
-            <Text style={{ fontSize: 12, fontWeight: "700", color: C.textLight, letterSpacing: 1, textAlign: "center" }}>{message}</Text>
+            <Text style={{ ...lbl(12, "bold", 0.08), color: C.textLight,  textAlign: "center" }}>{message}</Text>
             <Pressable
                 style={{ borderWidth: 1.5, borderColor: C.primary, paddingHorizontal: 20, paddingVertical: 9 }}
                 onPress={onRetry}
@@ -139,7 +140,7 @@ export function ErrorRetry({ message = "Something went wrong", onRetry }: { mess
                 accessibilityLabel="Retry"
                 hitSlop={8}
             >
-                <Text style={{ fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 1.5 }}>{t.retry}</Text>
+                <Text style={{ ...lbl(10, "bold", 0.12), color: C.primary }}>{t.retry}</Text>
             </Pressable>
         </View>
     );

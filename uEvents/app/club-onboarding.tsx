@@ -10,7 +10,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useApi } from "../lib/useApi";
 import { useTheme } from "../lib/ThemeContext";
 import { useT } from "../lib/LangContext";
-import type { AppColors } from "../styles/theme";
+import { meta, lbl, fonts, type AppColors } from "../styles/theme";
 
 type Step = 1 | 2 | 3;
 
@@ -23,17 +23,13 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
     },
     heading: {
         fontSize: 28,
-        fontWeight: "600",
-        fontFamily: "Georgia",
+        fontFamily: fonts.displayBold,
         color: C.text,
         letterSpacing: -0.5,
     },
-    subheading: {
-        fontSize: 14,
-        color: C.textMuted,
+    subheading: { ...meta(14, "regular"), color: C.textMuted,
         marginTop: 4,
-        marginBottom: 20,
-    },
+        marginBottom: 20 },
     stepRow: {
         flexDirection: "row",
         alignItems: "center",
@@ -63,9 +59,9 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         justifyContent: "center",
     },
     stepDotActive: { backgroundColor: C.primary },
-    stepNum: { fontSize: 12, fontWeight: "700", color: C.textLight },
+    stepNum: { ...meta(12, "bold"), color: C.textLight },
     stepNumActive: { color: "#fff" },
-    stepLabel: { fontSize: 10, fontWeight: "600", color: C.textLight, letterSpacing: 0.5 },
+    stepLabel: { ...meta(10, "semi"), color: C.textLight },
     stepLabelActive: { color: C.primary },
 
     scroll: { paddingHorizontal: 24, paddingBottom: 40, paddingTop: 8 },
@@ -74,37 +70,24 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
     card: {
         gap: 2,
     },
-    cardTitle: {
-        fontSize: 11,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 1.5,
-        marginBottom: 18,
-    },
-    cardSubtitle: {
-        fontSize: 12,
-        color: C.textLight,
+    cardTitle: { ...lbl(11, "bold", 0.12), color: C.primary,
+        
+        marginBottom: 18 },
+    cardSubtitle: { ...meta(12, "regular"), color: C.textLight,
         marginTop: -8,
-        marginBottom: 8,
-    },
-    label: {
-        fontSize: 11,
-        fontWeight: "700",
-        color: C.textMuted,
-        textTransform: "uppercase",
-        letterSpacing: 1,
+        marginBottom: 8 },
+    label: { ...lbl(11, "bold", 0.09), color: C.textMuted,
+        
+        
         marginTop: 22,
-        marginBottom: 8,
-    },
-    input: {
-        backgroundColor: C.surface,
+        marginBottom: 8 },
+    input: { fontFamily: fonts.body, fontSize: 16, backgroundColor: C.surface,
         borderWidth: 1,
         borderColor: C.borderWarm,
         paddingVertical: 13,
         paddingHorizontal: 16,
-        fontSize: 16,
-        color: C.text,
-    },
+        
+        color: C.text },
     inputFocused: { borderColor: C.primary },
     multiline: { minHeight: 120, paddingTop: 13, textAlignVertical: "top" },
 
@@ -122,9 +105,9 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
     },
     langPill: { paddingHorizontal: 14, paddingVertical: 6, backgroundColor: "transparent" },
     langPillActive: { backgroundColor: C.primary },
-    langPillText: { fontSize: 11, fontWeight: "700", color: C.textLight, letterSpacing: 1 },
+    langPillText: { ...lbl(11, "bold", 0.09), color: C.textLight },
     langPillTextActive: { color: "#fff" },
-    hint: { fontSize: 11, color: C.textLight, marginTop: 2 },
+    hint: { ...meta(11, "regular"), color: C.textLight, marginTop: 2 },
 
     prefixInput: {
         flexDirection: "row",
@@ -133,19 +116,14 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         borderWidth: 1,
         borderColor: C.borderWarm,
     },
-    prefix: {
-        paddingHorizontal: 14,
-        fontSize: 16,
-        color: C.textLight,
-        fontWeight: "600",
-    },
-    prefixField: {
-        flex: 1,
+    prefix: { ...meta(16, "semi"), paddingHorizontal: 14,
+        
+        color: C.textLight },
+    prefixField: { fontFamily: fonts.body, fontSize: 16, flex: 1,
         paddingVertical: 13,
         paddingRight: 16,
-        fontSize: 16,
-        color: C.text,
-    },
+        
+        color: C.text },
 
     actions: {
         flexDirection: "row",
@@ -161,7 +139,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         borderWidth: 1,
         borderColor: C.textFaint,
     },
-    backBtnText: { fontSize: 13, fontWeight: "600", color: C.textMuted },
+    backBtnText: { ...meta(13, "semi"), color: C.textMuted },
     skipBtn: {
         flex: 1,
         paddingVertical: 12,
@@ -169,7 +147,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         borderWidth: 1,
         borderColor: C.textFaint,
     },
-    skipBtnText: { fontSize: 13, fontWeight: "600", color: C.textMuted },
+    skipBtnText: { ...meta(13, "semi"), color: C.textMuted },
     nextBtn: {
         flex: 1,
         flexDirection: "row",
@@ -180,10 +158,10 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         backgroundColor: C.primary,
     },
     nextBtnDisabled: { opacity: 0.4 },
-    nextBtnText: { fontSize: 13, fontWeight: "700", color: "#fff", letterSpacing: 0.5 },
+    nextBtnText: { ...meta(13, "bold"), color: "#fff" },
 
     laterBtn: { alignItems: "center", paddingVertical: 20 },
-    laterText: { fontSize: 12, color: C.textLight, textDecorationLine: "underline" },
+    laterText: { ...meta(12, "regular"), color: C.textLight, textDecorationLine: "underline" },
 });
 
 export default function ClubOnboarding() {

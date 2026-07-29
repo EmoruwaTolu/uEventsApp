@@ -13,6 +13,7 @@ import { useToast } from "../../lib/ToastContext";
 import { ProfileSkeleton } from "../../components/SkeletonLoader";
 import { timeAgo, localeFor } from "../../lib/datetime";
 import { useTheme } from "../../lib/ThemeContext";
+import { fonts, lbl, meta } from "../../styles/theme";
 
 
 type ApiUser = {
@@ -192,13 +193,13 @@ export default function ProfileScreen() {
                         <Ionicons name="person-outline" size={36} color={C.textLight} />
                     </View>
 
-                    <Text style={{ fontSize: 10, fontWeight: "800", color: C.textLight, letterSpacing: 2, marginBottom: 4 }}>
+                    <Text style={{ ...lbl(10, "bold", 0.12), color: C.textLight,  marginBottom: 4 }}>
                         BROWSING AS GUEST
                     </Text>
-                    <Text style={{ fontSize: 22, fontWeight: "900", color: C.text, letterSpacing: -0.5, marginBottom: 8 }}>
+                    <Text style={{ fontFamily: fonts.displayBold, fontSize: 22, letterSpacing: -0.5, color: C.text,  marginBottom: 8 }}>
                         You're not signed in
                     </Text>
-                    <Text style={{ fontSize: 14, color: C.textMuted, textAlign: "center", lineHeight: 21, marginBottom: 32, maxWidth: 280 }}>
+                    <Text style={{ ...meta(14, "regular"), color: C.textMuted, textAlign: "center", lineHeight: 21, marginBottom: 32, maxWidth: 280 }}>
                         Create a free account to follow clubs, RSVP to events, bookmark posts, and build your personal campus feed.
                     </Text>
 
@@ -208,11 +209,11 @@ export default function ProfileScreen() {
                         accessibilityRole="button"
                         accessibilityLabel="Create account"
                     >
-                        <Text style={{ fontSize: 12, fontWeight: "900", color: "#fff", letterSpacing: 2 }}>{t.createAccountBtn}</Text>
+                        <Text style={{ ...lbl(12, "bold", 0.12), color: "#fff" }}>{t.createAccountBtn}</Text>
                     </Pressable>
                     <Pressable onPress={signOut} style={{ paddingVertical: 8 }} accessibilityRole="button" accessibilityLabel="Log in">
-                        <Text style={{ fontSize: 13, color: C.textMuted }}>
-                            Already have an account? <Text style={{ fontWeight: "800", color: C.text }}>{t.logInBtn}</Text>
+                        <Text style={{ ...meta(13, "regular"), color: C.textMuted }}>
+                            Already have an account? <Text style={{ ...meta(13, "bold"), color: C.text }}>{t.logInBtn}</Text>
                         </Text>
                     </Pressable>
                 </View>

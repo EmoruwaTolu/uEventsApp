@@ -25,6 +25,7 @@ import { EVENT_TAGS } from "../../lib/eventTags";
 import { localeFor } from "../../lib/datetime";
 import { useT, useLang } from "../../lib/LangContext";
 import { translateCategory } from "../../lib/categories";
+import { fonts, lbl, meta, lightColors } from "../../styles/theme";
 
 type Lang = "en" | "fr";
 
@@ -387,12 +388,12 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
             {/* Top bar */}
             <View style={s.topBar}>
                 <Pressable onPress={onBack} style={s.backGroup} hitSlop={8} accessibilityRole="button" accessibilityLabel={t.back}>
-                    <Ionicons name="arrow-back" size={18} color="#8C0327" />
+                    <Ionicons name="arrow-back" size={18} color={lightColors.primary} />
                     <Text style={s.topBarBrand}>{t.back}</Text>
                 </Pressable>
                 <View style={s.langToggle}>
                     {autoSaving && (
-                        <Text style={{ fontSize: 11, color: "#9CA3AF", marginRight: 8 }}>{t.saving}</Text>
+                        <Text style={{ ...meta(11, "regular"), color: lightColors.textLight, marginRight: 8 }}>{t.saving}</Text>
                     )}
                     {(["en", "fr"] as Lang[]).map((l) => (
                         <Pressable
@@ -459,7 +460,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                                 <Text style={[s.fieldInput, !startDate && s.fieldInputPlaceholder]}>
                                     {startDate ? fmtDate(startDate, lang) : t.selectDate}
                                 </Text>
-                                <Ionicons name="calendar-outline" size={18} color="#9CA3AF" />
+                                <Ionicons name="calendar-outline" size={18} color={lightColors.textLight} />
                             </View>
                         </Pressable>
                         <Pressable style={[s.fieldCard, { flex: 1 }]} onPress={() => setPickerTarget("start-time")} accessibilityRole="button" accessibilityLabel={`${t.startTimeLabel}: ${startDate ? fmtTime(startDate, lang) : "time"}`}>
@@ -468,7 +469,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                                 <Text style={[s.fieldInput, !startDate && s.fieldInputPlaceholder]}>
                                     {startDate ? fmtTime(startDate, lang) : "TIME"}
                                 </Text>
-                                <Ionicons name="time-outline" size={18} color="#9CA3AF" />
+                                <Ionicons name="time-outline" size={18} color={lightColors.textLight} />
                             </View>
                         </Pressable>
                     </View>
@@ -481,7 +482,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                                 <Text style={[s.fieldInput, !endDate && s.fieldInputPlaceholder]}>
                                     {endDate ? fmtDate(endDate, lang) : t.noneLabel}
                                 </Text>
-                                <Ionicons name="calendar-outline" size={18} color="#9CA3AF" />
+                                <Ionicons name="calendar-outline" size={18} color={lightColors.textLight} />
                             </View>
                         </Pressable>
                         <Pressable style={[s.fieldCard, { flex: 1, opacity: !endDate ? 0.5 : 1 }]} onPress={() => endDate && setPickerTarget("end-time")} accessibilityRole="button" accessibilityLabel={`${t.endTimeLabel}: ${endDate ? fmtTime(endDate, lang) : "time"}`}>
@@ -490,7 +491,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                                 <Text style={[s.fieldInput, !endDate && s.fieldInputPlaceholder]}>
                                     {endDate ? fmtTime(endDate, lang) : "TIME"}
                                 </Text>
-                                <Ionicons name="time-outline" size={18} color="#9CA3AF" />
+                                <Ionicons name="time-outline" size={18} color={lightColors.textLight} />
                             </View>
                         </Pressable>
                     </View>
@@ -500,7 +501,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                         <View style={[s.fieldCard, { flex: 1, backgroundColor: scheduleDate ? "#FEF3C7" : "#EDECEA" }]}>
                             <Text style={s.fieldLabel}>{t.schedulePublishSection}</Text>
                             <View style={s.fieldRow}>
-                                <Ionicons name="time-outline" size={14} color="#9CA3AF" style={{ marginRight: 6 }} />
+                                <Ionicons name="time-outline" size={14} color={lightColors.textLight} style={{ marginRight: 6 }} />
                                 <Pressable onPress={() => setPickerTarget("sched-date")} style={{ flex: 1 }}>
                                     <Text style={[s.fieldInput, !scheduleDate && s.fieldInputPlaceholder]}>
                                         {scheduleDate ? `${fmtDate(scheduleDate, lang)}` : t.noneLabel}
@@ -508,12 +509,12 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                                 </Pressable>
                                 {scheduleDate && (
                                     <Pressable onPress={() => setPickerTarget("sched-time")}>
-                                        <Text style={[s.fieldInput, { color: "#8C0327" }]}>{fmtTime(scheduleDate, lang)}</Text>
+                                        <Text style={[s.fieldInput, { color: lightColors.primary }]}>{fmtTime(scheduleDate, lang)}</Text>
                                     </Pressable>
                                 )}
                                 {scheduleDate && (
                                     <Pressable onPress={() => setScheduleDate(null)} style={{ marginLeft: 6 }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Clear schedule date">
-                                        <Ionicons name="close-circle" size={16} color="#9CA3AF" />
+                                        <Ionicons name="close-circle" size={16} color={lightColors.textLight} />
                                     </Pressable>
                                 )}
                             </View>
@@ -555,7 +556,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                                     minimumDate={pickerMinimumDate}
                                     display="spinner"
                                     onChange={onPickerChange}
-                                    style={{ width: "100%", backgroundColor: "#FFFFFF" }} themeVariant="light" textColor="#111827"
+                                    style={{ width: "100%", backgroundColor: "#FFFFFF" }} themeVariant="light" textColor={lightColors.text}
                                 />
                             </View>
                         </BottomSheet>
@@ -567,7 +568,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                 <View style={s.section}>
                     <Text style={s.sectionLabel}>{SECTION_LABEL(4, t.sectionVenueDigital)}</Text>
                     <View style={s.venueRow}>
-                        <Ionicons name="location" size={18} color="#8C0327" style={{ marginTop: 2 }} />
+                        <Ionicons name="location" size={18} color={lightColors.primary} style={{ marginTop: 2 }} />
                         <TextInput
                             value={venue}
                             onChangeText={setVenue}
@@ -586,7 +587,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                 <View style={s.section}>
                     <Text style={s.sectionLabel}>{SECTION_LABEL(5, t.capacitySection)}</Text>
                     <View style={s.venueRow}>
-                        <Ionicons name="people" size={18} color="#8C0327" style={{ marginTop: 2 }} />
+                        <Ionicons name="people" size={18} color={lightColors.primary} style={{ marginTop: 2 }} />
                         <TextInput
                             value={capacity}
                             onChangeText={(v) => setCapacity(v.replace(/[^0-9]/g, ""))}
@@ -627,7 +628,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                 <View style={s.section}>
                     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                         <Text style={s.sectionLabel}>{SECTION_LABEL(6, t.sectionNarrativeContent)}</Text>
-                        <Text style={{ fontSize: 11, color: descriptions[lang].length > DESC_MAX * 0.9 ? "#8C0327" : "#9CA3AF" }}>
+                        <Text style={{ ...meta(11, "regular"), color: descriptions[lang].length > DESC_MAX * 0.9 ? lightColors.primary : lightColors.textLight }}>
                             {descriptions[lang].length}/{DESC_MAX}
                         </Text>
                     </View>
@@ -641,7 +642,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                                     ? "Draft the event's story here.\nConnect with your audience..."
                                     : "Rédigez l'histoire de l'événement ici.\nConnectez-vous à votre public..."
                             }
-                            placeholderTextColor="#C4BFB8"
+                            placeholderTextColor={lightColors.textFaint}
                             style={s.narrativeInput}
                             multiline
                             textAlignVertical="top"
@@ -689,7 +690,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                             </Text>
                             {expiresAt && (
                                 <Pressable onPress={() => setExpiresAt(null)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Clear expiry date">
-                                    <Ionicons name="close-circle" size={14} color="#9CA3AF" />
+                                    <Ionicons name="close-circle" size={14} color={lightColors.textLight} />
                                 </Pressable>
                             )}
                         </Pressable>
@@ -720,12 +721,12 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                                         <Pressable
                                             key={val}
                                             onPress={() => setRecurFreq(val)}
-                                            style={{ flex: 1, paddingVertical: 9, borderRadius: 8, borderWidth: 1.5, borderColor: active ? "#8C0327" : "#E5E0D8", backgroundColor: active ? "#8C0327" : "#fff", alignItems: "center" }}
+                                            style={{ flex: 1, paddingVertical: 9, borderRadius: 8, borderWidth: 1.5, borderColor: active ? lightColors.primary : lightColors.border, backgroundColor: active ? lightColors.primary : "#fff", alignItems: "center" }}
                                             accessibilityRole="button"
                                             accessibilityLabel={label}
                                             accessibilityState={{ selected: active }}
                                         >
-                                            <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={{ fontSize: 11, fontWeight: "800", letterSpacing: 0.5, color: active ? "#fff" : "#6B7280" }}>{label}</Text>
+                                            <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={{ ...meta(11, "bold"), color: active ? "#fff" : lightColors.textMuted }}>{label}</Text>
                                         </Pressable>
                                     );
                                 })}
@@ -741,12 +742,12 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                                                 <Pressable
                                                     key={i}
                                                     onPress={() => toggleWeekday(i)}
-                                                    style={{ flex: 1, aspectRatio: 1, maxWidth: 40, borderRadius: 20, borderWidth: 1.5, borderColor: active ? "#8C0327" : "#E5E0D8", backgroundColor: active ? "#8C0327" : "#fff", alignItems: "center", justifyContent: "center" }}
+                                                    style={{ flex: 1, aspectRatio: 1, maxWidth: 40, borderRadius: 20, borderWidth: 1.5, borderColor: active ? lightColors.primary : lightColors.border, backgroundColor: active ? lightColors.primary : "#fff", alignItems: "center", justifyContent: "center" }}
                                                     accessibilityRole="button"
                                                     accessibilityLabel={["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][i]}
                                                     accessibilityState={{ selected: active }}
                                                 >
-                                                    <Text maxFontSizeMultiplier={1.2} style={{ fontSize: 13, fontWeight: "800", color: active ? "#fff" : "#6B7280" }}>{d}</Text>
+                                                    <Text maxFontSizeMultiplier={1.2} style={{ ...meta(13, "bold"), color: active ? "#fff" : lightColors.textMuted }}>{d}</Text>
                                                 </Pressable>
                                             );
                                         })}
@@ -772,17 +773,17 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                                     </View>
                                     <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
                                         <Pressable onPress={() => setRecurCount((c) => Math.max(2, c - 1))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Fewer occurrences">
-                                            <Ionicons name="remove-circle-outline" size={26} color="#8C0327" />
+                                            <Ionicons name="remove-circle-outline" size={26} color={lightColors.primary} />
                                         </Pressable>
-                                        <Text style={{ fontSize: 16, fontWeight: "800", color: "#111827", minWidth: 26, textAlign: "center" }}>{recurCount}</Text>
+                                        <Text style={{ ...meta(16, "bold"), color: lightColors.text, minWidth: 26, textAlign: "center" }}>{recurCount}</Text>
                                         <Pressable onPress={() => setRecurCount((c) => Math.min(26, c + 1))} hitSlop={8} accessibilityRole="button" accessibilityLabel="More occurrences">
-                                            <Ionicons name="add-circle-outline" size={26} color="#8C0327" />
+                                            <Ionicons name="add-circle-outline" size={26} color={lightColors.primary} />
                                         </Pressable>
                                     </View>
                                 </View>
                             )}
 
-                            <Text style={{ fontSize: 12, color: "#6B7280", marginTop: 6, lineHeight: 17 }}>{t.repeatHint}</Text>
+                            <Text style={{ ...meta(12, "regular"), color: lightColors.textMuted, marginTop: 6, lineHeight: 17 }}>{t.repeatHint}</Text>
                         </>
                     )}
                 </View>
@@ -900,7 +901,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                                     </Text>
                                     {commentsLockDate && (
                                         <Pressable onPress={() => setCommentsLockDate(null)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Clear auto-lock date">
-                                            <Ionicons name="close-circle" size={14} color="#9CA3AF" />
+                                            <Ionicons name="close-circle" size={14} color={lightColors.textLight} />
                                         </Pressable>
                                     )}
                                 </Pressable>
@@ -948,7 +949,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                         minimumDate={new Date()}
                         display="spinner"
                         onChange={(_, d) => { if (d) setExpiresAt(d); }}
-                        style={{ width: "100%", backgroundColor: "#FFFFFF" }} themeVariant="light" textColor="#111827"
+                        style={{ width: "100%", backgroundColor: "#FFFFFF" }} themeVariant="light" textColor={lightColors.text}
                     />
                 </View>
             </BottomSheet>
@@ -968,7 +969,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                         minimumDate={new Date()}
                         display="spinner"
                         onChange={(_, d) => { if (d) setCommentsLockDate(d); }}
-                        style={{ width: "100%", backgroundColor: "#FFFFFF" }} themeVariant="light" textColor="#111827"
+                        style={{ width: "100%", backgroundColor: "#FFFFFF" }} themeVariant="light" textColor={lightColors.text}
                     />
                 </View>
             </BottomSheet>
@@ -981,7 +982,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
                             <Ionicons
                                 name={r.met ? "checkmark-circle" : "ellipse-outline"}
                                 size={11}
-                                color={r.met ? "#8C0327" : "#C4BFB8"}
+                                color={r.met ? lightColors.primary : lightColors.textFaint}
                             />
                             <Text style={[s.reqText, r.met && s.reqTextMet]}>{r.label}</Text>
                         </View>
@@ -1028,7 +1029,7 @@ export default function CreateEventForm({ onBack, onSuccess, initialValues, post
 }
 
 const s = StyleSheet.create({
-    safe: { flex: 1, backgroundColor: "#F7F3EE" },
+    safe: { flex: 1, backgroundColor: lightColors.bg },
 
     // Top bar
     topBar: {
@@ -1044,17 +1045,14 @@ const s = StyleSheet.create({
         gap: 6,
         flex: 1,
     },
-    topBarBrand: {
-        flex: 1,
-        fontSize: 14,
-        fontWeight: "900",
-        color: "#8C0327",
-        letterSpacing: 2,
-    },
+    topBarBrand: { ...meta(14, "bold"), flex: 1,
+        
+        
+        color: lightColors.primary },
     langToggle: {
         flexDirection: "row",
         borderWidth: 1,
-        borderColor: "#D1CBC3",
+        borderColor: lightColors.textFaint,
         overflow: "hidden",
     },
     langPill: {
@@ -1062,71 +1060,42 @@ const s = StyleSheet.create({
         paddingVertical: 6,
         backgroundColor: "transparent",
     },
-    langPillActive: { backgroundColor: "#8C0327" },
-    langPillText: {
-        fontSize: 11,
-        fontWeight: "700",
-        color: "#9CA3AF",
-        letterSpacing: 1,
-    },
+    langPillActive: { backgroundColor: lightColors.primary },
+    langPillText: { ...lbl(11, "bold", 0.09), color: lightColors.textLight },
     langPillTextActive: { color: "#fff" },
 
     scroll: { paddingHorizontal: 20 },
 
     // Hero
     hero: { paddingTop: 8, paddingBottom: 28 },
-    heroLabel: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: "#8C0327",
-        letterSpacing: 2,
-        marginBottom: 8,
-    },
-    heroHeading: {
-        fontSize: 38,
-        fontWeight: "900",
-        color: "#111827",
-        letterSpacing: -1,
-        lineHeight: 42,
-    },
+    heroLabel: { ...lbl(10, "bold", 0.12), color: lightColors.primary,
+        
+        marginBottom: 8 },
+    heroHeading: { fontFamily: fonts.displayBold, fontSize: 38, letterSpacing: -1, color: lightColors.text,
+        
+        lineHeight: 42 },
 
     // Sections
     section: { marginBottom: 32 },
-    sectionLabel: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: "#8C0327",
-        letterSpacing: 1.5,
-        marginBottom: 14,
-    },
+    sectionLabel: { ...lbl(10, "bold", 0.12), color: lightColors.primary,
+        
+        marginBottom: 14 },
 
-    visualSub: {
-        fontSize: 10,
-        color: "#9CA3AF",
-        letterSpacing: 0.3,
-        marginBottom: 10,
-    },
+    visualSub: { ...meta(10, "regular"), color: lightColors.textLight,
+        
+        marginBottom: 10 },
 
     // Title input
-    titleInput: {
-        fontSize: 28,
-        fontWeight: "800",
-        color: "#000",
-        letterSpacing: -0.5,
+    titleInput: { fontFamily: fonts.displayBold, fontSize: 28, letterSpacing: -0.5, color: "#000",
+        
         lineHeight: 34,
         paddingVertical: 0,
-        minHeight: 40,
-    },
-    fieldError: {
-        fontSize: 11,
-        color: "#DC2626",
-        marginTop: 4,
-        fontWeight: "600",
-        letterSpacing: 0.3,
-    },
+        minHeight: 40 },
+    fieldError: { ...meta(11, "semi"), color: "#DC2626",
+        marginTop: 4 },
     titleUnderline: {
         height: 1.5,
-        backgroundColor: "#8C0327",
+        backgroundColor: lightColors.primary,
         marginTop: 8,
         opacity: 0.4,
     },
@@ -1141,28 +1110,19 @@ const s = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 12,
     },
-    fieldLabel: {
-        fontSize: 9,
-        fontWeight: "800",
-        color: "#9CA3AF",
-        letterSpacing: 1.5,
-        marginBottom: 6,
-    },
+    fieldLabel: { ...lbl(9, "bold", 0.12), color: lightColors.textLight,
+        
+        marginBottom: 6 },
     fieldRow: {
         flexDirection: "row",
         alignItems: "center",
     },
-    fieldInput: {
-        flex: 1,
-        fontSize: 15,
-        fontWeight: "600",
-        color: "#111827",
-        paddingVertical: 0,
-    },
-    fieldInputPlaceholder: {
-        color: "#C4BFB8",
-        fontWeight: "400",
-    },
+    fieldInput: { ...meta(15, "semi"), flex: 1,
+        
+        
+        color: lightColors.text,
+        paddingVertical: 0 },
+    fieldInputPlaceholder: { ...meta(13, "regular"), color: lightColors.textFaint },
 
     // Venue
     venueRow: {
@@ -1170,14 +1130,12 @@ const s = StyleSheet.create({
         alignItems: "flex-start",
         gap: 8,
     },
-    venueInput: {
-        flex: 1,
-        fontSize: 18,
-        fontWeight: "700",
-        color: "#8C0327",
-        letterSpacing: 0.3,
-        paddingVertical: 0,
-    },
+    venueInput: { fontFamily: fonts.displayBold, fontSize: 18, flex: 1,
+        
+        
+        color: lightColors.primary,
+        
+        paddingVertical: 0 },
 
     // Narrative
     narrativeWrap: {
@@ -1186,18 +1144,16 @@ const s = StyleSheet.create({
     },
     narrativeAccent: {
         width: 3,
-        backgroundColor: "#8C0327",
+        backgroundColor: lightColors.primary,
         borderRadius: 2,
         minHeight: 120,
     },
-    narrativeInput: {
-        flex: 1,
-        fontSize: 15,
-        color: "#111827",
+    narrativeInput: { fontFamily: fonts.body, fontSize: 15, flex: 1,
+        
+        color: lightColors.text,
         lineHeight: 24,
         minHeight: 120,
-        paddingVertical: 4,
-    },
+        paddingVertical: 4 },
 
     // Bottom bar
     bottomBar: {
@@ -1205,9 +1161,9 @@ const s = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: "#F7F3EE",
+        backgroundColor: lightColors.bg,
         borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: "#D1CBC3",
+        borderTopColor: lightColors.textFaint,
         paddingBottom: 30,
         paddingTop: 10,
         paddingHorizontal: 20,
@@ -1223,14 +1179,9 @@ const s = StyleSheet.create({
         width: 7,
         height: 7,
         borderRadius: 4,
-        backgroundColor: "#8C0327",
+        backgroundColor: lightColors.primary,
     },
-    draftStatusText: {
-        fontSize: 9,
-        fontWeight: "700",
-        color: "#9CA3AF",
-        letterSpacing: 1.5,
-    },
+    draftStatusText: { ...lbl(9, "bold", 0.12), color: lightColors.textLight },
     bottomBtns: {
         flexDirection: "row",
         gap: 10,
@@ -1238,35 +1189,27 @@ const s = StyleSheet.create({
     btnDraft: {
         flex: 1,
         paddingVertical: 14,
-        backgroundColor: "#E5E0D8",
+        backgroundColor: lightColors.border,
         alignItems: "center",
         justifyContent: "center",
     },
-    btnDraftText: {
-        fontSize: 11,
-        fontWeight: "800",
-        color: "#374151",
-        letterSpacing: 1,
+    btnDraftText: { ...lbl(11, "bold", 0.09), color: lightColors.textBody,
+        
         textAlign: "center",
-        lineHeight: 16,
-    },
+        lineHeight: 16 },
     btnPublish: {
         flex: 1,
         paddingVertical: 14,
-        backgroundColor: "#8C0327",
+        backgroundColor: lightColors.primary,
         alignItems: "center",
         justifyContent: "center",
     },
-    btnPublishText: {
-        fontSize: 11,
-        fontWeight: "800",
-        color: "#fff",
-        letterSpacing: 1,
+    btnPublishText: { ...lbl(11, "bold", 0.09), color: "#fff",
+        
         textAlign: "center",
-        lineHeight: 16,
-    },
+        lineHeight: 16 },
     btnPublishDisabled: {
-        backgroundColor: "#C4BFB8",
+        backgroundColor: lightColors.textFaint,
     },
 
     // Requirements checklist
@@ -1281,14 +1224,9 @@ const s = StyleSheet.create({
         alignItems: "center",
         gap: 4,
     },
-    reqText: {
-        fontSize: 9,
-        fontWeight: "700",
-        color: "#C4BFB8",
-        letterSpacing: 0.8,
-    },
+    reqText: { ...lbl(9, "bold", 0.09), color: lightColors.textFaint },
     reqTextMet: {
-        color: "#8C0327",
+        color: lightColors.primary,
     },
 
     // Date/time picker modal (iOS)
@@ -1299,7 +1237,7 @@ const s = StyleSheet.create({
     pickerSheet: {
         backgroundColor: "#FFFFFF",
         borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: "#D1CBC3",
+        borderTopColor: lightColors.textFaint,
         paddingBottom: 34,
     },
     pickerSheetHeader: {
@@ -1309,31 +1247,18 @@ const s = StyleSheet.create({
         paddingHorizontal: 20,
         paddingVertical: 14,
         borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: "#E5E0D8",
+        borderBottomColor: lightColors.border,
     },
-    pickerSheetTitle: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: "#8C0327",
-        letterSpacing: 1.5,
-    },
+    pickerSheetTitle: { ...lbl(10, "bold", 0.12), color: lightColors.primary },
     pickerDoneBtn: {
         paddingHorizontal: 14,
         paddingVertical: 6,
-        backgroundColor: "#8C0327",
+        backgroundColor: lightColors.primary,
     },
-    pickerDoneText: {
-        fontSize: 11,
-        fontWeight: "800",
-        color: "#fff",
-        letterSpacing: 1,
-    },
-    tagHint: {
-        fontSize: 11,
-        color: "#9CA3AF",
-        fontWeight: "500",
-        marginBottom: 10,
-    },
+    pickerDoneText: { ...lbl(11, "bold", 0.09), color: "#fff" },
+    tagHint: { ...meta(11, "medium"), color: lightColors.textLight,
+        
+        marginBottom: 10 },
     tagGrid: {
         flexDirection: "row",
         flexWrap: "wrap",
@@ -1343,19 +1268,14 @@ const s = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 7,
         borderWidth: 1.5,
-        borderColor: "#E5E7EB",
+        borderColor: lightColors.border,
         backgroundColor: "#fff",
     },
     tagChipActive: {
-        borderColor: "#8C0327",
-        backgroundColor: "#8C0327",
+        borderColor: lightColors.primary,
+        backgroundColor: lightColors.primary,
     },
-    tagChipText: {
-        fontSize: 11,
-        fontWeight: "700",
-        color: "#6B7280",
-        letterSpacing: 0.5,
-    },
+    tagChipText: { ...meta(11, "bold"), color: lightColors.textMuted },
     tagChipTextActive: {
         color: "#fff",
     },
@@ -1369,22 +1289,22 @@ export const cs = StyleSheet.create({
         justifyContent: "space-between",
         paddingVertical: 14,
         borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: "#E5E0D8",
+        borderBottomColor: lightColors.border,
         gap: 12,
     },
     rowLeft: { flex: 1, gap: 2 },
-    rowTitle: { fontSize: 10, fontWeight: "800", color: "#111827", letterSpacing: 1 },
-    rowSub: { fontSize: 11, color: "#9CA3AF" },
+    rowTitle: { ...lbl(10, "bold", 0.1), color: lightColors.text },
+    rowSub: { ...meta(11, "regular"), color: lightColors.textLight },
 
     toggle: {
         width: 44,
         height: 24,
         borderRadius: 12,
-        backgroundColor: "#E5E0D8",
+        backgroundColor: lightColors.border,
         justifyContent: "center",
         paddingHorizontal: 2,
     },
-    toggleOn: { backgroundColor: "#8C0327" },
+    toggleOn: { backgroundColor: lightColors.primary },
     toggleThumb: {
         width: 20,
         height: 20,
@@ -1402,7 +1322,7 @@ export const cs = StyleSheet.create({
         paddingHorizontal: 10,
         paddingVertical: 6,
     },
-    dateBtnText: { fontSize: 10, fontWeight: "700", color: "#374151", letterSpacing: 0.5 },
+    dateBtnText: { ...meta(10, "bold"), color: lightColors.textBody },
 
     slowPills: { flexDirection: "row", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" },
     slowPill: {
@@ -1411,7 +1331,7 @@ export const cs = StyleSheet.create({
         borderWidth: 1,
         borderColor: "#D4CFC8",
     },
-    slowPillActive: { borderColor: "#8C0327", backgroundColor: "#FEF2F2" },
-    slowPillText: { fontSize: 10, fontWeight: "700", color: "#9CA3AF", letterSpacing: 0.5 },
-    slowPillTextActive: { color: "#8C0327" },
+    slowPillActive: { borderColor: lightColors.primary, backgroundColor: "#FEF2F2" },
+    slowPillText: { ...meta(10, "bold"), color: lightColors.textLight },
+    slowPillTextActive: { color: lightColors.primary },
 });

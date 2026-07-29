@@ -13,6 +13,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../lib/ThemeContext";
 import { useReduceMotion } from "../lib/useReduceMotion";
+import { fonts, lbl, meta } from "../styles/theme";
 
 type Props = {
     visible: boolean;
@@ -103,6 +104,6 @@ const s = StyleSheet.create({
         borderBottomWidth: StyleSheet.hairlineWidth,
     },
     headerLeft: { flexDirection: "row", alignItems: "center", gap: 8, flex: 1, minWidth: 0 },
-    title: { fontSize: 14, fontWeight: "900", letterSpacing: 2 },
-    count: { fontSize: 11, fontWeight: "700" },
+    title: { ...meta(14, "bold") },
+    count: { ...meta(11, "bold") },
 });

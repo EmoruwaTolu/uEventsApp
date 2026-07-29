@@ -5,6 +5,14 @@ import PatternBackground from "../components/PatternBackground";
 import React from "react";
 import { View, ActivityIndicator, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useFonts } from "expo-font";
+import { Outfit_600SemiBold, Outfit_700Bold } from "@expo-google-fonts/outfit";
+import {
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+} from "@expo-google-fonts/plus-jakarta-sans";
 import { initObservability, analytics, wrapRoot } from "../lib/analytics";
 
 // Crash reporting + product analytics. No-ops without env keys (lib/analytics.ts).
@@ -69,10 +77,10 @@ class ErrorBoundary extends React.Component<
 }
 
 const eb = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#F7F3EE", alignItems: "center", justifyContent: "center", padding: 32 },
-    title: { fontSize: 22, fontWeight: "800", color: "#111827", marginBottom: 12, textAlign: "center" },
-    body: { fontSize: 14, color: "#6B7280", lineHeight: 20, textAlign: "center", marginBottom: 28 },
-    btn: { backgroundColor: "#8C0327", paddingVertical: 14, paddingHorizontal: 32 },
+    container: { flex: 1, backgroundColor: "#F7F3EC", alignItems: "center", justifyContent: "center", padding: 32 },
+    title: { fontSize: 22, fontWeight: "800", color: "#1B2233", marginBottom: 12, textAlign: "center" },
+    body: { fontSize: 14, color: "#8A8578", lineHeight: 20, textAlign: "center", marginBottom: 28 },
+    btn: { backgroundColor: "#8E0B2C", paddingVertical: 14, paddingHorizontal: 32 },
     btnText: { fontSize: 12, fontWeight: "800", color: "#fff", letterSpacing: 2 },
 });
 
@@ -95,10 +103,10 @@ function Gate() {
     // Show loading state while checking auth
     if (isLoading) {
         return (
-            <View style={{ flex: 1, backgroundColor: "#D0D0D0", alignItems: "center", justifyContent: "center" }}>
-                <StatusBar style="dark" backgroundColor="#D0D0D0" />
+            <View style={{ flex: 1, backgroundColor: "#F7F3EC", alignItems: "center", justifyContent: "center" }}>
+                <StatusBar style="dark" backgroundColor="#F7F3EC" />
                 <PatternBackground />
-                <ActivityIndicator size="large" color="#8C0327" />
+                <ActivityIndicator size="large" color="#8E0B2C" />
             </View>
         );
     }
@@ -128,7 +136,7 @@ function Gate() {
         <Stack
             screenOptions={{
                 headerShown: false,
-                contentStyle: { backgroundColor: "#D0D0D0" },
+                contentStyle: { backgroundColor: "#F7F3EC" },
             }}
             initialRouteName="(auth)"
         >
@@ -160,10 +168,37 @@ function Gate() {
 }
 
 function RootLayout() {
+    // The editorial theme selects type by family name, so nothing renders with
+    // the right face until these resolve. Hold on the same loading treatment the
+    // auth gate uses rather than flashing system fonts for a frame.
+    const [fontsLoaded, fontError] = useFonts({
+        Outfit_600SemiBold,
+        Outfit_700Bold,
+        PlusJakartaSans_400Regular,
+        PlusJakartaSans_500Medium,
+        PlusJakartaSans_600SemiBold,
+        PlusJakartaSans_700Bold,
+    });
+
+    React.useEffect(() => {
+        if (fontError) analytics.captureError(fontError, { stage: "font-load" });
+    }, [fontError]);
+
+    // On a font failure fall through to the app anyway — system fallbacks are
+    // ugly but shipping a permanently blank screen is worse.
+    if (!fontsLoaded && !fontError) {
+        return (
+            <View style={{ flex: 1, backgroundColor: "#F7F3EC", alignItems: "center", justifyContent: "center" }}>
+                <StatusBar style="dark" backgroundColor="#F7F3EC" />
+                <ActivityIndicator size="large" color="#8E0B2C" />
+            </View>
+        );
+    }
+
     return (
         <ErrorBoundary>
             <ThemeProvider>
-            <SafeAreaProvider style={{ flex: 1, backgroundColor: "#D0D0D0" }}>
+            <SafeAreaProvider style={{ flex: 1, backgroundColor: "#F7F3EC" }}>
                 <AuthProvider>
                     <LangProvider>
                         <RsvpProvider>
@@ -171,7 +206,7 @@ function RootLayout() {
                                 <BookmarkProvider>
                                     <ToastProvider>
                                         <GuestModalProvider>
-                                            <StatusBar style="dark" backgroundColor="#D0D0D0" />
+                                            <StatusBar style="dark" backgroundColor="#F7F3EC" />
                                             <Gate />
                                             <OfflineBanner />
                                         </GuestModalProvider>

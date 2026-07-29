@@ -9,7 +9,7 @@ import { useApi } from "../lib/useApi";
 import { useT, useLang } from "../lib/LangContext";
 import { timeAgo } from "../lib/datetime";
 import { useTheme } from "../lib/ThemeContext";
-import type { AppColors } from "../styles/theme";
+import { meta, lbl, fonts, AppColors } from "../styles/theme";
 
 type PostType = "EVENT" | "POLL" | "ANNOUNCEMENT" | "UPDATE";
 type FilterType = "all" | "event" | "poll" | "announcement";
@@ -47,32 +47,27 @@ const makeMyPostsStyles = (C: AppColors) => StyleSheet.create({
         paddingVertical: 12,
     },
     backGroup: { flexDirection: "row", alignItems: "center", gap: 6 },
-    backLabel: { fontSize: 14, fontWeight: "900", color: C.primary, letterSpacing: 2 },
+    backLabel: { ...meta(14, "bold"), color: C.primary },
     topBarCounts: { flexDirection: "row", gap: 8 },
     countBadge: {
         backgroundColor: C.primary,
         paddingHorizontal: 10,
         paddingVertical: 5,
     },
-    countBadgeText: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: "#fff",
-        letterSpacing: 1,
-    },
+    countBadgeText: { ...lbl(10, "bold", 0.1), color: "#fff" },
     countBadgeDraft: { backgroundColor: C.border },
     countBadgeTextDraft: { color: C.textBody },
 
     scroll: { paddingHorizontal: 20 },
     hero: { paddingTop: 8, paddingBottom: 24 },
-    heroLabel: { fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 2, marginBottom: 8 },
-    heroHeading: { fontSize: 42, fontWeight: "900", color: C.text, letterSpacing: -1, lineHeight: 46 },
+    heroLabel: { ...lbl(10, "bold", 0.12), color: C.primary,  marginBottom: 8 },
+    heroHeading: { fontFamily: fonts.displayBold, fontSize: 42, letterSpacing: -1, color: C.text,  lineHeight: 46 },
     heroAccent: { width: 48, height: 3, backgroundColor: C.primary, marginTop: 14 },
 
     filterRow: { flexDirection: "row", gap: 8, paddingBottom: 24 },
     filterPill: { paddingHorizontal: 14, paddingVertical: 7, backgroundColor: C.surfaceAlt },
     filterPillActive: { backgroundColor: "#1F2937" },
-    filterPillText: { fontSize: 10, fontWeight: "800", color: C.textLight, letterSpacing: 1 },
+    filterPillText: { ...lbl(10, "bold", 0.1), color: C.textLight },
     filterPillTextActive: { color: "#fff" },
 
     list: { gap: 10 },
@@ -83,18 +78,18 @@ const makeMyPostsStyles = (C: AppColors) => StyleSheet.create({
     cardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     headerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
     typeBadge: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 8, paddingVertical: 4 },
-    typeBadgeText: { fontSize: 9, fontWeight: "800", letterSpacing: 1 },
-    editedAt: { fontSize: 10, color: C.textLight, fontWeight: "600" },
+    typeBadgeText: { ...lbl(9, "bold", 0.11) },
+    editedAt: { ...meta(10, "semi"), color: C.textLight },
 
     livePill: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#DCFCE7", paddingHorizontal: 7, paddingVertical: 3 },
     liveDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "#16A34A" },
-    livePillText: { fontSize: 9, fontWeight: "800", color: "#16A34A", letterSpacing: 1 },
+    livePillText: { ...lbl(9, "bold", 0.11), color: "#16A34A" },
 
     draftPill: { backgroundColor: C.surfaceAlt, paddingHorizontal: 7, paddingVertical: 3 },
-    draftPillText: { fontSize: 9, fontWeight: "800", color: C.textMuted, letterSpacing: 1 },
+    draftPillText: { ...lbl(9, "bold", 0.11), color: C.textMuted },
 
-    cardTitle: { fontSize: 16, fontWeight: "900", color: C.primary, letterSpacing: 0.2, lineHeight: 22 },
-    cardPreview: { fontSize: 13, color: C.textMuted, lineHeight: 19 },
+    cardTitle: { ...meta(16, "bold"), color: C.primary,  lineHeight: 22 },
+    cardPreview: { ...meta(13, "regular"), color: C.textMuted, lineHeight: 19 },
     cardFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
     footerLeft: { flexDirection: "row", alignItems: "center", gap: 6 },
     footerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
@@ -111,7 +106,7 @@ const makeMyPostsStyles = (C: AppColors) => StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 8,
     },
-    analyticsBtnText: { fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 1 },
+    analyticsBtnText: { ...lbl(10, "bold", 0.1), color: C.primary },
     editBtn: {
         flexDirection: "row",
         alignItems: "center",
@@ -120,12 +115,12 @@ const makeMyPostsStyles = (C: AppColors) => StyleSheet.create({
         paddingHorizontal: 14,
         paddingVertical: 8,
     },
-    editBtnText: { fontSize: 10, fontWeight: "800", color: "#fff", letterSpacing: 1 },
+    editBtnText: { ...lbl(10, "bold", 0.1), color: "#fff" },
 
     emptyState: { alignItems: "center", paddingVertical: 60, gap: 12 },
-    emptyText: { fontSize: 11, fontWeight: "700", color: C.textFaint, letterSpacing: 2 },
+    emptyText: { ...meta(13.5), color: C.textMuted },
     errorRetry: { borderWidth: 1.5, borderColor: C.primary, paddingHorizontal: 20, paddingVertical: 10 },
-    errorRetryText: { fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 1.5 },
+    errorRetryText: { ...lbl(10, "bold", 0.12), color: C.primary },
 });
 
 export default function MyPostsScreen() {
@@ -137,8 +132,8 @@ export default function MyPostsScreen() {
     const styles = useMemo(() => makeMyPostsStyles(C), [C]);
 
     const TYPE_META: Record<string, { label: string; icon: any; color: string; bg: string }> = {
-        EVENT:        { label: t.contentTypeEvent,        icon: "calendar-sharp", color: "#8C0327", bg: "#FEE2E2" },
-        ANNOUNCEMENT: { label: t.contentTypeAnnouncement, icon: "megaphone",      color: "#374151", bg: "#E5E7EB" },
+        EVENT:        { label: t.contentTypeEvent,        icon: "calendar-sharp", color: C.primary, bg: "#FEE2E2" },
+        ANNOUNCEMENT: { label: t.contentTypeAnnouncement, icon: "megaphone",      color: C.textBody, bg: C.border },
         POLL:         { label: t.contentTypePoll,         icon: "grid",           color: "#1D4ED8", bg: "#DBEAFE" },
         UPDATE:       { label: "UPDATE",                  icon: "newspaper",      color: "#065F46", bg: "#D1FAE5" },
     };
@@ -312,7 +307,7 @@ export default function MyPostsScreen() {
                             <Ionicons name="document-outline" size={32} color={C.textFaint} />
                             <Text style={styles.emptyText}>{t.noPostsHere}</Text>
                             <Pressable onPress={() => router.push("/(tabs)/create" as any)} style={{ marginTop: 4, backgroundColor: C.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 6 }} accessibilityRole="button" accessibilityLabel="Create a post">
-                                <Text style={{ fontSize: 11, fontWeight: "800", color: "#fff", letterSpacing: 1.5 }}>{t.createAPost}</Text>
+                                <Text style={{ ...lbl(11, "bold", 0.12), color: "#fff" }}>{t.createAPost}</Text>
                             </Pressable>
                         </View>
                     ) : (

@@ -24,10 +24,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTheme } from "../../lib/ThemeContext";
-import type { AppColors } from "../../styles/theme";
+import { lightColors, meta, lbl, fonts, AppColors } from "../../styles/theme";
 import { EVENT_TAGS } from "../../lib/eventTags";
 
-const BURGUNDY = "#8C0327";
+const BURGUNDY = lightColors.primary;
 
 type User = {
     id: string;
@@ -263,7 +263,7 @@ export default function ProfilePage({
                 </View>
                 <View style={s.mastheadIdentity}>
                     <View style={{ flex: 1 }}>
-                        <Text style={s.mastheadName} numberOfLines={2}>{(user.name || "").toUpperCase()}</Text>
+                        <Text style={s.mastheadName} numberOfLines={2}>{user.name || ""}</Text>
                         <View style={s.mastheadAccent} />
                     </View>
                     {user.avatar ? (
@@ -395,7 +395,7 @@ export default function ProfilePage({
                                 <View style={s.emptyState}>
                                     <Ionicons name="pulse-outline" size={32} color={C.textFaint} />
                                     <Text style={s.emptyText}>{t.noActivityYet}</Text>
-                                    <Text style={[s.emptyText, { fontSize: 12, color: C.textMuted, marginTop: 4 }]}>
+                                    <Text style={[s.emptyText, { ...meta(12, "regular"), color: C.textMuted, marginTop: 4 }]}>
                                         {t.noActivityDesc}
                                     </Text>
                                     {followedClubs.length === 0 && (
@@ -403,7 +403,7 @@ export default function ProfilePage({
                                             onPress={() => router.push("/(tabs)/search" as any)}
                                             style={{ marginTop: 12, backgroundColor: C.primary, paddingHorizontal: 20, paddingVertical: 10 }}
                                         >
-                                            <Text style={{ fontSize: 11, fontWeight: "800", color: "#fff", letterSpacing: 1.5 }}>{t.discoverClubs}</Text>
+                                            <Text style={{ ...lbl(11, "bold", 0.12), color: "#fff" }}>{t.discoverClubs}</Text>
                                         </Pressable>
                                     )}
                                 </View>
@@ -872,7 +872,7 @@ function EmptyState({ icon, text, ctaLabel, onCta }: { icon: any; text: string; 
             <Text style={s.emptyText}>{text}</Text>
             {ctaLabel && onCta && (
                 <Pressable onPress={onCta} style={{ marginTop: 4, backgroundColor: C.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 6 }} accessibilityRole="button" accessibilityLabel={ctaLabel}>
-                    <Text style={{ fontSize: 11, fontWeight: "800", color: "#fff", letterSpacing: 1.5 }}>{ctaLabel.toUpperCase()}</Text>
+                    <Text style={{ ...lbl(11, "bold", 0.12), color: "#fff" }}>{ctaLabel.toUpperCase()}</Text>
                 </Pressable>
             )}
         </View>
@@ -1047,25 +1047,16 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         justifyContent: "space-between",
         marginBottom: 16,
     },
-    mastheadLabel: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 2,
-    },
+    mastheadLabel: { ...lbl(10, "bold", 0.12), color: C.primary },
     mastheadActions: { flexDirection: "row", gap: 4 },
     mastheadIdentity: {
         flexDirection: "row",
         alignItems: "flex-start",
         gap: 16,
     },
-    mastheadName: {
-        fontSize: 36,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: -1,
-        lineHeight: 40,
-    },
+    mastheadName: { fontFamily: fonts.displayBold, fontSize: 36, letterSpacing: -1, color: C.text,
+        
+        lineHeight: 40 },
     mastheadAccent: {
         width: 48,
         height: 3,
@@ -1089,11 +1080,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         justifyContent: "center",
         flexShrink: 0,
     },
-    mastheadAvatarInitial: {
-        fontSize: 28,
-        fontWeight: "900",
-        color: "#fff",
-    },
+    mastheadAvatarInitial: { fontFamily: fonts.displayBold, fontSize: 28, color: "#fff" },
 
     // Dark stats strip
     statsStrip: {
@@ -1104,8 +1091,8 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         marginHorizontal: -20,
     },
     stat: { flex: 1, alignItems: "center", gap: 2 },
-    statNum: { fontSize: 20, fontWeight: "900", color: C.surface },
-    statLabel: { fontSize: 9, fontWeight: "700", color: C.textMuted, letterSpacing: 1 },
+    statNum: { fontFamily: fonts.displayBold, fontSize: 20, color: C.surface },
+    statLabel: { ...lbl(9, "bold", 0.11), color: C.textMuted },
     statDivider: { width: 1, height: 24, backgroundColor: C.textBody },
     semesterRecap: {
         flexDirection: "row",
@@ -1116,39 +1103,39 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingHorizontal: 16,
         backgroundColor: C.primaryBg,
     },
-    semesterRecapText: { fontSize: 12, fontWeight: "700", color: BURGUNDY, letterSpacing: 0.2 },
+    semesterRecapText: { ...meta(12, "bold"), color: BURGUNDY },
 
     // ── Redesigned student profile ──
     spTopBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 8 },
     spIdentity: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 16, paddingTop: 12 },
     spAvatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: C.skeleton },
     spAvatarPlaceholder: { backgroundColor: C.primary, alignItems: "center", justifyContent: "center" },
-    spAvatarInitial: { fontSize: 18, fontWeight: "800", color: "#fff" },
-    spName: { fontSize: 24, fontWeight: "900", color: C.text, letterSpacing: -0.5, lineHeight: 27 },
-    spSub: { fontSize: 13, color: C.textMuted, marginTop: 3 },
+    spAvatarInitial: { fontFamily: fonts.displayBold, fontSize: 18, color: "#fff" },
+    spName: { fontFamily: fonts.displayBold, fontSize: 24, letterSpacing: -0.5, color: C.text,  lineHeight: 27 },
+    spSub: { ...meta(13, "regular"), color: C.textMuted, marginTop: 3 },
     spAccent: { width: 36, height: 3, backgroundColor: C.primary, marginLeft: 16, marginTop: 10 },
 
     spTermCard: { backgroundColor: C.surface, borderWidth: 1, borderColor: C.borderWarm, marginHorizontal: 12, marginTop: 14, paddingHorizontal: 16, paddingVertical: 14 },
-    spTermEyebrow: { fontSize: 10, fontWeight: "800", letterSpacing: 2, color: C.textMuted },
+    spTermEyebrow: { ...lbl(10, "bold", 0.12), color: C.textMuted },
     spTermRow: { flexDirection: "row", alignItems: "baseline", gap: 8, marginTop: 6 },
-    spTermNum: { fontSize: 30, fontWeight: "900", color: C.gold, letterSpacing: -1 },
-    spTermLabel: { fontSize: 13, color: C.text },
+    spTermNum: { fontFamily: fonts.displayBold, fontSize: 30, letterSpacing: -1, color: C.gold },
+    spTermLabel: { ...meta(13, "regular"), color: C.text },
     spCountRow: { flexDirection: "row", gap: 20, marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.borderWarm },
     spCount: { flexDirection: "row", alignItems: "baseline", gap: 5 },
-    spCountNum: { fontSize: 15, fontWeight: "800", color: C.text },
-    spCountLabel: { fontSize: 11, fontWeight: "600", color: C.textMuted, letterSpacing: 0.5 },
+    spCountNum: { ...meta(15, "bold"), color: C.text },
+    spCountLabel: { ...meta(11, "semi"), color: C.textMuted },
 
     spSectionHeader: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingTop: 22, paddingBottom: 10 },
-    spSectionTitle: { fontSize: 11, fontWeight: "800", letterSpacing: 1.5, color: C.text },
-    spSectionCount: { fontSize: 11, color: C.textLight },
+    spSectionTitle: { ...lbl(11, "bold", 0.12), color: C.text },
+    spSectionCount: { ...meta(11, "regular"), color: C.textLight },
     spSectionLine: { flex: 1, height: 1, backgroundColor: C.borderWarm },
     spViewAll: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingVertical: 12, borderTopWidth: 1, borderTopColor: C.borderWarm },
     spViewAllLink: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingVertical: 14, marginTop: 4 },
-    spViewAllText: { fontSize: 10, fontWeight: "800", letterSpacing: 1, color: C.primary },
+    spViewAllText: { ...lbl(10, "bold", 0.1), color: C.primary },
     spChips: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 16 },
     spChip: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 11, paddingVertical: 6, borderWidth: 1.5, borderColor: C.border, backgroundColor: C.surface },
     spChipActive: { borderColor: C.primary, backgroundColor: C.primary },
-    spChipText: { fontSize: 11, fontWeight: "800", letterSpacing: 0.5, color: C.textMuted },
+    spChipText: { ...meta(11, "bold"), color: C.textMuted },
     spChipTextActive: { color: "#fff" },
     sheetBody: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 40, gap: 16 },
 
@@ -1169,22 +1156,12 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         justifyContent: "space-between",
         marginBottom: 14,
     },
-    cardLabel: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 2,
-    },
-    cardCount: {
-        fontSize: 10,
-        fontWeight: "700",
-        color: C.textMuted,
-        letterSpacing: 1,
-    },
+    cardLabel: { ...lbl(10, "bold", 0.12), color: C.primary },
+    cardCount: { ...lbl(10, "bold", 0.1), color: C.textMuted },
 
     // About
     aboutBody: { gap: 0 },
-    aboutText: { fontSize: 13, color: C.textBody, fontWeight: "500" },
+    aboutText: { ...meta(13, "medium"), color: C.textBody },
     aboutLink: { color: C.primary },
     aboutDetailRow: {
         flexDirection: "row",
@@ -1194,20 +1171,11 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         borderBottomWidth: StyleSheet.hairlineWidth,
         borderBottomColor: C.borderWarm,
     },
-    aboutDetailLabel: {
-        fontSize: 9,
-        fontWeight: "800",
-        color: C.textMuted,
-        letterSpacing: 1.5,
-    },
-    aboutDetailValue: {
-        fontSize: 13,
-        fontWeight: "600",
-        color: C.text,
+    aboutDetailLabel: { ...lbl(9, "bold", 0.12), color: C.textMuted },
+    aboutDetailValue: { ...meta(13, "semi"), color: C.text,
         flexShrink: 1,
         textAlign: "right",
-        maxWidth: "65%",
-    },
+        maxWidth: "65%" },
 
     // Followed clubs list
     clubList: {},
@@ -1232,17 +1200,8 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         flex: 1,
         gap: 4,
     },
-    clubRowName: {
-        fontSize: 15,
-        fontWeight: "700",
-        color: C.text,
-        letterSpacing: 0.1,
-    },
-    clubRowSub: {
-        fontSize: 12,
-        color: C.textMuted,
-        fontWeight: "400",
-    },
+    clubRowName: { ...meta(15, "bold"), color: C.text },
+    clubRowSub: { ...meta(12, "regular"), color: C.textMuted },
     clubBellBtn: {
         width: 36,
         height: 36,
@@ -1257,7 +1216,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         backgroundColor: C.primaryBg,
     },
     clubInitialsBox: { backgroundColor: C.primary, alignItems: "center", justifyContent: "center", flexShrink: 0 },
-    clubInitialsText: { color: "#fff", fontWeight: "800", letterSpacing: 0.5 },
+    clubInitialsText: { ...meta(13, "bold"), color: "#fff" },
 
     // See more button
     seeMoreBtn: {
@@ -1278,12 +1237,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         borderWidth: 1.5,
         borderColor: C.primary,
     },
-    seeMoreText: {
-        fontSize: 11,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 1.5,
-    },
+    seeMoreText: { ...lbl(11, "bold", 0.12), color: C.primary },
 
     // Clubs full-list modal
     clubsSheet: {
@@ -1318,7 +1272,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingVertical: 14,
         position: "relative",
     },
-    tabLabel: { fontSize: 10, fontWeight: "800", color: C.textMuted, letterSpacing: 1 },
+    tabLabel: { ...lbl(10, "bold", 0.1), color: C.textMuted },
     tabLabelActive: { color: C.text },
     tabUnderline: {
         position: "absolute",
@@ -1356,22 +1310,10 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         alignItems: "center",
         gap: 10,
     },
-    feedCardClub: {
-        fontSize: 12,
-        fontWeight: "800",
-        color: C.text,
-        letterSpacing: 0.3,
-    },
-    feedCardMeta: {
-        fontSize: 11,
-        color: C.textMuted,
-        fontWeight: "500",
-    },
-    feedCardBody: {
-        fontSize: 13,
-        color: C.textMuted,
-        lineHeight: 20,
-    },
+    feedCardClub: { ...meta(12, "bold"), color: C.text },
+    feedCardMeta: { ...meta(11, "medium"), color: C.textMuted },
+    feedCardBody: { ...meta(13, "regular"), color: C.textMuted,
+        lineHeight: 20 },
     feedCardImage: {
         width: "100%",
         height: 160,
@@ -1385,28 +1327,15 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         borderTopWidth: StyleSheet.hairlineWidth,
         borderTopColor: C.borderWarm,
     },
-    feedCardTime: {
-        fontSize: 11,
-        color: C.textFaint,
-        marginLeft: "auto" as any,
-        fontWeight: "600",
-    },
+    feedCardTime: { ...meta(11, "semi"), color: C.textFaint,
+        marginLeft: "auto" as any },
     feedStat: {
         flexDirection: "row",
         alignItems: "center",
         gap: 4,
     },
-    feedStatText: {
-        fontSize: 12,
-        fontWeight: "600",
-        color: C.textMuted,
-    },
-    postTypeBadge: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 1.5,
-    },
+    feedStatText: { ...meta(12, "semi"), color: C.textMuted },
+    postTypeBadge: { ...lbl(10, "bold", 0.12), color: C.primary },
     actionBadge: {
         width: 26,
         height: 26,
@@ -1430,19 +1359,10 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         height: 14,
         backgroundColor: C.primary,
     },
-    rsvpBadgeText: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 1.5,
-    },
-    rsvpTitle: {
-        fontSize: 20,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: -0.3,
-        lineHeight: 26,
-    },
+    rsvpBadgeText: { ...lbl(10, "bold", 0.12), color: C.primary },
+    rsvpTitle: { fontFamily: fonts.displayBold, fontSize: 20, letterSpacing: -0.3, color: C.text,
+        
+        lineHeight: 26 },
     rsvpMeta: {
         flexDirection: "row",
         flexWrap: "wrap",
@@ -1453,11 +1373,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         alignItems: "center",
         gap: 5,
     },
-    rsvpMetaText: {
-        fontSize: 12,
-        color: C.textMuted,
-        fontWeight: "500",
-    },
+    rsvpMetaText: { ...meta(12, "medium"), color: C.textMuted },
 
     modalSheet: {
         backgroundColor: C.bg,
@@ -1478,53 +1394,32 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         alignItems: "center",
         justifyContent: "space-between",
     },
-    modalTitle: {
-        fontSize: 14,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: 2,
-    },
+    modalTitle: { ...meta(14, "bold"), color: C.text },
     modalFields: {
         gap: 16,
     },
     fieldBlock: {
         gap: 6,
     },
-    fieldLabel: {
-        fontSize: 9,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 1.5,
-    },
-    fieldInput: {
-        backgroundColor: C.surface,
+    fieldLabel: { ...lbl(9, "bold", 0.12), color: C.primary },
+    fieldInput: { ...meta(14, "semi"), backgroundColor: C.surface,
         paddingHorizontal: 14,
         paddingVertical: 12,
-        fontSize: 14,
-        fontWeight: "600",
+        
+        
         color: C.text,
         borderWidth: 1.5,
-        borderColor: C.borderWarm,
-    },
+        borderColor: C.borderWarm },
     modalSaveBtn: {
         backgroundColor: C.primary,
         paddingVertical: 14,
         alignItems: "center",
     },
-    modalSaveText: {
-        fontSize: 12,
-        fontWeight: "800",
-        color: "#fff",
-        letterSpacing: 2,
-    },
+    modalSaveText: { ...lbl(12, "bold", 0.12), color: "#fff" },
 
-    notifModalSubtitle: {
-        fontSize: 9,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 1.5,
-        marginBottom: 4,
-    },
+    notifModalSubtitle: { ...lbl(9, "bold", 0.12), color: C.primary,
+        
+        marginBottom: 4 },
     notifOptRow: {
         flexDirection: "row",
         alignItems: "center",
@@ -1539,16 +1434,9 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
     notifOptRowActive: {
         borderColor: C.primary,
     },
-    notifOptLabel: {
-        fontSize: 13,
-        fontWeight: "700",
-        color: C.text,
-    },
-    notifOptDesc: {
-        fontSize: 11,
-        color: C.textMuted,
-        marginTop: 2,
-    },
+    notifOptLabel: { ...meta(13, "bold"), color: C.text },
+    notifOptDesc: { ...meta(11, "regular"), color: C.textMuted,
+        marginTop: 2 },
 
     // Soon badge
     soonBadge: {
@@ -1559,12 +1447,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
     soonBadgeToday: {
         backgroundColor: C.primary,
     },
-    soonBadgeText: {
-        fontSize: 9,
-        fontWeight: "800",
-        color: C.textMuted,
-        letterSpacing: 1,
-    },
+    soonBadgeText: { ...lbl(9, "bold", 0.11), color: C.textMuted },
     soonBadgeTextToday: {
         color: "#fff",
     },
@@ -1575,21 +1458,11 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingVertical: 60,
         gap: 12,
     },
-    emptyText: {
-        fontSize: 11,
-        fontWeight: "700",
-        color: C.textFaint,
-        letterSpacing: 2,
-    },
+    emptyText: { ...lbl(11, "bold", 0.12), color: C.textFaint },
     loadMoreBtn: {
         alignItems: "center",
         paddingVertical: 14,
         marginTop: 4,
     },
-    loadMoreText: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 1.5,
-    },
+    loadMoreText: { ...lbl(10, "bold", 0.12), color: C.primary },
 });

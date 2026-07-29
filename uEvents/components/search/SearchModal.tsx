@@ -11,7 +11,7 @@ import { useLang, pickLocale, useT } from "../../lib/LangContext";
 import { translateCategory } from "../../lib/categories";
 import { localeFor } from "../../lib/datetime";
 import { useTheme } from "../../lib/ThemeContext";
-import type { AppColors } from "../../styles/theme";
+import { meta, lbl, fonts, AppColors } from "../../styles/theme";
 
 type SearchCategory = "all" | "events" | "clubs" | "posts";
 
@@ -57,7 +57,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         backgroundColor: C.bg,
     },
     backGroup: { flexDirection: "row", alignItems: "center", gap: 6 },
-    backLabel: { fontSize: 14, fontWeight: "900", color: C.primary, letterSpacing: 2 },
+    backLabel: { ...meta(14, "bold"), color: C.primary },
 
     inputWrap: {
         flex: 1, flexDirection: "row", alignItems: "center", gap: 8,
@@ -66,33 +66,29 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         borderColor: C.border,
         paddingHorizontal: 12, paddingVertical: 10,
     },
-    input: { flex: 1, fontSize: 14, color: C.text, fontWeight: "500", paddingVertical: 0 },
+    input: { ...meta(14, "medium"), flex: 1,  color: C.text,  paddingVertical: 0 },
 
     hero: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 20 },
-    heroLabel: { fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 2, marginBottom: 6 },
-    heroTitle: { fontSize: 42, fontWeight: "900", color: C.text, letterSpacing: -1, lineHeight: 46 },
+    heroLabel: { ...lbl(10, "bold", 0.12), color: C.primary,  marginBottom: 6 },
+    heroTitle: { fontFamily: fonts.displayBold, fontSize: 42, letterSpacing: -1, color: C.text,  lineHeight: 46 },
     heroAccent: { width: 48, height: 3, backgroundColor: C.primary, marginTop: 12 },
 
     filterScroll: { backgroundColor: C.bg, flexGrow: 0, flexShrink: 0 },
     filterRow: { flexDirection: "row", gap: 8, paddingHorizontal: 20, paddingTop: 6, paddingBottom: 10 },
     filterPill: { paddingHorizontal: 14, backgroundColor: "#EDECEA", height: 20, justifyContent: "center" },
     filterPillActive: { backgroundColor: "#1F2937" },
-    filterPillText: { fontSize: 10, fontWeight: "800", color: C.textLight, letterSpacing: 1 },
+    filterPillText: { ...lbl(10, "bold", 0.1), color: C.textLight },
     filterPillTextActive: { color: "#fff" },
 
     list: { paddingHorizontal: 20, paddingTop: 12 },
 
-    resultsCount: {
-        fontSize: 10, fontWeight: "800", color: C.textLight,
-        letterSpacing: 1.5, marginBottom: 16,
-    },
+    resultsCount: { ...lbl(10, "bold", 0.12), color: C.textLight,
+         marginBottom: 16 },
 
     sectionHeaderRow: {
         flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 10, marginTop: 4,
     },
-    sectionTitle: {
-        fontSize: 11, fontWeight: "900", color: C.text, letterSpacing: 1.5, flexShrink: 0,
-    },
+    sectionTitle: { ...lbl(11, "bold", 0.12), color: C.text,  flexShrink: 0 },
     sectionLine: {
         flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: C.textBody,
     },
@@ -119,13 +115,13 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         margin: 12, marginRight: 0,
     },
     cardContent: { flex: 1, minWidth: 0, gap: 2, padding: 12 },
-    cardLabel: { fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 0.8 },
-    cardTitle: { fontSize: 15, fontWeight: "800", color: C.text, letterSpacing: -0.2 },
-    cardMeta: { fontSize: 12, color: C.textMuted, marginTop: 1 },
+    cardLabel: { ...lbl(10, "bold", 0.08), color: C.primary },
+    cardTitle: { ...meta(15, "bold"), letterSpacing: -0.2, color: C.text },
+    cardMeta: { ...meta(12, "regular"), color: C.textMuted, marginTop: 1 },
 
     emptyState: { alignItems: "center", paddingTop: 60, gap: 10 },
-    emptyTitle: { fontSize: 13, fontWeight: "900", color: C.textFaint, letterSpacing: 2 },
-    emptySubtitle: { fontSize: 13, color: C.textLight },
+    emptyTitle: { ...lbl(13, "bold", 0.12), color: C.textFaint },
+    emptySubtitle: { ...meta(13, "regular"), color: C.textLight },
 });
 
 export default function SearchModal() {

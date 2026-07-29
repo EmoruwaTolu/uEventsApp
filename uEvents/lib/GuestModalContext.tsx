@@ -5,6 +5,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../auth/AuthContext";
+import { fonts, lbl, meta, lightColors } from "../styles/theme";
 
 type Ctx = { showGuestModal: () => void };
 
@@ -93,11 +94,11 @@ export function GuestModalProvider({ children }: { children: React.ReactNode }) 
                             <View style={s.handle} />
 
                             <Pressable style={s.closeBtn} onPress={close} hitSlop={16}>
-                                <Ionicons name="close" size={20} color="#9CA3AF" />
+                                <Ionicons name="close" size={20} color={lightColors.textLight} />
                             </Pressable>
 
                             <View style={s.iconWrap}>
-                                <Ionicons name="school-outline" size={36} color="#8C0327" />
+                                <Ionicons name="school-outline" size={36} color={lightColors.primary} />
                             </View>
 
                             <Text style={s.heading}>Join uEvents</Text>
@@ -141,7 +142,7 @@ const s = StyleSheet.create({
     handle: {
         width: 40,
         height: 4,
-        backgroundColor: "#E5E7EB",
+        backgroundColor: lightColors.border,
         borderRadius: 2,
         marginBottom: 20,
     },
@@ -159,43 +160,25 @@ const s = StyleSheet.create({
         marginBottom: 20,
         marginTop: 4,
     },
-    heading: {
-        fontSize: 24,
-        fontWeight: "900",
-        color: "#111827",
-        letterSpacing: -0.5,
+    heading: { fontFamily: fonts.displayBold, fontSize: 24, letterSpacing: -0.5, color: lightColors.text,
+        
         marginBottom: 10,
-        textAlign: "center",
-    },
-    sub: {
-        fontSize: 14,
-        color: "#6B7280",
+        textAlign: "center" },
+    sub: { ...meta(14, "regular"), color: lightColors.textMuted,
         textAlign: "center",
         lineHeight: 21,
-        marginBottom: 32,
-    },
+        marginBottom: 32 },
     signupBtn: {
-        backgroundColor: "#8C0327",
+        backgroundColor: lightColors.primary,
         width: "100%",
         paddingVertical: 16,
         alignItems: "center",
         marginBottom: 14,
     },
-    signupBtnText: {
-        fontSize: 12,
-        fontWeight: "900",
-        color: "#fff",
-        letterSpacing: 2,
-    },
+    signupBtnText: { ...lbl(12, "bold", 0.12), color: "#fff" },
     loginBtn: {
         paddingVertical: 8,
     },
-    loginBtnText: {
-        fontSize: 13,
-        color: "#6B7280",
-    },
-    loginBtnTextBold: {
-        fontWeight: "800",
-        color: "#111827",
-    },
+    loginBtnText: { ...meta(13, "regular"), color: lightColors.textMuted },
+    loginBtnTextBold: { ...meta(13, "bold"), color: lightColors.text },
 });

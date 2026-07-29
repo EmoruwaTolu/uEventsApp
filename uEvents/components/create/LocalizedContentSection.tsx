@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
+import { fonts, lbl, meta, lightColors } from "../../styles/theme";
 import {
   View,
   Text,
@@ -32,15 +33,13 @@ export function LocalizedContentSection({ lang, locale, setLocale, pickPoster }:
     const placeholderSubtitle = lang === "en" ? "A night of wonder" : "Une soirée de féerie";
     const [focused, setFocused] = useState<string | null>(null);
 
-    const inputStyle = (field: string) => ({
-        borderWidth: 1,
-        borderColor: focused === field ? "#8C0327" : "#D0D0D0",
+    const inputStyle = (field: string) => ({ fontFamily: fonts.body, fontSize: 16, borderWidth: 1,
+        borderColor: focused === field ? lightColors.primary : lightColors.border,
         paddingHorizontal: 16,
         paddingVertical: 12,
-        fontSize: 16,
-        color: "#111827",
-        backgroundColor: "#ffffff",
-    });
+        
+        color: lightColors.text,
+        backgroundColor: "#ffffff" });
 
     return (
         <View
@@ -51,14 +50,14 @@ export function LocalizedContentSection({ lang, locale, setLocale, pickPoster }:
             }}
         >
             <View style={{ marginBottom: 16 }}>
-                <Text style={{ fontSize: 16, fontWeight: "600", color: "#374151", marginBottom: 8 }}>
+                <Text style={{ ...meta(16, "semi"), color: lightColors.textBody, marginBottom: 8 }}>
                     Title
                 </Text>
                 <TextInput
                     value={locale.title ?? ""}
                     onChangeText={(t) => setLocale(lang, "title", t)}
                     placeholder={placeholderTitle}
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={lightColors.textLight}
                     onFocus={() => setFocused("title")}
                     onBlur={() => setFocused(null)}
                     style={inputStyle("title")}
@@ -66,15 +65,15 @@ export function LocalizedContentSection({ lang, locale, setLocale, pickPoster }:
             </View>
 
             <View style={{ marginBottom: 16 }}>
-                <Text style={{ fontSize: 16, fontWeight: "600", color: "#374151", marginBottom: 8 }}>
+                <Text style={{ ...meta(16, "semi"), color: lightColors.textBody, marginBottom: 8 }}>
                     Subtitle{" "}
-                    <Text style={{ fontSize: 13, fontWeight: "400", color: "#9CA3AF" }}>(optional)</Text>
+                    <Text style={{ ...meta(13, "regular"), color: lightColors.textLight }}>(optional)</Text>
                 </Text>
                 <TextInput
                     value={locale.subtitle ?? ""}
                     onChangeText={(t) => setLocale(lang, "subtitle", t)}
                     placeholder={placeholderSubtitle}
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={lightColors.textLight}
                     onFocus={() => setFocused("subtitle")}
                     onBlur={() => setFocused(null)}
                     style={inputStyle("subtitle")}
@@ -82,14 +81,14 @@ export function LocalizedContentSection({ lang, locale, setLocale, pickPoster }:
             </View>
 
             <View style={{ marginBottom: 16 }}>
-                <Text style={{ fontSize: 16, fontWeight: "600", color: "#374151", marginBottom: 8 }}>
+                <Text style={{ ...meta(16, "semi"), color: lightColors.textBody, marginBottom: 8 }}>
                     Description
                 </Text>
                 <TextInput
                     value={locale.description ?? ""}
                     onChangeText={(t) => setLocale(lang, "description", t)}
                     placeholder="Tell people about your content..."
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={lightColors.textLight}
                     multiline
                     onFocus={() => setFocused("description")}
                     onBlur={() => setFocused(null)}
@@ -98,7 +97,7 @@ export function LocalizedContentSection({ lang, locale, setLocale, pickPoster }:
             </View>
 
             <View style={{ marginBottom: 16 }}>
-                <Text style={{ fontSize: 16, fontWeight: "600", color: "#374151", marginBottom: 8 }}>
+                <Text style={{ ...meta(16, "semi"), color: lightColors.textBody, marginBottom: 8 }}>
                     Poster / Cover
                 </Text>
                 {locale.posterUri ? (
@@ -109,7 +108,7 @@ export function LocalizedContentSection({ lang, locale, setLocale, pickPoster }:
                                 width: "100%",
                                 height: 200,
                                 marginBottom: 12,
-                                backgroundColor: "#E5E7EB",
+                                backgroundColor: lightColors.border,
                             }}
                             resizeMode="cover"
                         />
@@ -121,13 +120,13 @@ export function LocalizedContentSection({ lang, locale, setLocale, pickPoster }:
                                 gap: 8,
                                 paddingVertical: 10,
                                 borderWidth: 1,
-                                borderColor: "#8C0327",
+                                borderColor: lightColors.primary,
                                 backgroundColor: "#FEF2F2",
                             }}
                             onPress={() => pickPoster(lang)}
                         >
-                            <Ionicons name="camera" size={16} color="#8C0327" />
-                            <Text style={{ fontSize: 16, fontWeight: "600", color: "#8C0327" }}>
+                            <Ionicons name="camera" size={16} color={lightColors.primary} />
+                            <Text style={{ ...meta(16, "semi"), color: lightColors.primary }}>
                                 Change Image
                             </Text>
                         </Pressable>
@@ -137,7 +136,7 @@ export function LocalizedContentSection({ lang, locale, setLocale, pickPoster }:
                         style={{
                             borderWidth: 1,
                             borderStyle: "dashed",
-                            borderColor: "#D0D0D0",
+                            borderColor: lightColors.border,
                             paddingVertical: 24,
                             alignItems: "center",
                             justifyContent: "center",
@@ -146,11 +145,11 @@ export function LocalizedContentSection({ lang, locale, setLocale, pickPoster }:
                         }}
                         onPress={() => pickPoster(lang)}
                     >
-                        <Ionicons name="cloud-upload-outline" size={32} color="#8C0327" />
-                        <Text style={{ fontSize: 15, fontWeight: "600", color: "#111827" }}>
+                        <Ionicons name="cloud-upload-outline" size={32} color={lightColors.primary} />
+                        <Text style={{ ...meta(15, "semi"), color: lightColors.text }}>
                             Upload Image
                         </Text>
-                        <Text style={{ fontSize: 12, color: "#6B7280" }}>
+                        <Text style={{ ...meta(12, "regular"), color: lightColors.textMuted }}>
                             Tap to select an image from your device
                         </Text>
                     </Pressable>
@@ -167,10 +166,10 @@ export function LocalizedContentSection({ lang, locale, setLocale, pickPoster }:
                 onPress={() => setLocale(lang, "isPublished", !locale.isPublished)}
             >
                 <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 15, fontWeight: "600", color: "#111827", marginBottom: 2 }}>
+                    <Text style={{ ...meta(15, "semi"), color: lightColors.text, marginBottom: 2 }}>
                         Publish this language version
                     </Text>
-                    <Text style={{ fontSize: 13, color: "#6B7280" }}>
+                    <Text style={{ ...meta(13, "regular"), color: lightColors.textMuted }}>
                         {locale.isPublished ? "Visible to users" : "Save as draft"}
                     </Text>
                 </View>
@@ -179,7 +178,7 @@ export function LocalizedContentSection({ lang, locale, setLocale, pickPoster }:
                         width: 52,
                         height: 32,
                         borderRadius: 16,
-                        backgroundColor: locale.isPublished ? "#8C0327" : "#E5E7EB",
+                        backgroundColor: locale.isPublished ? lightColors.primary : lightColors.border,
                         padding: 2,
                         justifyContent: "center",
                     }}

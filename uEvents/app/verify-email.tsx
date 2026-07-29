@@ -9,7 +9,7 @@ import { useApi } from "../lib/useApi";
 import { useAuth } from "../auth/AuthContext";
 import { useTheme } from "../lib/ThemeContext";
 import { useT } from "../lib/LangContext";
-import type { AppColors } from "../styles/theme";
+import { meta, lbl, fonts, AppColors } from "../styles/theme";
 
 type Stage = "verifying" | "success" | "error" | "prompt";
 
@@ -17,11 +17,11 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
     page: { flex: 1, backgroundColor: C.bg },
     body: { flex: 1, paddingHorizontal: 24, justifyContent: "center", gap: 18 },
     iconWrap: { alignSelf: "center", width: 72, height: 72, borderRadius: 36, alignItems: "center", justifyContent: "center" },
-    eyebrow: { fontSize: 10, fontWeight: "800", letterSpacing: 3, color: C.primary, textAlign: "center" },
-    title: { fontSize: 26, fontWeight: "800", color: C.text, textAlign: "center", letterSpacing: -0.5 },
-    subtitle: { fontSize: 15, color: C.textMuted, lineHeight: 22, textAlign: "center" },
+    eyebrow: { ...lbl(10, "bold", 0.12), color: C.primary, textAlign: "center" },
+    title: { fontFamily: fonts.displayBold, fontSize: 26, letterSpacing: -0.5, color: C.text, textAlign: "center" },
+    subtitle: { fontFamily: fonts.body, fontSize: 15, color: C.textMuted, lineHeight: 22, textAlign: "center" },
     accent: { width: 40, height: 3, backgroundColor: C.primary, alignSelf: "center" },
-    link: { fontSize: 12, fontWeight: "800", letterSpacing: 1, color: C.textMuted, textAlign: "center", marginTop: 8 },
+    link: { ...lbl(12, "bold", 0.08), color: C.textMuted, textAlign: "center", marginTop: 8 },
 });
 
 export default function VerifyEmailScreen() {

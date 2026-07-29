@@ -19,9 +19,8 @@ import { useToast } from "../../lib/ToastContext";
 import { EventCardSkeleton } from "../../components/SkeletonLoader";
 import { useTheme } from "../../lib/ThemeContext";
 import { useReduceMotion } from "../../lib/useReduceMotion";
-import type { AppColors } from "../../styles/theme";
+import { meta, lbl, fonts, AppColors } from "../../styles/theme";
 
-const GREEN = "#16A34A";
 
 // Max "going" events shown inline on the Events page before collapsing behind
 // a "See all registered" button that opens the full Registered Events page.
@@ -178,24 +177,15 @@ const makeEventsStyles = (C: AppColors) => StyleSheet.create({
         paddingTop: 8,
         paddingBottom: 6,
     },
-    kicker: {
-        fontSize: 11,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 2,
-        marginBottom: 2,
-    },
+    kicker: { ...lbl(11, "bold", 0.12), color: C.primary,
+        
+        marginBottom: 2 },
     headerTopRow: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
     },
-    bigTitle: {
-        fontSize: 38,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: -1,
-    },
+    bigTitle: { fontFamily: fonts.displayBold, fontSize: 38, letterSpacing: -1, color: C.text },
 
     // ── Stats row ──
     statsRow: {
@@ -212,17 +202,13 @@ const makeEventsStyles = (C: AppColors) => StyleSheet.create({
         paddingVertical: 16,
         paddingHorizontal: 12,
     },
-    statEmoji: { fontSize: 20, marginBottom: 8 },
+    statEmoji: { fontFamily: fonts.displayBold, fontSize: 20, marginBottom: 8 },
     statValueRow: { flexDirection: "row", alignItems: "baseline", gap: 3 },
-    statNum: { fontSize: 26, fontWeight: "900", color: C.text, letterSpacing: -1 },
-    statUnit: { fontSize: 11, fontWeight: "700", color: C.textLight },
-    statLabel: {
-        fontSize: 9,
-        fontWeight: "800",
-        color: C.textMuted,
-        letterSpacing: 1,
-        marginTop: 6,
-    },
+    statNum: { fontFamily: fonts.displayBold, fontSize: 26, letterSpacing: -1, color: C.text },
+    statUnit: { ...meta(11, "bold"), color: C.textLight },
+    statLabel: { ...lbl(9, "bold", 0.11), color: C.textMuted,
+        
+        marginTop: 6 },
 
     // ── Section header ──
     sectionHead: {
@@ -234,18 +220,8 @@ const makeEventsStyles = (C: AppColors) => StyleSheet.create({
         marginTop: 26,
         marginBottom: 12,
     },
-    sectionHeadLabel: {
-        fontSize: 11,
-        fontWeight: "800",
-        color: C.textMuted,
-        letterSpacing: 2,
-    },
-    sectionHeadRight: {
-        fontSize: 11,
-        fontWeight: "600",
-        color: C.textLight,
-        letterSpacing: 0.3,
-    },
+    sectionHeadLabel: { ...lbl(11, "bold", 0.12), color: C.textMuted },
+    sectionHeadRight: { ...meta(11, "semi"), color: C.textLight },
 
     // ── NEXT UP hero (immersive full-bleed) ──
     heroCard: {
@@ -266,7 +242,7 @@ const makeEventsStyles = (C: AppColors) => StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 6,
     },
-    heroBadgeText: { fontSize: 10, fontWeight: "800", color: "#fff", letterSpacing: 1.2 },
+    heroBadgeText: { ...lbl(10, "bold", 0.12), color: "#fff" },
 
     heroOverlayContent: { position: "absolute", left: 0, right: 0, bottom: 0, padding: 20, gap: 10 },
     heroAttendRow: { flexDirection: "row", alignItems: "center", gap: 10 },
@@ -280,26 +256,28 @@ const makeEventsStyles = (C: AppColors) => StyleSheet.create({
         borderWidth: 2,
         borderColor: "rgba(255,255,255,0.9)",
     },
-    avatarMiniText: { fontSize: 11, fontWeight: "800", color: "#fff" },
-    heroAttendText: { flex: 1, fontSize: 13, fontWeight: "600", color: "rgba(255,255,255,0.9)" },
+    avatarMiniText: { ...meta(11, "bold"), color: "#fff" },
+    heroAttendText: { ...meta(13, "semi"), flex: 1,   color: "rgba(255,255,255,0.9)" },
 
-    heroTitle: { fontSize: 28, fontWeight: "900", color: "#fff", letterSpacing: -0.6, lineHeight: 32 },
-    heroClub: { fontSize: 13, fontWeight: "600", color: "rgba(255,255,255,0.8)" },
+    heroTitle: { fontFamily: fonts.displayBold, fontSize: 28, letterSpacing: -0.6, color: "#fff",  lineHeight: 32 },
+    heroClub: { ...meta(13, "semi"), color: "rgba(255,255,255,0.8)" },
     heroMetaRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 16, marginTop: 2 },
     heroMetaItem: { flexDirection: "row", alignItems: "center", gap: 5 },
-    heroMetaText: { fontSize: 13, fontWeight: "600", color: "rgba(255,255,255,0.9)" },
+    heroMetaText: { ...meta(13, "semi"), color: "rgba(255,255,255,0.9)" },
 
     heroActions: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 6 },
     goingPill: {
         flex: 1,
-        backgroundColor: GREEN,
+        backgroundColor: C.primary,
         paddingVertical: 14,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
         gap: 6,
     },
-    goingPillText: { fontSize: 12, fontWeight: "800", color: "#fff", letterSpacing: 1 },
+    goingPillOn: { backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.primary },
+    goingPillText: { ...lbl(12, "bold", 0.08), color: "#fff" },
+    goingPillTextOn: { color: C.primary },
     heroQuickBtn: {
         width: 48,
         height: 48,
@@ -329,22 +307,22 @@ const makeEventsStyles = (C: AppColors) => StyleSheet.create({
         paddingVertical: 4,
         alignItems: "center",
     },
-    schedDateDay: { fontSize: 8, fontWeight: "800", color: "#fff", letterSpacing: 1 },
-    schedDateNum: { fontSize: 15, fontWeight: "900", color: "#fff", lineHeight: 17 },
+    schedDateDay: { ...lbl(8, "bold", 0.12), color: "#fff" },
+    schedDateNum: { ...meta(15, "bold"), color: "#fff", lineHeight: 17 },
     schedBody: { flex: 1, gap: 4 },
-    schedTitle: { fontSize: 16, fontWeight: "800", color: C.text, letterSpacing: -0.3 },
-    schedSub: { fontSize: 12, fontWeight: "500", color: C.textMuted },
+    schedTitle: { ...meta(16, "bold"), letterSpacing: -0.3, color: C.text },
+    schedSub: { ...meta(12, "medium"), color: C.textMuted },
     goingBadge: {
         alignSelf: "flex-start",
         flexDirection: "row",
         alignItems: "center",
         gap: 3,
-        backgroundColor: GREEN,
+        backgroundColor: C.primary,
         paddingHorizontal: 8,
         paddingVertical: 3,
         marginTop: 2,
     },
-    goingBadgeText: { fontSize: 9, fontWeight: "800", color: "#fff", letterSpacing: 0.8 },
+    goingBadgeText: { ...lbl(9, "bold", 0.09), color: "#fff" },
 
     seeAllRegistered: {
         flexDirection: "row",
@@ -357,7 +335,7 @@ const makeEventsStyles = (C: AppColors) => StyleSheet.create({
         borderWidth: 1.5,
         borderColor: C.primary,
     },
-    seeAllRegisteredText: { fontSize: 11, fontWeight: "800", color: C.primary, letterSpacing: 1.5 },
+    seeAllRegisteredText: { ...lbl(11, "bold", 0.12), color: C.primary },
 
     // ── Free food banner ──
     foodBanner: {
@@ -370,12 +348,12 @@ const makeEventsStyles = (C: AppColors) => StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 16,
     },
-    foodBannerEmoji: { fontSize: 24 },
+    foodBannerEmoji: { fontFamily: fonts.displayBold, fontSize: 24 },
     foodBannerBody: { flex: 1 },
-    foodBannerTitle: { fontSize: 15, fontWeight: "800", color: "#fff" },
-    foodBannerSub: { fontSize: 12, color: "rgba(255,255,255,0.8)", marginTop: 2 },
+    foodBannerTitle: { ...meta(15, "bold"), color: "#fff" },
+    foodBannerSub: { ...meta(12, "regular"), color: "rgba(255,255,255,0.8)", marginTop: 2 },
     foodViewBtn: { borderWidth: 1.5, borderColor: "rgba(255,255,255,0.8)", paddingHorizontal: 16, paddingVertical: 8 },
-    foodViewBtnText: { fontSize: 11, fontWeight: "800", color: "#fff", letterSpacing: 1 },
+    foodViewBtnText: { ...lbl(11, "bold", 0.09), color: "#fff" },
 
     // ── Today on campus rows ──
     campusRow: {
@@ -389,12 +367,12 @@ const makeEventsStyles = (C: AppColors) => StyleSheet.create({
     },
     campusThumb: { width: 56, height: 56, backgroundColor: C.skeleton },
     campusBody: { flex: 1, gap: 3 },
-    campusTitle: { fontSize: 15, fontWeight: "800", color: C.text, letterSpacing: -0.2 },
-    campusSub: { fontSize: 12, fontWeight: "500", color: C.textMuted },
+    campusTitle: { ...meta(15, "bold"), letterSpacing: -0.2, color: C.text },
+    campusSub: { ...meta(12, "medium"), color: C.textMuted },
     rsvpOutline: { borderWidth: 1.5, borderColor: C.primary, paddingHorizontal: 16, paddingVertical: 9 },
-    rsvpOutlineGoing: { borderColor: GREEN, backgroundColor: GREEN },
-    rsvpOutlineText: { fontSize: 11, fontWeight: "800", color: C.primary, letterSpacing: 1 },
-    rsvpOutlineTextGoing: { color: "#fff" },
+    rsvpOutlineGoing: { borderColor: C.primary, backgroundColor: C.surface },
+    rsvpOutlineText: { ...lbl(11, "bold", 0.09), color: C.primary },
+    rsvpOutlineTextGoing: { color: C.primary },
 
     // ── Attended strip ──
     attendedStrip: { paddingLeft: 16, paddingRight: 6, gap: 12 },
@@ -402,26 +380,26 @@ const makeEventsStyles = (C: AppColors) => StyleSheet.create({
     attendedCardImg: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%" },
     attendedCardOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.28)" },
     attendedDateTag: { position: "absolute", top: 0, left: 0, backgroundColor: C.primary, paddingHorizontal: 8, paddingVertical: 4 },
-    attendedDateText: { fontSize: 9, fontWeight: "800", color: "#fff", letterSpacing: 1 },
+    attendedDateText: { ...lbl(9, "bold", 0.11), color: "#fff" },
     attendedCardBody: { position: "absolute", left: 12, right: 12, bottom: 12 },
-    attendedCardTitle: { fontSize: 14, fontWeight: "900", color: "#fff", letterSpacing: -0.2 },
+    attendedCardTitle: { ...meta(14, "bold"), letterSpacing: -0.2, color: "#fff" },
     starsRow: { flexDirection: "row", gap: 2, marginTop: 4 },
 
     // ── Category pills (preserved) ──
 
     // ── Shared / empty ──
     emptyToday: { paddingVertical: 24, alignItems: "center", marginHorizontal: 16 },
-    emptyTodayText: { fontSize: 10, fontWeight: "700", color: C.textFaint, letterSpacing: 2 },
+    emptyTodayText: { ...lbl(10, "bold", 0.12), color: C.textFaint },
     thumb: { width: 62, height: 62 },
     thumbMuted: { opacity: 0.5 },
     metaRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-    eventTime: { fontSize: 11, fontWeight: "500", color: C.textMuted },
+    eventTime: { ...meta(11, "medium"), color: C.textMuted },
     compactLeft: { flex: 1, gap: 4 },
-    compactTitle: { fontSize: 15, fontWeight: "700", color: C.text, letterSpacing: -0.2 },
-    compactSub: { fontSize: 10, fontWeight: "600", color: C.textLight, letterSpacing: 0.5 },
+    compactTitle: { ...meta(15, "bold"), letterSpacing: -0.2, color: C.text },
+    compactSub: { ...meta(10, "semi"), color: C.textLight },
     upcomingDateCol: { width: 28, alignItems: "center", gap: 1 },
-    upcomingDayName: { fontSize: 9, fontWeight: "700", color: C.textLight, letterSpacing: 0.5 },
-    upcomingDayNum: { fontSize: 20, fontWeight: "800", color: C.text, lineHeight: 24 },
+    upcomingDayName: { ...meta(9, "bold"), color: C.textLight },
+    upcomingDayNum: { fontFamily: fonts.displayBold, fontSize: 20, color: C.text, lineHeight: 24 },
 
     // ── Past events archive (preserved) ──
     archiveCard: {
@@ -432,35 +410,35 @@ const makeEventsStyles = (C: AppColors) => StyleSheet.create({
         borderColor: C.borderWarm,
     },
     archiveHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 20 },
-    archiveLabel: { fontSize: 10, fontWeight: "800", color: C.textLight, letterSpacing: 2, marginBottom: 2 },
-    archiveTitle: { fontSize: 20, fontWeight: "900", color: C.text, letterSpacing: -0.5 },
+    archiveLabel: { ...lbl(10, "bold", 0.12), color: C.textLight,  marginBottom: 2 },
+    archiveTitle: { fontFamily: fonts.displayBold, fontSize: 20, letterSpacing: -0.5, color: C.text },
     archiveRight: { flexDirection: "row", alignItems: "center", gap: 8 },
-    archiveCount: { fontSize: 13, fontWeight: "700", color: C.textLight },
+    archiveCount: { ...meta(13, "bold"), color: C.textLight },
     archiveRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.borderWarm, gap: 14 },
     attendedBadge: { backgroundColor: C.border, paddingHorizontal: 6, paddingVertical: 3 },
-    attendedText: { fontSize: 8, fontWeight: "800", color: C.textMuted, letterSpacing: 1 },
+    attendedText: { ...lbl(8, "bold", 0.12), color: C.textMuted },
     archiveToggleRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingBottom: 12 },
     archiveToggle: { paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1.5, borderColor: C.border, backgroundColor: C.surface },
     archiveToggleActive: { borderColor: C.primary, backgroundColor: C.primary },
-    archiveToggleText: { fontSize: 10, fontWeight: "800", letterSpacing: 1, color: C.textMuted },
+    archiveToggleText: { ...lbl(10, "bold", 0.1), color: C.textMuted },
     archiveToggleTextActive: { color: "#fff" },
-    archiveEmpty: { fontSize: 13, color: C.textMuted, paddingHorizontal: 16, paddingBottom: 16 },
+    archiveEmpty: { ...meta(13, "regular"), color: C.textMuted, paddingHorizontal: 16, paddingBottom: 16 },
 
     // ── Error state ──
-    errorText: { fontSize: 11, fontWeight: "700", color: C.textLight, letterSpacing: 2, marginTop: 12 },
+    errorText: { ...lbl(11, "bold", 0.12), color: C.textLight,  marginTop: 12 },
     errorRetry: { marginTop: 16, borderWidth: 1.5, borderColor: C.primary, paddingHorizontal: 20, paddingVertical: 10 },
-    errorRetryText: { fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 1.5 },
+    errorRetryText: { ...lbl(10, "bold", 0.12), color: C.primary },
 
     // ── Search modal (preserved) ──
     searchInputWrap: { flexDirection: "row", alignItems: "center", gap: 10, marginHorizontal: 20, marginVertical: 12, backgroundColor: C.surfaceAlt, paddingHorizontal: 12, paddingVertical: 10 },
-    searchInput: { flex: 1, fontSize: 14, color: C.text, fontWeight: "500" },
+    searchInput: { ...meta(14, "medium"), flex: 1,  color: C.text },
     searchRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.borderWarm, gap: 12 },
     searchRowLeft: { flex: 1, gap: 4 },
-    searchRowTitle: { fontSize: 14, fontWeight: "700", color: C.text, letterSpacing: -0.2 },
-    searchRowSub: { fontSize: 11, color: C.textLight, fontWeight: "500" },
+    searchRowTitle: { ...meta(14, "bold"), letterSpacing: -0.2, color: C.text },
+    searchRowSub: { ...meta(11, "medium"), color: C.textLight },
     searchThumb: { width: 54, height: 54 },
     searchEmpty: { alignItems: "center", paddingVertical: 40 },
-    searchEmptyText: { fontSize: 11, fontWeight: "700", color: C.textFaint, letterSpacing: 2 },
+    searchEmptyText: { ...lbl(11, "bold", 0.12), color: C.textFaint },
 });
 
 export default function EventsScreen() {
@@ -646,17 +624,17 @@ export default function EventsScreen() {
             <SafeAreaView style={s.safe} edges={["top"]}>
                 <View style={s.center}>
                     <Ionicons name="calendar-outline" size={48} color={C.textFaint} />
-                    <Text style={{ fontSize: 14, fontWeight: "900", color: C.textFaint, letterSpacing: 2, marginTop: 16, textAlign: "center" }}>
+                    <Text style={{ ...meta(14, "bold"), color: C.textFaint,  marginTop: 16, textAlign: "center" }}>
                         NO EVENTS YET
                     </Text>
-                    <Text style={{ fontSize: 13, color: C.textLight, textAlign: "center", lineHeight: 20, marginTop: 8, maxWidth: 260 }}>
+                    <Text style={{ ...meta(13, "regular"), color: C.textLight, textAlign: "center", lineHeight: 20, marginTop: 8, maxWidth: 260 }}>
                         Sign up to RSVP to events, follow clubs, and see your personal events calendar.
                     </Text>
                     <Pressable
                         style={{ marginTop: 24, backgroundColor: C.primary, paddingHorizontal: 28, paddingVertical: 13 }}
                         onPress={signOut}
                     >
-                        <Text style={{ fontSize: 11, fontWeight: "900", color: "#fff", letterSpacing: 2 }}>{t.createAccountBtn}</Text>
+                        <Text style={{ ...lbl(11, "bold", 0.12), color: "#fff" }}>{t.createAccountBtn}</Text>
                     </Pressable>
                 </View>
             </SafeAreaView>
@@ -834,12 +812,12 @@ export default function EventsScreen() {
                                 <View style={s.heroActions}>
                                     <AnimatedPressable
                                         wrapperStyle={{ flex: 1 }}
-                                        style={s.goingPill}
+                                        style={[s.goingPill, heroGoing && s.goingPillOn]}
                                         onPress={() => cancelRsvpPost(heroEvent.id)}
                                         accessibilityLabel={heroGoing ? t.goingBtn : t.rsvpBtn}
                                     >
-                                        <Text style={s.goingPillText}>{heroGoing ? t.goingBtn : t.rsvpBtn}</Text>
-                                        {heroGoing && <Ionicons name="checkmark" size={14} color="#fff" />}
+                                        <Text style={[s.goingPillText, heroGoing && s.goingPillTextOn]}>{heroGoing ? t.goingBtn : t.rsvpBtn}</Text>
+                                        {heroGoing && <Ionicons name="checkmark" size={14} color={C.primary} />}
                                     </AnimatedPressable>
                                     {!!heroEvent.locationName && (
                                         <AnimatedPressable
@@ -872,7 +850,7 @@ export default function EventsScreen() {
                 </View>
 
                 {upcomingRsvps.length === 0 ? (
-                    <View style={s.emptyToday}><Text style={s.emptyTodayText}>{t.noRsvps.toUpperCase()}</Text></View>
+                    <View style={s.emptyToday}><Text style={s.emptyTodayText}>{t.noRsvps}</Text></View>
                 ) : (
                     <>
                         {upcomingRsvps.slice(0, SCHEDULE_LIMIT).map((event) => {
@@ -943,7 +921,7 @@ export default function EventsScreen() {
                 </View>
 
                 {campusNotGoing.length === 0 ? (
-                    <View style={s.emptyToday}><Text style={s.emptyTodayText}>{t.noEvents.toUpperCase()}</Text></View>
+                    <View style={s.emptyToday}><Text style={s.emptyTodayText}>{t.noEvents}</Text></View>
                 ) : (
                     campusNotGoing.map((event) => {
                         const loc = event.locales?.en ?? event.locales?.fr ?? {};
@@ -1073,7 +1051,7 @@ export default function EventsScreen() {
                                                     <Text style={s.eventTime}>{months[it.date.getMonth()]} {it.date.getFullYear()}</Text>
                                                 </View>
                                                 <Text style={[s.compactTitle, { color: C.textMuted }]} numberOfLines={1}>{it.title}</Text>
-                                                <Text style={s.compactSub}>{[it.club, it.loc?.toUpperCase()].filter(Boolean).join(" · ")}</Text>
+                                                <Text style={s.compactSub}>{[it.club, it.loc].filter(Boolean).join(" · ")}</Text>
                                             </View>
                                             {it.img
                                                 ? <Image source={{ uri: it.img }} style={[s.thumb, s.thumbMuted]} resizeMode="cover" />
@@ -1116,7 +1094,7 @@ export default function EventsScreen() {
                                 >
                                     <View style={s.searchRowLeft}>
                                         <Text style={s.searchRowTitle} numberOfLines={1}>{loc.title ?? ""}</Text>
-                                        {!!event.startAt && <Text style={s.searchRowSub}>{formatTime(event.startAt)}{event.locationName ? ` · ${event.locationName.toUpperCase()}` : ""}</Text>}
+                                        {!!event.startAt && <Text style={s.searchRowSub}>{formatTime(event.startAt)}{event.locationName ? ` · ${event.locationName}` : ""}</Text>}
                                     </View>
                                     {!!(loc.posterUrl ?? loc.imageUrl)
                                         ? <Image source={{ uri: loc.posterUrl ?? loc.imageUrl }} style={s.searchThumb} resizeMode="cover" />
@@ -1132,7 +1110,7 @@ export default function EventsScreen() {
                         <View style={s.searchEmpty}>
                             <Text style={s.searchEmptyText}>{t.noMatchingEventsUpper}</Text>
                             <Pressable onPress={() => setSearchQuery("")} style={{ marginTop: 12, backgroundColor: C.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 6 }} accessibilityRole="button" accessibilityLabel="Clear search">
-                                <Text style={{ fontSize: 11, fontWeight: "800", color: "#fff", letterSpacing: 1.5 }}>{t.clearSearchBtn}</Text>
+                                <Text style={{ ...lbl(11, "bold", 0.12), color: "#fff" }}>{t.clearSearchBtn}</Text>
                             </Pressable>
                         </View>
                     )}

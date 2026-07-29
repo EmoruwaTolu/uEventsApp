@@ -12,7 +12,7 @@ import { useToast } from "../../lib/ToastContext";
 import { useTheme } from "../../lib/ThemeContext";
 import { useT, useLang } from "../../lib/LangContext";
 import { timeAgo } from "../../lib/datetime";
-import type { AppColors } from "../../styles/theme";
+import { meta, lbl, fonts, AppColors } from "../../styles/theme";
 
 const POLL_INTERVAL = 5000;
 
@@ -37,8 +37,8 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingVertical: 12,
     },
     backGroup: { flexDirection: "row", alignItems: "center", gap: 6, width: 64 },
-    backLabel: { fontSize: 14, fontWeight: "900", color: C.primary, letterSpacing: 2 },
-    topBarTitle: { fontSize: 12, fontWeight: "800", color: C.text, letterSpacing: 2 },
+    backLabel: { ...meta(14, "bold"), color: C.primary },
+    topBarTitle: { ...lbl(12, "bold", 0.12), color: C.text },
 
     scroll: { paddingHorizontal: 20 },
 
@@ -49,18 +49,10 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         gap: 12,
         marginBottom: 12,
     },
-    qrCardLabel: {
-        fontSize: 10,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 2,
-    },
-    qrCardSub: {
-        fontSize: 12,
-        color: C.textMuted,
+    qrCardLabel: { ...lbl(10, "bold", 0.12), color: C.primary },
+    qrCardSub: { ...meta(12, "regular"), color: C.textMuted,
         textAlign: "center",
-        lineHeight: 18,
-    },
+        lineHeight: 18 },
     qrWrap: {
         padding: 16,
         backgroundColor: C.surface,
@@ -94,9 +86,9 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingVertical: 4,
     },
     liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#16A34A" },
-    liveText: { fontSize: 9, fontWeight: "800", color: "#16A34A", letterSpacing: 1 },
-    counterNum: { fontSize: 36, fontWeight: "900", color: C.text, letterSpacing: -1 },
-    counterLabel: { fontSize: 10, fontWeight: "800", color: C.textMuted, letterSpacing: 1.5 },
+    liveText: { ...lbl(9, "bold", 0.11), color: "#16A34A" },
+    counterNum: { fontFamily: fonts.displayBold, fontSize: 36, letterSpacing: -1, color: C.text },
+    counterLabel: { ...lbl(10, "bold", 0.12), color: C.textMuted },
 
     listToggle: {
         flexDirection: "row",
@@ -107,12 +99,12 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         paddingVertical: 16,
         marginBottom: 2,
     },
-    listToggleText: { fontSize: 11, fontWeight: "800", color: C.primary, letterSpacing: 1.5 },
+    listToggleText: { ...lbl(11, "bold", 0.12), color: C.primary },
 
     listBlock: { backgroundColor: C.surface },
 
     emptyState: { alignItems: "center", paddingVertical: 32 },
-    emptyText: { fontSize: 11, fontWeight: "700", color: C.textFaint, letterSpacing: 2 },
+    emptyText: { ...lbl(11, "bold", 0.12), color: C.textFaint },
 
     attendeeRow: {
         flexDirection: "row",
@@ -133,9 +125,9 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
         justifyContent: "center",
     },
     attendeeInfo: { flex: 1 },
-    attendeeName: { fontSize: 14, fontWeight: "700", color: C.text },
-    attendeeMeta: { fontSize: 11, color: C.textLight, marginTop: 2 },
-    checkedAt: { fontSize: 11, color: C.textLight, fontWeight: "500" },
+    attendeeName: { ...meta(14, "bold"), color: C.text },
+    attendeeMeta: { ...meta(11, "regular"), color: C.textLight, marginTop: 2 },
+    checkedAt: { ...meta(11, "medium"), color: C.textLight },
 });
 
 export default function CheckInScreen() {
@@ -212,7 +204,7 @@ export default function CheckInScreen() {
                             <QRCode
                                 value={qrValue}
                                 size={220}
-                                color="#111827"
+                                color={C.text}
                                 backgroundColor="#fff"
                             />
                         ) : (

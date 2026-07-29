@@ -11,7 +11,7 @@ import { useRsvp } from "../../lib/RsvpContext";
 import { useLang, pickLocale } from "../../lib/LangContext";
 import { useTheme } from "../../lib/ThemeContext";
 import { useT } from "../../lib/LangContext";
-import type { AppColors } from "../../styles/theme";
+import { lightColors, meta, lbl, fonts, AppColors } from "../../styles/theme";
 import { EVENT_TAGS } from "../../lib/eventTags";
 import { translateCategory } from "../../lib/categories";
 import { LinearGradient } from "expo-linear-gradient";
@@ -61,7 +61,7 @@ function todayISO() {
 function formatDayHeader(iso: string, lang: string) {
     const [y, m, d] = iso.split("-").map(Number);
     const date = new Date(y, m - 1, d);
-    return date.toLocaleString(locFor(lang), { weekday: "long", month: "long", day: "numeric" }).toUpperCase();
+    return date.toLocaleString(locFor(lang), { weekday: "long", month: "long", day: "numeric" });
 }
 
 function formatEventTime(iso?: string) {
@@ -98,7 +98,7 @@ function groupByDay(events: ApiEvent[], lang: string, todayLabel: string): { iso
             const isToday = iso === todayISO();
             const label = isToday
                 ? todayLabel
-                : date.toLocaleString(locFor(lang), { weekday: "short", month: "short", day: "numeric" }).toUpperCase();
+                : date.toLocaleString(locFor(lang), { weekday: "short", month: "short", day: "numeric" });
             return { iso, label, events: evs };
         });
 }
@@ -116,7 +116,7 @@ type FeedPost = {
 };
 
 const TYPE_COLORS: Record<string, string> = {
-    ANNOUNCEMENT: "#8C0327",
+    ANNOUNCEMENT: lightColors.primary,
     EVENT: "#1D4ED8",
     POLL: "#7C3AED",
 };
@@ -162,12 +162,7 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         width: 36,
         alignItems: "center",
     },
-    mastheadTitle: {
-        fontSize: 17,
-        fontWeight: "800",
-        color: C.primary,
-        letterSpacing: 2,
-    },
+    mastheadTitle: { ...meta(17, "bold"), color: C.primary },
 
     // Hero
     hero: {
@@ -186,32 +181,17 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         justifyContent: "space-between",
         alignItems: "center",
     },
-    dailyBrief: {
-        fontSize: 11,
-        fontWeight: "700",
-        color: C.primary,
-        letterSpacing: 1.5,
-        textTransform: "uppercase",
-    },
-    heroDate: {
-        fontSize: 10,
-        fontWeight: "600",
-        color: C.textLight,
-        letterSpacing: 0.5,
-        fontStyle: "italic",
-    },
+    dailyBrief: { ...lbl(11, "bold", 0.12), color: C.primary },
+    heroDate: { ...meta(10, "semi"), color: C.textLight,
+        
+        fontStyle: "italic" },
     heroTitleRow: {
         flexDirection: "row",
         alignItems: "flex-end",
         justifyContent: "space-between",
     },
-    heroTitle: {
-        fontSize: 48,
-        fontWeight: "900",
-        color: C.text,
-        lineHeight: 50,
-        letterSpacing: -1,
-    },
+    heroTitle: { fontFamily: fonts.displayBold, fontSize: 48, letterSpacing: -1, color: C.text,
+        lineHeight: 50 },
     searchBtn: {
         width: 44,
         height: 44,
@@ -238,17 +218,8 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         paddingVertical: 12,
         gap: 2,
     },
-    weekDayLetter: {
-        fontSize: 10,
-        fontWeight: "600",
-        color: C.textLight,
-        letterSpacing: 0.3,
-    },
-    weekDayNum: {
-        fontSize: 17,
-        fontWeight: "700",
-        color: C.textBody,
-    },
+    weekDayLetter: { ...meta(10, "semi"), color: C.textLight },
+    weekDayNum: { ...meta(17, "bold"), color: C.textBody },
     weekDayNumActive: {
         color: C.primary,
     },
@@ -273,22 +244,13 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         paddingHorizontal: 12,
         marginBottom: 8,
     },
-    carouselHeaderLabel: {
-        fontSize: 11,
-        fontWeight: "800",
-        color: C.text,
-        letterSpacing: 1.5,
-    },
+    carouselHeaderLabel: { ...lbl(11, "bold", 0.12), color: C.text },
     viewAllBtn: {
         flexDirection: "row",
         alignItems: "center",
         gap: 2,
     },
-    viewAllText: {
-        fontSize: 13,
-        fontWeight: "600",
-        color: C.primary,
-    },
+    viewAllText: { ...meta(13, "semi"), color: C.primary },
     carouselContent: {
         paddingLeft: 12,
         gap: 8,
@@ -301,21 +263,13 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         gap: 4,
         paddingHorizontal: 16,
     },
-    moreCardCount: {
-        fontSize: 40,
-        fontWeight: "900",
-        color: "#fff",
-        lineHeight: 44,
-    },
-    moreCardLabel: {
-        fontSize: 13,
-        fontWeight: "600",
-        color: "rgba(255,255,255,0.5)",
+    moreCardCount: { fontFamily: fonts.displayBold, fontSize: 40, color: "#fff",
+        lineHeight: 44 },
+    moreCardLabel: { ...lbl(13, "semi", 0.06), color: "rgba(255,255,255,0.5)",
         textAlign: "center",
-        textTransform: "uppercase",
-        letterSpacing: 0.5,
-        lineHeight: 18,
-    },
+        
+        
+        lineHeight: 18 },
     moreCardBtn: {
         marginTop: 12,
         borderWidth: 1,
@@ -323,12 +277,7 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 8,
     },
-    moreCardBtnText: {
-        fontSize: 11,
-        fontWeight: "800",
-        color: "#fff",
-        letterSpacing: 1.5,
-    },
+    moreCardBtnText: { ...lbl(11, "bold", 0.12), color: "#fff" },
 
     // Event card (carousel)
     eventCard: {
@@ -355,12 +304,7 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         bottom: 12,
         left: 12,
     },
-    eventCardClubLabel: {
-        fontSize: 10,
-        fontWeight: "700",
-        color: "rgba(255,255,255,0.7)",
-        letterSpacing: 1.5,
-    },
+    eventCardClubLabel: { ...lbl(10, "bold", 0.12), color: "rgba(255,255,255,0.7)" },
     eventCardInfo: {
         padding: 14,
         gap: 6,
@@ -375,20 +319,10 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         height: 14,
         backgroundColor: C.primary,
     },
-    eventCardCategory: {
-        fontSize: 11,
-        fontWeight: "700",
-        color: C.primary,
-        letterSpacing: 1.5,
-        textTransform: "uppercase",
-    },
-    eventCardTitle: {
-        fontSize: 21,
-        fontWeight: "800",
-        color: C.text,
-        letterSpacing: -0.5,
-        lineHeight: 26,
-    },
+    eventCardCategory: { ...lbl(11, "bold", 0.12), color: C.primary },
+    eventCardTitle: { fontFamily: fonts.displayBold, fontSize: 21, letterSpacing: -0.5, color: C.text,
+        
+        lineHeight: 26 },
     eventCardMetaRow: {
         flexDirection: "row",
         alignItems: "center",
@@ -401,13 +335,7 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         alignItems: "center",
         gap: 4,
     },
-    eventCardMetaText: {
-        fontSize: 12,
-        color: C.textMuted,
-        fontWeight: "500",
-        letterSpacing: 0.3,
-        textTransform: "uppercase",
-    },
+    eventCardMetaText: { ...lbl(12, "medium", 0.06), color: C.textMuted },
     eventCardFooter: {
         flexDirection: "row",
         alignItems: "center",
@@ -417,12 +345,7 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         borderTopWidth: StyleSheet.hairlineWidth,
         borderTopColor: C.borderWarm,
     },
-    eventCardViewText: {
-        fontSize: 12,
-        fontWeight: "700",
-        color: C.textMuted,
-        letterSpacing: 0.5,
-    },
+    eventCardViewText: { ...meta(12, "bold"), color: C.textMuted },
     rsvpBtn: {
         flexDirection: "row",
         alignItems: "center",
@@ -435,11 +358,7 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         borderColor: "transparent",
         minWidth: 90,
     },
-    rsvpBtnText: {
-        fontSize: 11,
-        fontWeight: "800",
-        letterSpacing: 1.5,
-    },
+    rsvpBtnText: { ...lbl(11, "bold", 0.12) },
 
     // No events placeholder
     featuredPlaceholder: {
@@ -452,11 +371,7 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: C.borderWarm,
     },
-    placeholderText: {
-        fontSize: 14,
-        color: C.textLight,
-        fontWeight: "500",
-    },
+    placeholderText: { ...meta(14, "medium"), color: C.textLight },
 
     // Dot indicators
     dots: {
@@ -471,7 +386,7 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         width: 6,
         height: 6,
         borderRadius: 3,
-        backgroundColor: "#D0D0D0",
+        backgroundColor: C.border,
     },
     dotActive: {
         backgroundColor: C.primary,
@@ -489,24 +404,17 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         gap: 12,
         marginBottom: 14,
     },
-    sectionTitle: {
-        fontSize: 16,
-        fontWeight: "900",
-        color: C.text,
-        letterSpacing: 1,
-        flexShrink: 0,
-    },
+    sectionTitle: { ...meta(16, "bold"), color: C.text,
+        
+        flexShrink: 0 },
     sectionLine: {
         flex: 1,
         height: StyleSheet.hairlineWidth,
         backgroundColor: C.textBody,
     },
-    updateEmpty: {
-        fontSize: 13,
-        color: C.textLight,
+    updateEmpty: { ...meta(13, "regular"), color: C.textLight,
         paddingVertical: 16,
-        textAlign: "center",
-    },
+        textAlign: "center" },
     updateRow: {
         flexDirection: "row",
         alignItems: "flex-start",
@@ -526,26 +434,12 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         flex: 1,
         gap: 2,
     },
-    updateCategory: {
-        fontSize: 10,
-        fontWeight: "700",
-        color: C.primary,
-        letterSpacing: 1,
-        textTransform: "uppercase",
-    },
-    updateTitle: {
-        fontSize: 14,
-        fontWeight: "800",
-        color: C.text,
-        lineHeight: 20,
-        letterSpacing: -0.2,
-    },
-    updateExcerpt: {
-        fontSize: 12,
-        color: C.textMuted,
+    updateCategory: { ...lbl(10, "bold", 0.1), color: C.primary },
+    updateTitle: { ...meta(14, "bold"), letterSpacing: -0.2, color: C.text,
+        lineHeight: 20 },
+    updateExcerpt: { ...meta(12, "regular"), color: C.textMuted,
         lineHeight: 17,
-        marginTop: 2,
-    },
+        marginTop: 2 },
 
     // Clubs
     clubRow: {
@@ -567,10 +461,10 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         flexShrink: 0,
     },
     clubLogoImg: { width: 44, height: 44, borderRadius: 10 },
-    clubLogoText: { fontSize: 16, fontWeight: "800", color: "#fff" },
+    clubLogoText: { ...meta(16, "bold"), color: "#fff" },
     clubInfo: { flex: 1, gap: 2 },
-    clubName: { fontSize: 14, fontWeight: "700", color: C.text },
-    clubMeta: { fontSize: 11, color: C.textLight, fontWeight: "500", letterSpacing: 0.3 },
+    clubName: { ...meta(14, "bold"), color: C.text },
+    clubMeta: { ...meta(11, "medium"), color: C.textLight },
     followBtn: {
         paddingHorizontal: 14,
         paddingVertical: 7,
@@ -578,7 +472,7 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         borderColor: C.primary,
     },
     followBtnActive: { backgroundColor: C.primary },
-    followBtnText: { fontSize: 10, fontWeight: "800", color: C.primary, letterSpacing: 1 },
+    followBtnText: { ...lbl(10, "bold", 0.1), color: C.primary },
     followBtnTextActive: { color: "#fff" },
     viewMoreBtn: {
         flexDirection: "row",
@@ -590,7 +484,7 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         borderTopColor: C.borderWarm,
         marginTop: 4,
     },
-    viewMoreText: { fontSize: 11, fontWeight: "800", color: C.primary, letterSpacing: 1.5 },
+    viewMoreText: { ...lbl(11, "bold", 0.12), color: C.primary },
 
     // Range tabs
     rangeTabs: {
@@ -609,12 +503,7 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         borderColor: C.text,
         backgroundColor: C.text,
     },
-    rangeTabText: {
-        fontSize: 10,
-        fontWeight: "800",
-        letterSpacing: 1,
-        color: C.textMuted,
-    },
+    rangeTabText: { ...lbl(10, "bold", 0.1), color: C.textMuted },
     rangeTabTextActive: {
         color: "#fff",
     },
@@ -635,18 +524,8 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         paddingVertical: 10,
         backgroundColor: C.text,
     },
-    groupDayLabel: {
-        fontSize: 11,
-        fontWeight: "800",
-        color: "#fff",
-        letterSpacing: 2,
-    },
-    groupDayCount: {
-        fontSize: 10,
-        fontWeight: "700",
-        color: "rgba(255,255,255,0.5)",
-        letterSpacing: 1,
-    },
+    groupDayLabel: { ...lbl(11, "bold", 0.12), color: "#fff" },
+    groupDayCount: { ...lbl(10, "bold", 0.1), color: "rgba(255,255,255,0.5)" },
     groupDayLine: {
         flex: 1,
         height: 2,
@@ -675,18 +554,11 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         flexShrink: 0,
         paddingTop: 2,
     },
-    groupTimeMain: {
-        fontSize: 13,
-        fontWeight: "800",
-        color: C.text,
-        textAlign: "center",
-    },
-    groupTimeSub: {
-        fontSize: 10,
-        color: C.textLight,
-        fontWeight: "500",
-        textAlign: "center",
-    },
+    groupTimeMain: { ...meta(13, "bold"), color: C.text,
+        textAlign: "center" },
+    groupTimeSub: { ...meta(10, "medium"), color: C.textLight,
+        
+        textAlign: "center" },
     groupDivider: {
         width: 2,
         height: 36,
@@ -694,31 +566,13 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         flexShrink: 0,
     },
     groupInfo: { flex: 1, gap: 2, minWidth: 0 },
-    groupClub: {
-        fontSize: 9,
-        fontWeight: "700",
-        color: C.primary,
-        letterSpacing: 1,
-        textTransform: "uppercase",
-    },
-    groupTitle: {
-        fontSize: 13,
-        fontWeight: "800",
-        color: C.text,
+    groupClub: { ...lbl(9, "bold", 0.11), color: C.primary },
+    groupTitle: { ...meta(13, "bold"), letterSpacing: -0.2, color: C.text,
+        lineHeight: 17 },
+    groupLocation: { ...meta(11, "medium"), color: C.textMuted },
+    groupBody: { ...meta(12, "regular"), color: C.textLight,
         lineHeight: 17,
-        letterSpacing: -0.2,
-    },
-    groupLocation: {
-        fontSize: 11,
-        color: C.textMuted,
-        fontWeight: "500",
-    },
-    groupBody: {
-        fontSize: 12,
-        color: C.textLight,
-        lineHeight: 17,
-        marginTop: 3,
-    },
+        marginTop: 3 },
     groupActionRow: {
         flexDirection: "row",
         alignItems: "flex-start",
@@ -738,12 +592,7 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         paddingHorizontal: 6,
         paddingVertical: 2,
     },
-    groupTagText: {
-        fontSize: 9,
-        fontWeight: "800",
-        letterSpacing: 0.8,
-        color: C.textBody,
-    },
+    groupTagText: { ...lbl(9, "bold", 0.09), color: C.textBody },
     groupFreeFood: {
         flexDirection: "row",
         alignItems: "center",
@@ -752,12 +601,7 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         paddingHorizontal: 6,
         paddingVertical: 2,
     },
-    groupFreeFoodText: {
-        fontSize: 8,
-        fontWeight: "800",
-        letterSpacing: 1,
-        color: "#fff",
-    },
+    groupFreeFoodText: { ...lbl(8, "bold", 0.12), color: "#fff" },
     groupRsvpBtn: {
         flexDirection: "row",
         alignItems: "center",
@@ -773,12 +617,7 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         backgroundColor: "transparent",
         borderColor: C.primary,
     },
-    groupRsvpText: {
-        fontSize: 9,
-        fontWeight: "800",
-        letterSpacing: 1,
-        color: "#fff",
-    },
+    groupRsvpText: { ...lbl(9, "bold", 0.11), color: "#fff" },
     groupRsvpTextGoing: {
         color: C.primary,
     },
@@ -789,22 +628,13 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         gap: 4,
         paddingVertical: 12,
     },
-    groupViewAllText: {
-        fontSize: 12,
-        fontWeight: "700",
-        color: C.primary,
-        letterSpacing: 0.3,
-    },
+    groupViewAllText: { ...meta(12, "bold"), color: C.primary },
     rangeEmpty: {
         paddingVertical: 48,
         alignItems: "center",
         gap: 10,
     },
-    rangeEmptyText: {
-        fontSize: 14,
-        color: C.textLight,
-        fontWeight: "500",
-    },
+    rangeEmptyText: { ...meta(14, "medium"), color: C.textLight },
     rangeLoading: {
         paddingVertical: 48,
         alignItems: "center",
@@ -819,17 +649,8 @@ const makeSearchStyles = (C: AppColors) => StyleSheet.create({
         alignItems: "center",
         gap: 3,
     },
-    loadMoreText: {
-        fontSize: 11,
-        fontWeight: "800",
-        color: C.text,
-        letterSpacing: 1.5,
-    },
-    loadMoreSub: {
-        fontSize: 11,
-        color: C.textLight,
-        fontWeight: "500",
-    },
+    loadMoreText: { ...lbl(11, "bold", 0.12), color: C.text },
+    loadMoreSub: { ...meta(11, "medium"), color: C.textLight },
 });
 
 export default function DiscoverScreen() {
@@ -1065,14 +886,14 @@ export default function DiscoverScreen() {
                                                 accessibilityState={{ selected: categoryFilter === cat }}
                                                 accessibilityLabel={cat}
                                             >
-                                                <Text style={{ fontSize: 10, fontWeight: "800", letterSpacing: 1, color: categoryFilter === cat ? "#fff" : C.textMuted }}>{cat === "ALL" ? t.filterAllTab : translateCategory(cat, lang).toUpperCase()}</Text>
+                                                <Text style={{ ...lbl(10, "bold", 0.1), color: categoryFilter === cat ? "#fff" : C.textMuted }}>{cat === "ALL" ? t.filterAllTab : translateCategory(cat, lang).toUpperCase()}</Text>
                                             </Pressable>
                                         ))}
                                     </ScrollView>
                                 )}
                                 {filteredEvents.length === 0 ? (
                                     <View style={styles.featuredPlaceholder}>
-                                        <Ionicons name="calendar-outline" size={32} color="#D0D0D0" />
+                                        <Ionicons name="calendar-outline" size={32} color={C.border} />
                                         <Text style={styles.placeholderText}>{t.noEventsThisDay}</Text>
                                     </View>
                                 ) : (
@@ -1150,14 +971,14 @@ export default function DiscoverScreen() {
                                                 accessibilityState={{ selected: categoryFilter === cat }}
                                                 accessibilityLabel={cat}
                                             >
-                                                <Text style={{ fontSize: 10, fontWeight: "800", letterSpacing: 1, color: categoryFilter === cat ? "#fff" : C.textMuted }}>{cat === "ALL" ? t.filterAllTab : translateCategory(cat, lang).toUpperCase()}</Text>
+                                                <Text style={{ ...lbl(10, "bold", 0.1), color: categoryFilter === cat ? "#fff" : C.textMuted }}>{cat === "ALL" ? t.filterAllTab : translateCategory(cat, lang).toUpperCase()}</Text>
                                             </Pressable>
                                         ))}
                                     </ScrollView>
                                 )}
                                 {groups.length === 0 ? (
                                     <View style={styles.rangeEmpty}>
-                                        <Ionicons name="calendar-outline" size={32} color="#D0D0D0" />
+                                        <Ionicons name="calendar-outline" size={32} color={C.border} />
                                         <Text style={styles.rangeEmptyText}>No events {rangeMode === "week" ? "this week" : "this month"}</Text>
                                     </View>
                                 ) : groups.slice(0, visibleDayCount).map((group) => (
@@ -1236,7 +1057,7 @@ export default function DiscoverScreen() {
                             </View>
                             <View style={styles.updateText}>
                                 <Text style={styles.updateCategory}>{item.clubName?.toUpperCase()} · {item.type.toUpperCase()}</Text>
-                                <Text style={styles.updateTitle}>{(locale.title ?? "").toUpperCase()}</Text>
+                                <Text style={styles.updateTitle}>{locale.title ?? ""}</Text>
                                 <Text style={styles.updateExcerpt} numberOfLines={2}>{locale.body ?? ""}</Text>
                             </View>
                         </Pressable>
@@ -1250,7 +1071,7 @@ export default function DiscoverScreen() {
                         <Text style={styles.sectionTitle}>{t.followTopics}</Text>
                         <View style={styles.sectionLine} />
                     </View>
-                    <Text style={{ fontSize: 12, color: C.textMuted, marginTop: -4, marginBottom: 12 }} maxFontSizeMultiplier={1.3}>
+                    <Text style={{ ...meta(12, "regular"), color: C.textMuted, marginTop: -4, marginBottom: 12 }} maxFontSizeMultiplier={1.3}>
                         Get these in your feed, even from clubs you don't follow.
                     </Text>
                     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
@@ -1266,7 +1087,7 @@ export default function DiscoverScreen() {
                                     accessibilityLabel={`${on ? t.unfollowWord : t.followWord} ${translateCategory(tag, lang)}`}
                                 >
                                     {on && <Ionicons name="checkmark" size={12} color="#fff" />}
-                                    <Text style={{ fontSize: 11, fontWeight: "800", letterSpacing: 0.5, color: on ? "#fff" : C.textMuted }} maxFontSizeMultiplier={1.3}>
+                                    <Text style={{ ...meta(11, "bold"), color: on ? "#fff" : C.textMuted }} maxFontSizeMultiplier={1.3}>
                                         {translateCategory(tag, lang).toUpperCase()}
                                     </Text>
                                 </Pressable>
@@ -1344,7 +1165,7 @@ function EventCard({ event, width, onPress }: { event: ApiEvent; width: number; 
     // Use the shared feed styles so carousel cards match the feed's event cards.
     const s = useMemo(() => makeFeedStyles(C), [C]);
     const locale = pickLocale(event.locales, lang);
-    const title = (locale.title ?? t.untitledEvent).toUpperCase();
+    const title = locale.title ?? t.untitledEvent;
     const time = formatEventTime(event.startAt);
     const endTime = formatEventTime(event.endAt);
     const timeStr = time && endTime ? `${time} – ${endTime}` : time;
@@ -1398,8 +1219,8 @@ function EventCard({ event, width, onPress }: { event: ApiEvent; width: number; 
                         <Text style={s.evTypeLabel}>{t.eventBadge}</Text>
                         {isFreeFood && (
                             <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: C.gold, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                                <Text style={{ fontSize: 9 }}>🍕</Text>
-                                <Text style={{ fontSize: 8, fontWeight: "800", letterSpacing: 1, color: "#fff" }}>{t.freeFoodBadge}</Text>
+                                <Text style={{ ...meta(9, "regular") }}>🍕</Text>
+                                <Text style={{ ...lbl(8, "bold", 0.12), color: "#fff" }}>{t.freeFoodBadge}</Text>
                             </View>
                         )}
                     </View>
@@ -1487,7 +1308,7 @@ function GroupEventRow({ event, onPress }: { event: ApiEvent; onPress: () => voi
     const t = useT();
     const styles = useMemo(() => makeSearchStyles(C), [C]);
     const locale = pickLocale(event.locales, lang);
-    const title = (locale.title ?? t.untitledEvent).toUpperCase();
+    const title = locale.title ?? t.untitledEvent;
     const time = formatEventTime(event.startAt);
     const endTime = formatEventTime(event.endAt);
     const clubName = event.club?.clubName?.toUpperCase() ?? "";
@@ -1544,7 +1365,7 @@ function GroupEventRow({ event, onPress }: { event: ApiEvent; onPress: () => voi
                         ))}
                         {isFreeFood && (
                             <View style={styles.groupFreeFood}>
-                                <Text style={{ fontSize: 9 }}>🍕</Text>
+                                <Text style={{ ...meta(9, "regular") }}>🍕</Text>
                                 <Text style={styles.groupFreeFoodText}>{t.freeFoodBadge}</Text>
                             </View>
                         )}

@@ -3,6 +3,7 @@ import { Animated, Text, StyleSheet } from "react-native";
 import { useNetworkState } from "../lib/useNetworkState";
 import { useReduceMotion } from "../lib/useReduceMotion";
 import { useT } from "../lib/LangContext";
+import { fonts, lbl, meta, lightColors } from "../styles/theme";
 
 export default function OfflineBanner() {
     const t = useT();
@@ -40,10 +41,5 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         alignItems: "center",
     },
-    text: {
-        color: "#F7F3EE",
-        fontSize: 11,
-        fontWeight: "800",
-        letterSpacing: 1.5,
-    },
+    text: { ...lbl(11, "bold", 0.12), color: lightColors.bg },
 });

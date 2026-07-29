@@ -1,19 +1,20 @@
 import type { EdgeInsets } from "react-native-safe-area-context";
 import type { AppColors } from "./theme";
+import { fonts, lbl, meta, lightColors } from "../styles/theme";
 
 export const TAB_BAR_HEIGHT = 64;
 export const TAB_BAR_BOTTOM_GAP = 12;
 
 export function getTabBarTheme(insets: EdgeInsets, C?: AppColors) {
     const surface = C?.surface ?? "#FFFFFF";
-    const text = C?.text ?? "#111827";
-    const textMuted = C?.textMuted ?? "#6B7280";
+    const text = C?.text ?? lightColors.text;
+    const textMuted = C?.textMuted ?? lightColors.textMuted;
 
     return {
         headerShown: false,
         tabBarActiveTintColor: text,
         tabBarInactiveTintColor: textMuted,
-        tabBarLabelStyle: { fontSize: 12 },
+        tabBarLabelStyle: { ...meta(12, "regular") },
         tabBarStyle: {
             position: "absolute",
             height: TAB_BAR_HEIGHT,
