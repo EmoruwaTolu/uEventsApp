@@ -19,7 +19,7 @@
       "backgroundColor": "#F5F4F0"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.cssa.uevents",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
