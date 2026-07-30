@@ -49,7 +49,7 @@
       "package": "com.cssa.uevents",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#8C0327"
+        "backgroundColor": "#970A2B"
       },
       "permissions": [
         "android.permission.READ_CALENDAR",
