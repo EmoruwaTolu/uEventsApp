@@ -305,9 +305,10 @@ export default function CreateContentScreen() {
     const { colors: C } = useTheme();
     const styles = useMemo(() => makeCreateStyles(C), [C]);
 
-    if (session?.userType !== "CLUB") {
-        return <Redirect href="/(tabs)/events" />;
-    }
+    // Every hook below must run before the non-club redirect returns, or a
+    // session change from a club to a student account (which flips userType
+    // mid-render) would render fewer hooks than the previous pass and crash.
+    const isClub = session?.userType === "CLUB";
 
     const CONTENT_TYPES: { type: ContentType; icon: any; label: string; desc: string; featured?: boolean }[] = [
         { type: "announcement", icon: "megaphone",       label: t.contentTypeAnnouncement, desc: t.contentTypeAnnouncementDesc },
@@ -331,8 +332,13 @@ export default function CreateContentScreen() {
     }
 
     useFocusEffect(useCallback(() => {
+        if (!isClub) return;
         refreshDraftCount();
-    }, []));
+    }, [isClub]));
+
+    if (!isClub) {
+        return <Redirect href="/(tabs)/events" />;
+    }
 
     function openForm(type: ContentType) {
         if (!isApproved) return;

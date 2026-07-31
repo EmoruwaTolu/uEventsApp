@@ -97,13 +97,22 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
     const titleError = touchedTitle && !titles.en.trim() ? t.headlineRequired : null;
     const bodyError = touchedBody && !bodies.en.trim() ? t.bodyRequired : null;
 
+    // Tracks the draft row this form owns, so auto-save updates one draft
+    // instead of POSTing a new one every 30s. Seeded from postId when editing.
+    const draftIdRef = useRef<string | null>(postId ?? null);
+
     const autoSaveRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const autoSaveInFlight = useRef(false);
     useEffect(() => {
         autoSaveRef.current = setInterval(async () => {
-            if (!titles.en.trim() || submitting) return;
+            // Skip if a previous auto-save is still running — otherwise a slow
+            // save (e.g. image upload) could let the next tick POST a duplicate
+            // before this one records the draft id.
+            if (!titles.en.trim() || submitting || autoSaveInFlight.current) return;
+            autoSaveInFlight.current = true;
             setAutoSaving(true);
             try { await handleSubmit(true, false, true); } catch {}
-            finally { setAutoSaving(false); }
+            finally { setAutoSaving(false); autoSaveInFlight.current = false; }
         }, 30000);
         return () => { if (autoSaveRef.current) clearInterval(autoSaveRef.current); };
     }, [titles, bodies, images, submitting]);
@@ -157,16 +166,19 @@ export default function CreateAnnouncementForm({ onBack, onSuccess, initialValue
                 followersOnly,
                 expiresAt: expiresAt?.toISOString() ?? null,
             };
-            if (postId) {
-                await authApi(`/posts/${postId}`, {
+            const savePostId = draftIdRef.current;
+            if (savePostId) {
+                await authApi(`/posts/${savePostId}`, {
                     method: "PATCH",
                     body: JSON.stringify({ isDraft: isDraft || scheduled, locales, images: uploadedImages, ...scheduleFields, ...commentFields }),
                 });
             } else {
-                await authApi("/posts", {
+                const created = await authApi<{ id: string }>("/posts", {
                     method: "POST",
                     body: JSON.stringify({ type: "ANNOUNCEMENT", isDraft: isDraft || scheduled, locales, images: uploadedImages, ...scheduleFields, ...commentFields }),
                 });
+                // Remember the row so later auto-saves update it instead of creating more.
+                draftIdRef.current = created.id;
             }
             if (silent) {
                 // auto-save — no navigation, no toast

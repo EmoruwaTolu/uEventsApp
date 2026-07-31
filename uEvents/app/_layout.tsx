@@ -14,9 +14,14 @@ import {
     PlusJakartaSans_700Bold,
 } from "@expo-google-fonts/plus-jakarta-sans";
 import { initObservability, analytics, wrapRoot } from "../lib/analytics";
+import { holdSplash, markAppReady } from "../lib/splash";
+import LaunchOverlay from "../components/LaunchOverlay";
 
 // Crash reporting + product analytics. No-ops without env keys (lib/analytics.ts).
 initObservability();
+
+// Keep the launch image up until Gate has a real screen to show.
+holdSplash();
 
 // Accessibility: honour the OS font-size setting everywhere, but cap the
 // multiplier so very large accessibility sizes don't shatter layouts. Applied
@@ -59,6 +64,8 @@ class ErrorBoundary extends React.Component<
     }
     componentDidCatch(error: unknown, info: { componentStack?: string | null }) {
         analytics.captureError(error, { componentStack: info?.componentStack ?? undefined });
+        // Gate never mounted, so nothing else will take the splash down.
+        markAppReady();
     }
     render() {
         if (this.state.hasError) {
@@ -84,6 +91,19 @@ const eb = StyleSheet.create({
     btnText: { fontSize: 12, fontWeight: "800", color: "#fff", letterSpacing: 2 },
 });
 
+// Everything below this point holds per-account state: the RSVP/like/bookmark
+// stores, plus whatever each screen has already fetched. None of it is valid
+// across a sign-out, and the navigator itself is never torn down when the
+// session changes — so without this, switching accounts quickly could leave the
+// previous account's profile on screen (and editable). Keying the subtree to the
+// signed-in identity forces a clean remount, so one account can never be shown
+// another's data.
+function SessionScope({ children }: { children: React.ReactNode }) {
+    const { session } = useAuth();
+    const identity = session ? (session.userId ?? session.role ?? "session") : "signed-out";
+    return <React.Fragment key={identity}>{children}</React.Fragment>;
+}
+
 function Gate() {
     const { session, isLoading } = useAuth();
     const segments = useSegments();
@@ -100,6 +120,40 @@ function Gate() {
     // from the login/onboarding redirects below.
     const inVerify = segments[0] === "verify-email";
 
+    // Same precedence as the redirect chain always had, just resolved to a value
+    // up front — the splash needs to wait for the *destination* screen, not for
+    // a <Redirect> that hasn't navigated yet.
+    let redirectTo: string | null = null;
+    if (!isLoading) {
+        if (session && inAuth) {
+            // Redirect logged-in users away from auth pages
+            redirectTo = session.needsOnboarding
+                ? "/club-onboarding"
+                : session.needsInterests
+                  ? "/onboarding-interests"
+                  : "/(tabs)";
+        } else if (session && session.needsOnboarding && !inOnboarding && !inVerify) {
+            // New club — onboarding before tabs
+            redirectTo = "/club-onboarding";
+        } else if (session && session.needsInterests && !inInterests && !inVerify) {
+            // New student — pick interests before tabs (skippable inside the screen)
+            redirectTo = "/onboarding-interests";
+        } else if (!session && !inAuth && !inVerify) {
+            redirectTo = "/(auth)/login";
+        }
+    }
+
+    // Fonts are already resolved by the time Gate mounts — RootLayout holds on
+    // them — so settling here means both startup conditions are met.
+    const ready = !isLoading && redirectTo === null;
+    React.useEffect(() => {
+        if (!ready) return;
+        // One frame of slack so the screen below is committed before the launch
+        // image starts lifting.
+        const raf = requestAnimationFrame(markAppReady);
+        return () => cancelAnimationFrame(raf);
+    }, [ready]);
+
     // Show loading state while checking auth
     if (isLoading) {
         return (
@@ -111,27 +165,8 @@ function Gate() {
         );
     }
 
-    // Redirect logged-in users away from auth pages
-    if (session && inAuth) {
-        if (session.needsOnboarding) return <Redirect href="/club-onboarding" />;
-        if (session.needsInterests) return <Redirect href="/onboarding-interests" />;
-        return <Redirect href="/(tabs)" />;
-    }
+    if (redirectTo) return <Redirect href={redirectTo} />;
 
-    // New club — redirect to onboarding before tabs
-    if (session && session.needsOnboarding && !inOnboarding && !inVerify) {
-        return <Redirect href="/club-onboarding" />;
-    }
-
-    // New student — pick interests before tabs (skippable inside the screen)
-    if (session && session.needsInterests && !inInterests && !inVerify) {
-        return <Redirect href="/onboarding-interests" />;
-    }
-
-    // Redirect logged-out users to login
-    if (!session && !inAuth && !inVerify) {
-        return <Redirect href="/(auth)/login" />;
-    }
     return (
         <Stack
             screenOptions={{
@@ -168,6 +203,18 @@ function Gate() {
 }
 
 function RootLayout() {
+    // LaunchOverlay has to outlive every branch below — including the font
+    // fallback and anything the error boundary swaps in — because it is the only
+    // thing that ever takes the launch image down.
+    return (
+        <>
+            <AppRoot />
+            <LaunchOverlay />
+        </>
+    );
+}
+
+function AppRoot() {
     // The editorial theme selects type by family name, so nothing renders with
     // the right face until these resolve. Hold on the same loading treatment the
     // auth gate uses rather than flashing system fonts for a frame.
@@ -201,19 +248,21 @@ function RootLayout() {
             <SafeAreaProvider style={{ flex: 1, backgroundColor: "#F7F3EC" }}>
                 <AuthProvider>
                     <LangProvider>
-                        <RsvpProvider>
-                            <LikeProvider>
-                                <BookmarkProvider>
-                                    <ToastProvider>
-                                        <GuestModalProvider>
-                                            <StatusBar style="dark" backgroundColor="#F7F3EC" />
-                                            <Gate />
-                                            <OfflineBanner />
-                                        </GuestModalProvider>
-                                    </ToastProvider>
-                                </BookmarkProvider>
-                            </LikeProvider>
-                        </RsvpProvider>
+                        <SessionScope>
+                            <RsvpProvider>
+                                <LikeProvider>
+                                    <BookmarkProvider>
+                                        <ToastProvider>
+                                            <GuestModalProvider>
+                                                <StatusBar style="dark" backgroundColor="#F7F3EC" />
+                                                <Gate />
+                                                <OfflineBanner />
+                                            </GuestModalProvider>
+                                        </ToastProvider>
+                                    </BookmarkProvider>
+                                </LikeProvider>
+                            </RsvpProvider>
+                        </SessionScope>
                     </LangProvider>
                 </AuthProvider>
             </SafeAreaProvider>

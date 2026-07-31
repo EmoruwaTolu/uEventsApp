@@ -16,13 +16,14 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#F5F4F0"
+      "backgroundColor": "#8C0327"
     },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.cssa.uevents",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIStatusBarStyle": "UIStatusBarStyleLightContent"
       },
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [
@@ -73,7 +74,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
+          "icon": "./assets/notification-icon.png",
           "color": "#8C0327"
         }
       ],
