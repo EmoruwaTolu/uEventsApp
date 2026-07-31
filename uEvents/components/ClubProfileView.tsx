@@ -7,10 +7,11 @@ import {
     type LayoutChangeEvent,
 } from "react-native";
 import { Image as ExpoImage } from "expo-image";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useApi } from "../lib/useApi";
 import { useAuth } from "../auth/AuthContext";
+import { useLikes } from "../lib/LikeContext";
 import { useLang, pickLocale, pickText } from "../lib/LangContext";
 import { useToast } from "../lib/ToastContext";
 import { ProfileSkeleton, ErrorRetry } from "./SkeletonLoader";
@@ -160,6 +161,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
     const { showToast } = useToast();
     const t = useT();
     const { lang } = useLang();
+    const { overrides: likeOverrides, resolve: resolveLike, toggleLike: toggleLikeCtx } = useLikes();
     const isOwner = session?.userId === id;
 
     const [club, setClub] = useState<Club | null>(null);
@@ -375,8 +377,16 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
 
     const PAGE_SIZE = 20;
 
+    // Identifies the load a response belongs to. A response for a club/session
+    // we've since navigated away from must not be written into state — otherwise
+    // a slow request from the previous account can repaint its data over the new
+    // one's (and, on the profile tab, offer it for editing).
+    const loadTokenRef = useRef(0);
+
     function loadClub(isRefresh = false) {
         if (!id || !session?.token) return;
+        const loadToken = ++loadTokenRef.current;
+        const isStale = () => loadTokenRef.current !== loadToken;
         if (isRefresh) setRefreshing(true); else setLoading(true);
         setFetchError(false);
         Promise.all([
@@ -385,6 +395,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
             authApi<any[]>("/users/me/follows"),
             authApi<ApiPost | null>(`/clubs/${id}/pinned`),
         ]).then(([clubData, postsData, follows, pinned]) => {
+            if (isStale()) return;
             setClub(clubData);
             setPosts(postsData.map((p) => toFeedPost(p, clubData, lang)));
             setHasMore(postsData.length === PAGE_SIZE);
@@ -392,10 +403,37 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
             setIsFollowing(!!follow);
             if (follow?.notifPref) setNotifPref(follow.notifPref);
             setPinnedPost(pinned ? toFeedPost(pinned, clubData, lang) : null);
-        }).catch(() => setFetchError(true)).finally(() => isRefresh ? setRefreshing(false) : setLoading(false));
+        }).catch(() => { if (!isStale()) setFetchError(true); })
+          .finally(() => {
+            if (isStale()) return;
+            isRefresh ? setRefreshing(false) : setLoading(false);
+        });
     }
 
-    useEffect(() => { loadClub(); }, [id, session?.token]);
+    // Guards the focus refetch below against doubling up with the mount load.
+    const hasFocusedOnce = useRef(false);
+
+    useEffect(() => {
+        // Drop the previous club's data immediately so the switch shows a loading
+        // state rather than the old profile while the new one is in flight.
+        setClub(null);
+        setPosts([]);
+        setPinnedPost(null);
+        setIsFollowing(false);
+        loadClub();
+    }, [id, session?.token]);
+
+    // Refetch when the screen regains focus, so an edit made on the edit-profile
+    // screen (which just pops back to here) shows up without a manual pull-to-
+    // refresh. The first focus is the one that comes with the mount load above,
+    // so it's skipped; later ones refresh in place instead of showing a skeleton.
+    useFocusEffect(useCallback(() => {
+        if (!hasFocusedOnce.current) {
+            hasFocusedOnce.current = true;
+            return;
+        }
+        loadClub(true);
+    }, [id, session?.token]));
 
     async function loadMore() {
         if (loadingMore || !hasMore || !club) return;
@@ -431,21 +469,22 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
         }
     }
 
-    async function handleLike(postId: string) {
-        const post = posts.find((p) => p.id === postId);
+    // Likes go through the shared store rather than local state, so a like made
+    // here shows up on the feed and detail screens immediately (and vice versa)
+    // instead of waiting for each screen's next refetch.
+    const handleLike = useCallback((postId: string) => {
+        const post = posts.find((p) => p.id === postId) ?? (pinnedPost?.id === postId ? pinnedPost : undefined);
         if (!post) return;
-        const next = !post.isLiked;
-        setPosts((cur) => cur.map((p) =>
-            p.id === postId ? { ...p, isLiked: next, likes: (p.likes ?? 0) + (next ? 1 : -1) } : p
-        ));
-        try {
-            await authApi(`/posts/${postId}/like`, { method: next ? "POST" : "DELETE" });
-        } catch {
-            setPosts((cur) => cur.map((p) =>
-                p.id === postId ? { ...p, isLiked: !next, likes: (p.likes ?? 0) + (next ? -1 : 1) } : p
-            ));
-        }
-    }
+        const base = { liked: post.isLiked ?? false, count: post.likes ?? 0 };
+        toggleLikeCtx(postId, resolveLike(postId, base));
+    }, [posts, pinnedPost, resolveLike, toggleLikeCtx]);
+
+    // Overlay the shared like state on whatever the server last returned.
+    const applyLikeOverrides = useCallback((list: FeedPost[]) =>
+        list.map((p) => {
+            const o = likeOverrides.get(p.id);
+            return o ? { ...p, isLiked: o.liked, likes: o.count } : p;
+        }), [likeOverrides]);
 
     async function handlePollVote(postId: string, optionId: string) {
         try {
@@ -637,7 +676,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                                     style={s.pinnedEventCta}
                                     onPress={() => router.push(`/event/${pinnedPost.eventId ?? pinnedPost.id}` as any)}
                                 >
-                                    <Text style={s.pinnedEventCtaText}>VIEW EVENT  →</Text>
+                                    <Text style={s.pinnedEventCtaText}>{t.viewEventCta}  →</Text>
                                 </Pressable>
                                 {isOwner && (
                                     <Pressable
@@ -670,7 +709,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                             <Text style={s.pinnedPreview} numberOfLines={2}>{pinnedPost.content}</Text>
                         )}
                         <View style={s.pinnedFooter}>
-                            <Text style={s.pinnedViewText}>VIEW POST →</Text>
+                            <Text style={s.pinnedViewText}>{t.viewPostCta} →</Text>
                         </View>
                     </Pressable>
                 )
@@ -707,7 +746,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
 
     // One pane per tab — all mounted side-by-side so they finger-track/peek.
     function renderPane(tabKey: PostTab, i: number) {
-        const list = filterPosts(posts, tabKey);
+        const list = applyLikeOverrides(filterPosts(posts, tabKey));
         // Every pane keeps its own refresh control. (Toggling it on/off per active
         // tab makes RN recreate the scroll view, which caused a white flash on swipe.)
         const refresh = <RefreshControl refreshing={refreshing} onRefresh={() => loadClub(true)} tintColor={C.primary} progressViewOffset={paneTopPad} />;
