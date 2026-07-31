@@ -70,11 +70,13 @@ const createPostSchema = z.object({
 });
 
 // PATCH /posts/:id: every field optional (only what's sent is changed). `type`
-// and poll options can't change on edit. capacity is coerced so a garbage string
-// is a 400 (not a NaN → Prisma 500), and an explicit null clears the field —
-// distinct from an absent field, which leaves it untouched.
+// can't change on edit; pollOptions may be sent but are only applied while the
+// post is still a draft (a published poll has votes we must not discard).
+// capacity is coerced so a garbage string is a 400 (not a NaN → Prisma 500), and
+// an explicit null clears the field — distinct from an absent field, which
+// leaves it untouched.
 const editPostSchema = createPostSchema
-    .omit({ type: true, pollOptions: true })
+    .omit({ type: true })
     .partial()
     .extend({
         capacity: z.union([z.coerce.number().int().min(1).max(100000), z.null()]).optional(),
@@ -1038,7 +1040,7 @@ router.get("/popular", optionalAuth, async (req, res, next) => {
 // GET /posts/for-you — personalized discovery ranking with reason labels.
 // Scores upcoming events + recent posts by followed clubs, followed topics,
 // popularity (log-scaled), and time-proximity, and attaches a human reason
-// ("Because you follow X", "Matches your interest: Y", "Popular this week").
+// ("Matches your interest: Y", "Popular this week").
 
 router.get("/for-you", requireAuth, async (req, res, next) => {
     try {
@@ -1062,6 +1064,16 @@ router.get("/for-you", requireAuth, async (req, res, next) => {
         // fresh content floats to the top without permanently hiding good events.
         const seenPosts = new Set(views.map((v) => v.postId));
         const SEEN_PENALTY = 55;
+        // Fresh-post boost: big enough to clear the +60 topic-match tier so a new
+        // post is discoverable on day one, but under the +100 followed-club tier
+        // so a student's own clubs still lead their feed.
+        const NEW_POST_BOOST = 70;
+        const NEW_POST_WINDOW_HOURS = 48;
+        // Recap tuning: a gentle nudge rather than the old +45 (which outranked
+        // every tier except followed clubs), plus a hard cap of one recap per
+        // this many feed entries.
+        const RECAP_BOOST = 15;
+        const RECAP_EVERY = 5;
 
         // "Show less like this" signals: suppress the exact post, and down-rank
         // future posts from the same club / matching categories (weighted by how
@@ -1159,6 +1171,16 @@ router.get("/for-you", requireAuth, async (req, res, next) => {
             if (fromFollowed) score += 100;
             if (matchedTopic) score += 60;
 
+            // Just-posted boost. Without it a new club is invisible here: it has
+            // no followers (+100) and no engagement, so it always sits below
+            // established clubs no matter how many times the feed is refreshed.
+            // This buys every new post a visibility window that decays linearly
+            // over NEW_POST_WINDOW_HOURS, after which it competes on merit.
+            const hoursOld = (now.getTime() - new Date(p.createdAt).getTime()) / 3600000;
+            if (hoursOld < NEW_POST_WINDOW_HOURS) {
+                score += NEW_POST_BOOST * (1 - hoursOld / NEW_POST_WINDOW_HOURS);
+            }
+
             // Down-rank dimensions the user asked to see less of (capped so a
             // few taps nudge rather than nuke the content entirely).
             const clubMute = mutedClubs.get(p.club.id) ?? 0;
@@ -1180,23 +1202,42 @@ router.get("/for-you", requireAuth, async (req, res, next) => {
             }
 
             const past = isEvent && !!p.endAt && new Date(p.endAt) < now;
-            // Surface recap-rich past events prominently (the For You "moment").
+            // Recaps are a nice-to-have in For You, not the point of it. Past
+            // events accumulate while upcoming ones don't, so a large boost here
+            // lets recaps crowd out live content over time — keep it modest and
+            // rely on the density cap below to bound how many actually ship.
             const hasRecapContent = past && (p._count.recapPhotos > 0 || (p.recapRatings ?? []).length > 0);
-            if (hasRecapContent) score += 45;
+            if (hasRecapContent) score += RECAP_BOOST;
             let reason: string;
-            if (fromFollowed) reason = `Because you follow ${p.club.clubName}`;
-            else if (matchedTopic) reason = `Matches your interest: ${matchedTopic}`;
+            if (matchedTopic) reason = `Matches your interest: ${matchedTopic}`;
             else if (engagement >= 8) reason = "Popular this week";
             else if (!past && isEvent && p.startAt && daysUntil >= 0 && daysUntil <= 3) reason = "Happening soon";
             else if (past) reason = "Catch the recap";
             else reason = "Recommended for you";
 
-            return { p, score, reason };
+            return { p, score, reason, isRecap: hasRecapContent };
         });
 
         scored.sort((a, b) => b.score - a.score);
 
-        res.json(scored.slice(offset, offset + limit).map(({ p, reason }) => {
+        // Cap recap density: keep at most one recap per RECAP_EVERY entries by
+        // pushing the surplus to the back, so a backlog of past events can't fill
+        // the page. Deterministic on the full sorted list, so offset/limit paging
+        // stays stable across requests.
+        const ranked: typeof scored = [];
+        const heldRecaps: typeof scored = [];
+        let sinceRecap = RECAP_EVERY; // allow a recap in the first slot
+        for (const entry of scored) {
+            if (entry.isRecap && sinceRecap < RECAP_EVERY) {
+                heldRecaps.push(entry);
+                continue;
+            }
+            ranked.push(entry);
+            sinceRecap = entry.isRecap ? 0 : sinceRecap + 1;
+        }
+        ranked.push(...heldRecaps);
+
+        res.json(ranked.slice(offset, offset + limit).map(({ p, reason }) => {
             const totalVotes = p.pollOptions.reduce((sum, o) => sum + o._count.votes, 0);
 
             // Recap / rating summary (past events with attendee contributions)
@@ -1598,9 +1639,15 @@ router.patch("/:id", requireAuth, requireClub, validate(editPostSchema), async (
             locales, isDraft, publishAt,
             startAt, endAt, locationName, address, categories,
             capacity, freeFood, recapPrivate,
-            pollExpiresAt, pollAllowMultiple,
+            pollExpiresAt, pollAllowMultiple, pollOptions,
             images,
         } = req.body;
+
+        // Poll options can only be rewritten while the post is still a draft —
+        // once published it has votes tied to option ids we must not discard.
+        // (A draft has none, so a clean delete-and-recreate is safe here.)
+        const canReplacePollOptions =
+            Array.isArray(pollOptions) && post.type === "POLL" && post.isDraft;
 
         // Sync cover image: if images array provided, set posterUrl = images[0] in locales
         let finalLocales = locales;
@@ -1646,6 +1693,17 @@ router.patch("/:id", requireAuth, requireClub, validate(editPostSchema), async (
                 recapPrivate: typeof recapPrivate === "boolean" ? recapPrivate : undefined,
                 pollExpiresAt:     dateField(pollExpiresAt),
                 pollAllowMultiple: pollAllowMultiple ?? undefined,
+                ...(canReplacePollOptions
+                    ? {
+                        pollOptions: {
+                            deleteMany: {},
+                            create: pollOptions.map((o: { textEn: string; textFr?: string }) => ({
+                                textEn: o.textEn,
+                                textFr: o.textFr,
+                            })),
+                        },
+                    }
+                    : {}),
             },
         });
 

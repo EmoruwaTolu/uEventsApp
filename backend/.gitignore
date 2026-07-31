@@ -5,6 +5,7 @@ build/
 # Secrets — never commit
 .env
 .env.*
+*.env
 !.env.example
 
 *.log

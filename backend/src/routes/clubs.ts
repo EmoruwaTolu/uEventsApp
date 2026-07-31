@@ -89,7 +89,7 @@ router.get("/", optionalAuth, async (req, res, next) => {
             select: {
                 id: true, clubName: true, clubNameFr: true, slug: true, category: true,
                 description: true, descriptionFr: true, logoUrl: true,
-                _count: { select: { followedBy: true, posts: true } },
+                _count: { select: { followedBy: true, posts: { where: { isDraft: false, hidden: false } } } },
             },
             orderBy: { followedBy: { _count: "desc" } },
             take: parseInt(limit as string),
@@ -111,7 +111,7 @@ router.get("/:id", async (req, res, next) => {
                 id: true, clubName: true, clubNameFr: true, slug: true, category: true,
                 description: true, descriptionFr: true, logoUrl: true,
                 instagram: true, twitter: true, contactEmail: true,
-                _count: { select: { followedBy: true, posts: true } },
+                _count: { select: { followedBy: true, posts: { where: { isDraft: false, hidden: false } } } },
             },
         });
         if (!club) return res.status(404).json({ error: "Club not found" });
