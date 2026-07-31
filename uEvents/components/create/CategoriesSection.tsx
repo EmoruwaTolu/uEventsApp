@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
+import { useT } from "../../lib/LangContext";
 import { lightColors, meta, lbl, fonts } from "../../styles/theme";
 import {
   View,
@@ -18,6 +19,7 @@ type CategoriesSectionProps = {
 };
 
 export default function CategoriesSection({ tags, tagInput, setTagInput, onAddTag, onRemoveTag, title = "Categories" }: CategoriesSectionProps) {
+    const t = useT();
     const count = tags?.length || 0;
     const [focused, setFocused] = useState(false);
 
@@ -110,7 +112,7 @@ export default function CategoriesSection({ tags, tagInput, setTagInput, onAddTa
                             value={tagInput}
                             onChangeText={setTagInput}
                             onSubmitEditing={onAddTag}
-                            placeholder="Type a tag and press enter"
+                            placeholder={t.tagInputPlaceholder}
                             placeholderTextColor={lightColors.textLight}
                             onFocus={() => setFocused(true)}
                             onBlur={() => setFocused(false)}

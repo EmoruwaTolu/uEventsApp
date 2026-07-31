@@ -625,10 +625,10 @@ export default function EventsScreen() {
                 <View style={s.center}>
                     <Ionicons name="calendar-outline" size={48} color={C.textFaint} />
                     <Text style={{ ...meta(14, "bold"), color: C.textFaint,  marginTop: 16, textAlign: "center" }}>
-                        NO EVENTS YET
+                        {t.noEventsFilter}
                     </Text>
                     <Text style={{ ...meta(13, "regular"), color: C.textLight, textAlign: "center", lineHeight: 20, marginTop: 8, maxWidth: 260 }}>
-                        Sign up to RSVP to events, follow clubs, and see your personal events calendar.
+                        {t.guestEventsSignupMsg}
                     </Text>
                     <Pressable
                         style={{ marginTop: 24, backgroundColor: C.primary, paddingHorizontal: 28, paddingVertical: 13 }}

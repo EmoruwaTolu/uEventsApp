@@ -671,7 +671,7 @@ export default function ProfilePage({
                                             style={s.fieldInput}
                                             value={draftName}
                                             onChangeText={setDraftName}
-                                            placeholder="Club name"
+                                            placeholder={t.clubNamePlaceholder}
                                             placeholderTextColor={C.textFaint}
                                         />
                                     </View>
@@ -682,7 +682,7 @@ export default function ProfilePage({
                                             value={draftDesc}
                                             onChangeText={setDraftDesc}
                                             multiline
-                                            placeholder="Describe your club..."
+                                            placeholder={t.descriptionPlaceholder}
                                             placeholderTextColor={C.textFaint}
                                         />
                                     </View>
@@ -695,7 +695,7 @@ export default function ProfilePage({
                                             style={s.fieldInput}
                                             value={draftName}
                                             onChangeText={setDraftName}
-                                            placeholder="Your name"
+                                            placeholder={t.namePlaceholder}
                                             placeholderTextColor={C.textFaint}
                                         />
                                     </View>
@@ -705,7 +705,7 @@ export default function ProfilePage({
                                             style={s.fieldInput}
                                             value={draftProgram}
                                             onChangeText={setDraftProgram}
-                                            placeholder="e.g. BSc Computer Science"
+                                            placeholder={t.programPlaceholder}
                                             placeholderTextColor={C.textFaint}
                                         />
                                     </View>
@@ -715,7 +715,7 @@ export default function ProfilePage({
                                             style={s.fieldInput}
                                             value={draftYear}
                                             onChangeText={setDraftYear}
-                                            placeholder="e.g. 3rd Year"
+                                            placeholder={t.yearPlaceholder}
                                             placeholderTextColor={C.textFaint}
                                         />
                                     </View>
@@ -881,6 +881,7 @@ function EmptyState({ icon, text, ctaLabel, onCta }: { icon: any; text: string; 
 
 function ActivityCard({ post, onPress }: { post: ActivityPost; onPress: () => void }) {
     const { colors: C } = useTheme();
+    const t = useT();
     const s = useMemo(() => makeStyles(C), [C]);
     return (
         <Pressable style={s.feedCard} onPress={onPress} accessibilityRole="button">
@@ -889,7 +890,7 @@ function ActivityCard({ post, onPress }: { post: ActivityPost; onPress: () => vo
                 <View style={{ flex: 1, gap: 2 }}>
                     <Text style={s.feedCardClub}>{post.clubName}</Text>
                     <Text style={s.feedCardMeta}>
-                        {post.action === "like" ? "You liked this" : "You commented"} · {post.actionTime}
+                        {post.action === "like" ? t.youLikedThis : t.youCommented} · {post.actionTime}
                     </Text>
                 </View>
                 <View style={[s.actionBadge, post.action === "comment" && s.actionBadgeComment]}>
@@ -918,16 +919,17 @@ function ActivityCard({ post, onPress }: { post: ActivityPost; onPress: () => vo
 
 function RSVPCard({ event, onPress }: { event: RSVPEvent; onPress: () => void }) {
     const { colors: C } = useTheme();
+    const t = useT();
     const s = useMemo(() => makeStyles(C), [C]);
     const soon = soonLabel(event.startAt);
     return (
         <Pressable style={s.feedCard} onPress={onPress} accessibilityRole="button">
             <View style={s.rsvpBadgeRow}>
                 <View style={s.rsvpBadgeBar} />
-                <Text style={s.rsvpBadgeText}>EVENT · RSVP'D</Text>
+                <Text style={s.rsvpBadgeText}>{t.rsvpdBadge}</Text>
                 {soon && (
                     <View style={[s.soonBadge, soon === "TODAY" && s.soonBadgeToday]}>
-                        <Text style={[s.soonBadgeText, soon === "TODAY" && s.soonBadgeTextToday]}>{soon}</Text>
+                        <Text style={[s.soonBadgeText, soon === "TODAY" && s.soonBadgeTextToday]}>{{ TODAY: t.soonToday, TOMORROW: t.soonTomorrow, "THIS WEEK": t.soonThisWeek }[soon]}</Text>
                     </View>
                 )}
             </View>

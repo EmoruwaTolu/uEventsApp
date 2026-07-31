@@ -108,14 +108,14 @@ export default function AllEventsModal() {
                 <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={12} accessibilityRole="button" accessibilityLabel={t.goBackLabel}>
                     <Ionicons name="arrow-back" size={18} color={lightColors.text} />
                 </Pressable>
-                <Text style={s.topBarTitle}>{browse ? "ALL EVENTS" : "MY SCHEDULE"}</Text>
+                <Text style={s.topBarTitle}>{browse ? t.allEventsTitle : t.mySchedule}</Text>
                 <View style={{ width: 32 }} />
             </View>
 
             {/* Count header */}
             <View style={s.countRow}>
                 <Text style={s.countText}>
-                    {loading ? "—" : total} {total === 1 ? "EVENT" : "EVENTS"} COMING UP
+                    {t.eventsComingUp(loading ? "—" : total)}
                 </Text>
             </View>
 
@@ -125,7 +125,7 @@ export default function AllEventsModal() {
                 <View style={s.empty}>
                     <Ionicons name="calendar-outline" size={40} color={lightColors.textFaint} />
                     <Text style={s.emptyText}>{t.noUpcomingEvents}</Text>
-                    <Text style={s.emptySub}>{browse ? "Nothing scheduled for this view." : "RSVP to events to see them here."}</Text>
+                    <Text style={s.emptySub}>{browse ? t.nothingScheduledView : t.rsvpToSeeHere}</Text>
                 </View>
             ) : (
                 <ScrollView
@@ -141,7 +141,7 @@ export default function AllEventsModal() {
                                 <View>
                                     <Text style={s.dayLabel}>{group.label}</Text>
                                     <Text style={s.dayCount}>
-                                        {group.events.length} {group.events.length === 1 ? "event" : "events"}
+                                        {t.eventCountLower(group.events.length)}
                                     </Text>
                                 </View>
                             </View>

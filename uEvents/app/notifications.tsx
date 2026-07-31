@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useApi } from "../lib/useApi";
 import { useT, useLang } from "../lib/LangContext";
+import { localizeNotifText } from "../lib/notifText";
 import { timeAgo } from "../lib/datetime";
 import { useTheme } from "../lib/ThemeContext";
 import { lightColors, meta, lbl, fonts, AppColors } from "../styles/theme";
@@ -203,6 +204,7 @@ export default function NotificationsScreen() {
                 ) : (
                     notifications.map((n) => {
                         const colors = typeColor(n.type);
+                        const text = localizeNotifText(n.title, n.body, lang);
                         return (
                             <Pressable
                                 key={n.id}
@@ -220,10 +222,10 @@ export default function NotificationsScreen() {
 
                                 <View style={s.itemContent}>
                                     <View style={s.itemTopRow}>
-                                        <Text style={s.notifTitle} numberOfLines={1}>{n.title}</Text>
+                                        <Text style={s.notifTitle} numberOfLines={1}>{text.title}</Text>
                                         <Text style={s.notifTime}>{timeAgo(n.createdAt, lang)}</Text>
                                     </View>
-                                    <Text style={s.notifBody} numberOfLines={2}>{n.body}</Text>
+                                    <Text style={s.notifBody} numberOfLines={2}>{text.body}</Text>
                                 </View>
                             </Pressable>
                         );

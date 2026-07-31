@@ -80,7 +80,7 @@ export default function VerifyEmailScreen() {
                 {stage === "verifying" && (
                     <>
                         <ActivityIndicator size="large" color={C.primary} />
-                        <Text style={s.subtitle}>Verifying your email…</Text>
+                        <Text style={s.subtitle}>{t.verifyingEmail}</Text>
                     </>
                 )}
 
@@ -92,8 +92,8 @@ export default function VerifyEmailScreen() {
                         <Text style={s.eyebrow}>{t.accountEyebrow}</Text>
                         <Text style={s.title}>{t.emailVerifiedTitle}</Text>
                         <View style={s.accent} />
-                        <Text style={s.subtitle}>You're all set. Thanks for confirming your email address.</Text>
-                        <LoginButton title="CONTINUE" onPress={goHome} filled />
+                        <Text style={s.subtitle}>{t.emailVerifiedBody}</Text>
+                        <LoginButton title={t.continueBtn} onPress={goHome} filled />
                     </>
                 )}
 
@@ -107,10 +107,10 @@ export default function VerifyEmailScreen() {
                         <View style={s.accent} />
                         <Text style={s.subtitle}>{message}</Text>
                         {session?.token && (
-                            <LoginButton title="RESEND EMAIL" onPress={resend} filled loading={resending} />
+                            <LoginButton title={t.resendEmailBtn} onPress={resend} filled loading={resending} />
                         )}
                         <Pressable onPress={goHome} hitSlop={8} accessibilityRole="button" accessibilityLabel="Continue">
-                            <Text style={s.link}>{session?.token ? "CONTINUE FOR NOW" : "BACK TO SIGN IN"}</Text>
+                            <Text style={s.link}>{session?.token ? t.continueForNow : t.backToSignIn}</Text>
                         </Pressable>
                     </>
                 )}
@@ -130,10 +130,10 @@ export default function VerifyEmailScreen() {
                         </Text>
                         {!!message && <Text style={s.subtitle}>{message}</Text>}
                         {session?.token && (
-                            <LoginButton title="RESEND EMAIL" onPress={resend} filled loading={resending} />
+                            <LoginButton title={t.resendEmailBtn} onPress={resend} filled loading={resending} />
                         )}
                         <Pressable onPress={goHome} hitSlop={8} accessibilityRole="button" accessibilityLabel="Continue">
-                            <Text style={s.link}>{session?.token ? "CONTINUE FOR NOW" : "BACK TO SIGN IN"}</Text>
+                            <Text style={s.link}>{session?.token ? t.continueForNow : t.backToSignIn}</Text>
                         </Pressable>
                     </>
                 )}

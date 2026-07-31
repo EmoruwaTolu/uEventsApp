@@ -3,10 +3,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { CustomTabBar } from "../../components/CustomTabBar";
 import { useAuth } from "../../auth/AuthContext";
 import { useTheme } from "../../lib/ThemeContext";
+import { useT } from "../../lib/LangContext";
 
 export default function TabLayout() {
     const { session } = useAuth();
     const { colors: C } = useTheme();
+    const t = useT();
     const isClub = session?.userType === "CLUB";
 
     return (
@@ -20,7 +22,7 @@ export default function TabLayout() {
             <Tabs.Screen
                 name="index"
                 options={{
-                    title: "Home",
+                    title: t.tabHome,
                     tabBarIcon: ({ color, size, focused }) => (
                         <Ionicons name={focused ? "home" : "home-outline"} size={size} color={color} />
                     ),
@@ -29,7 +31,7 @@ export default function TabLayout() {
             <Tabs.Screen
                 name="search"
                 options={{
-                    title: "Discover",
+                    title: t.tabDiscover,
                     tabBarIcon: ({ color, size, focused }) => (
                         <Ionicons name={focused ? "compass" : "compass-outline"} size={size} color={color} />
                     ),
@@ -38,7 +40,7 @@ export default function TabLayout() {
             <Tabs.Screen
                 name="events"
                 options={{
-                    title: "Events",
+                    title: t.tabEvents,
                     href: isClub ? null : undefined,
                     tabBarIcon: ({ color, size, focused }) => (
                         <Ionicons name={focused ? "calendar" : "calendar-outline"} size={size} color={color} />
@@ -48,7 +50,7 @@ export default function TabLayout() {
             <Tabs.Screen
                 name="create"
                 options={{
-                    title: "Create",
+                    title: t.tabCreate,
                     href: isClub ? undefined : null,
                     tabBarIcon: ({ color, size, focused }) => (
                         <Ionicons name={focused ? "add-circle" : "add-circle-outline"} size={size} color={color} />
@@ -58,7 +60,7 @@ export default function TabLayout() {
             <Tabs.Screen
                 name="profile"
                 options={{
-                    title: "Profile",
+                    title: t.tabProfile,
                     tabBarIcon: ({ color, size, focused }) => (
                         <Ionicons name={focused ? "person" : "person-outline"} size={size} color={color} />
                     ),

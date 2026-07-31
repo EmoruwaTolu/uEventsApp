@@ -301,7 +301,7 @@ export default function SettingsScreen() {
                 if (u.pushNotifs !== undefined) setPushNotifs(u.pushNotifs);
                 if (u.emailDigest !== undefined) setEmailDigest(u.emailDigest);
             })
-            .catch(() => showToast("Could not load profile settings.", "error"));
+            .catch(() => showToast(t.couldNotLoadSettings, "error"));
     }, [session?.token]);
 
     async function togglePushNotifs(val: boolean) {
@@ -346,7 +346,7 @@ export default function SettingsScreen() {
             });
             if (finalAvatarUrl) { setAvatarUrl(finalAvatarUrl); setAvatarUri(null); }
             closeModal();
-            showToast("Profile updated");
+            showToast(t.profileUpdatedToast);
         } catch (e: any) {
             Alert.alert(t.errorTitle, e.message ?? t.couldNotSaveProfile);
         } finally {
@@ -373,7 +373,7 @@ export default function SettingsScreen() {
                 }),
             });
             closeModal();
-            showToast("Club profile updated");
+            showToast(t.clubProfileUpdatedToast);
         } catch (e: any) {
             Alert.alert(t.errorTitle, e.message ?? t.couldNotSaveProfile);
         } finally {
@@ -394,7 +394,7 @@ export default function SettingsScreen() {
             if (res?.token) await updateToken(res.token);
             setCurrentPw(""); setNewPw(""); setConfirmPw("");
             closeModal();
-            showToast("Password changed");
+            showToast(t.passwordChangedToast);
         } catch (e: any) {
             Alert.alert(t.errorTitle, e.message ?? t.couldNotChangePassword);
         } finally {
@@ -659,7 +659,7 @@ export default function SettingsScreen() {
                         <View style={s.modalHandle} />
                         <View style={s.modalHeader}>
                             <Text style={s.modalTitle}>
-                                {openSection === "profile" ? "EDIT PROFILE" : openSection === "club-profile" ? "CLUB PROFILE" : "CHANGE PASSWORD"}
+                                {openSection === "profile" ? t.editProfile : openSection === "club-profile" ? t.clubProfileTitle : t.changePasswordTitle}
                             </Text>
                             <Pressable onPress={closeModal} hitSlop={8} accessibilityLabel={t.close} accessibilityRole="button">
                                 <Ionicons name="close" size={20} color={C.text} />
@@ -668,7 +668,7 @@ export default function SettingsScreen() {
                         <ScrollView style={s.modalBody} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                             {openSection === "profile" && (
                                 <>
-                                    <Field label="Profile Photo" s={s}>
+                                    <Field label={t.profilePhotoLabel} s={s}>
                                         <Pressable onPress={pickAvatar} style={s.avatarRow}>
                                             {(avatarUri || avatarUrl) ? (
                                                 <Image source={{ uri: avatarUri ?? avatarUrl }} style={s.avatarPreview} />
@@ -680,15 +680,15 @@ export default function SettingsScreen() {
                                             <Text style={s.avatarChangeText}>{t.settingsTapToChange}</Text>
                                         </Pressable>
                                     </Field>
-                                    <Field label="Display Name" s={s}>
+                                    <Field label={t.displayName} s={s}>
                                         <TextInput style={s.input} value={name} onChangeText={setName}
                                             placeholder={t.namePlaceholder} placeholderTextColor={C.textLight} />
                                     </Field>
-                                    <Field label="Program" s={s}>
+                                    <Field label={t.programFieldLabel} s={s}>
                                         <TextInput style={s.input} value={program} onChangeText={setProgram}
                                             placeholder={t.programPlaceholder} placeholderTextColor={C.textLight} />
                                     </Field>
-                                    <Field label="Year" s={s}>
+                                    <Field label={t.yearFieldLabel} s={s}>
                                         <TextInput style={s.input} value={year} onChangeText={setYear}
                                             placeholder={t.yearPlaceholder} placeholderTextColor={C.textLight} />
                                     </Field>
@@ -697,42 +697,42 @@ export default function SettingsScreen() {
                             )}
                             {openSection === "club-profile" && (
                                 <>
-                                    <Field label="Club Name" s={s}>
+                                    <Field label={t.clubNameLabel} s={s}>
                                         <TextInput style={s.input} value={clubName} onChangeText={setClubName}
                                             placeholder={t.clubNamePlaceholder} placeholderTextColor={C.textLight} />
                                     </Field>
-                                    <Field label="Club Name (French)" s={s}>
+                                    <Field label={t.clubNameFrLabel} s={s}>
                                         <TextInput style={s.input} value={clubNameFr} onChangeText={setClubNameFr}
                                             placeholder={t.phClubNameFr} placeholderTextColor={C.textLight} />
                                     </Field>
-                                    <Field label="Category" s={s}>
+                                    <Field label={t.categoryLabel} s={s}>
                                         <TextInput style={s.input} value={category} onChangeText={setCategory}
                                             placeholder={t.categoryPlaceholder} placeholderTextColor={C.textLight} />
                                     </Field>
-                                    <Field label="Description" s={s}>
+                                    <Field label={t.descriptionLabel} s={s}>
                                         <TextInput style={[s.input, s.inputMultiline]} value={description}
                                             onChangeText={setDescription} multiline
                                             placeholder={t.descriptionPlaceholder} placeholderTextColor={C.textLight} />
                                     </Field>
-                                    <Field label="Description (French)" s={s}>
+                                    <Field label={t.descriptionFrLabel} s={s}>
                                         <TextInput style={[s.input, s.inputMultiline]} value={descriptionFr}
                                             onChangeText={setDescriptionFr} multiline
                                             placeholder={t.phDescriptionFr} placeholderTextColor={C.textLight} />
                                     </Field>
-                                    <Field label="Logo URL" s={s}>
+                                    <Field label={t.logoUrlLabel} s={s}>
                                         <TextInput style={s.input} value={logoUrl} onChangeText={setLogoUrl}
                                             placeholder={t.websitePlaceholder} placeholderTextColor={C.textLight}
                                             autoCapitalize="none" keyboardType="url" />
                                     </Field>
-                                    <Field label="Instagram" s={s}>
+                                    <Field label={t.instagramLabel} s={s}>
                                         <TextInput style={s.input} value={instagram} onChangeText={setInstagram}
                                             placeholder={t.instagramPlaceholder} placeholderTextColor={C.textLight} autoCapitalize="none" />
                                     </Field>
-                                    <Field label="Twitter / X" s={s}>
+                                    <Field label={t.twitterLabel} s={s}>
                                         <TextInput style={s.input} value={twitter} onChangeText={setTwitter}
                                             placeholder={t.twitterPlaceholder} placeholderTextColor={C.textLight} autoCapitalize="none" />
                                     </Field>
-                                    <Field label="Contact Email" s={s}>
+                                    <Field label={t.contactEmailLabel} s={s}>
                                         <TextInput style={s.input} value={contactEmail} onChangeText={setContactEmail}
                                             placeholder={t.emailPlaceholder} placeholderTextColor={C.textLight}
                                             autoCapitalize="none" keyboardType="email-address" />
@@ -742,12 +742,12 @@ export default function SettingsScreen() {
                             )}
                             {openSection === "password" && (
                                 <>
-                                    <Field label="Current Password" s={s}>
+                                    <Field label={t.currentPasswordLabel} s={s}>
                                         <TextInput style={s.input} value={currentPw} onChangeText={setCurrentPw}
                                             secureTextEntry placeholder={t.currentPasswordPlaceholder}
                                             placeholderTextColor={C.textLight} autoCapitalize="none" />
                                     </Field>
-                                    <Field label="New Password" s={s}>
+                                    <Field label={t.newPasswordLabel} s={s}>
                                         <TextInput style={s.input} value={newPw} onChangeText={setNewPw}
                                             secureTextEntry placeholder={t.newPasswordPlaceholder}
                                             placeholderTextColor={C.textLight} autoCapitalize="none" />
@@ -759,13 +759,13 @@ export default function SettingsScreen() {
                                                         <View key={i} style={{ flex: 1, height: 3, backgroundColor: i <= str.level ? str.color : C.border }} />
                                                     ))}
                                                     <Text style={{ ...lbl(9, "bold", 0.11), color: str.color,  width: 44, textAlign: "right" }}>
-                                                        {str.label}
+                                                        {({ 1: t.pwWeak, 2: t.pwFair, 3: t.pwGood, 4: t.pwStrong } as Record<number, string>)[str.level] ?? ""}
                                                     </Text>
                                                 </View>
                                             );
                                         })()}
                                     </Field>
-                                    <Field label="Confirm New Password" s={s}>
+                                    <Field label={t.confirmNewPasswordLabel} s={s}>
                                         <TextInput style={s.input} value={confirmPw} onChangeText={setConfirmPw}
                                             secureTextEntry placeholder={t.confirmPasswordPlaceholder}
                                             placeholderTextColor={C.textLight} autoCapitalize="none" />

@@ -492,7 +492,7 @@ export default function LoginScreen() {
                                     onChangeText={(v) => { setInviteCode(v); clearError("inviteCode"); }}
                                     autoCapitalize="none"
                                 />
-                                <Text style={s.inviteHint}>Optional. Without a code, your club is reviewed by an admin before you can post.</Text>
+                                <Text style={s.inviteHint}>{t.inviteCodeHint}</Text>
                                 {errors.inviteCode ? <Text style={s.fieldError}>{errors.inviteCode}</Text> : null}
                                 <LoginInput
                                     label={t.authPasswordLabel}

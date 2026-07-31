@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useT } from "../../lib/LangContext";
 import { Ionicons } from "@expo/vector-icons";
 import { fonts, lbl, meta, lightColors } from "../../styles/theme";
 import {
@@ -29,6 +30,7 @@ type LocalizedContentSectionProps = {
 };
 
 export function LocalizedContentSection({ lang, locale, setLocale, pickPoster }: LocalizedContentSectionProps) {
+    const t = useT();
     const placeholderTitle = lang === "en" ? "Winter Wonderland Ball" : "Bal du Pays des Merveilles";
     const placeholderSubtitle = lang === "en" ? "A night of wonder" : "Une soirée de féerie";
     const [focused, setFocused] = useState<string | null>(null);
@@ -87,7 +89,7 @@ export function LocalizedContentSection({ lang, locale, setLocale, pickPoster }:
                 <TextInput
                     value={locale.description ?? ""}
                     onChangeText={(t) => setLocale(lang, "description", t)}
-                    placeholder="Tell people about your content..."
+                    placeholder={t.contentBodyPlaceholder}
                     placeholderTextColor={lightColors.textLight}
                     multiline
                     onFocus={() => setFocused("description")}

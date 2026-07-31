@@ -351,7 +351,7 @@ export default function ClubOnboarding() {
                         {/* ── Step 2: Contact ── */}
                         {step === 2 && (
                             <View style={s.card}>
-                                <Text style={s.cardTitle}>CONTACT & VISUALS</Text>
+                                <Text style={s.cardTitle}>{t.contactVisualsTitle}</Text>
 
                                 <Text style={s.label}>{t.obLogoUrl}</Text>
                                 <TextInput

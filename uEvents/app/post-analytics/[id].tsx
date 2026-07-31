@@ -766,7 +766,7 @@ export default function PostAnalyticsDetail() {
                 {/* ── Sentiment & feedback ── */}
                 <View style={s.sentimentSection}>
                     <View style={s.sentimentHeader}>
-                        <Text style={s.sentimentTitle}>SENTIMENT & FEEDBACK</Text>
+                        <Text style={s.sentimentTitle}>{t.sentimentTitle}</Text>
                         <View style={s.sentimentBadge}>
                             <Text style={s.sentimentBadgeText}>{post.sentimentPct}% POSITIVE</Text>
                         </View>
@@ -829,7 +829,7 @@ export default function PostAnalyticsDetail() {
                             contentContainerStyle={{ paddingBottom: 40 }}
                             ListEmptyComponent={
                                 <View style={{ alignItems: "center", paddingTop: 60 }}>
-                                    <Text style={{ ...meta(13, "regular"), color: C.textLight }}>No RSVPs yet.</Text>
+                                    <Text style={{ ...meta(13, "regular"), color: C.textLight }}>{t.noRsvpsYet}</Text>
                                 </View>
                             }
                             ListHeaderComponent={attendees.length >= 3 ? (() => {
@@ -919,7 +919,7 @@ export default function PostAnalyticsDetail() {
                             contentContainerStyle={{ paddingBottom: 40 }}
                             ListEmptyComponent={
                                 <View style={{ alignItems: "center", paddingTop: 60 }}>
-                                    <Text style={{ ...meta(13, "regular"), color: C.textLight }}>No comments yet.</Text>
+                                    <Text style={{ ...meta(13, "regular"), color: C.textLight }}>{t.noCommentsShort}</Text>
                                 </View>
                             }
                             renderItem={({ item }) => (

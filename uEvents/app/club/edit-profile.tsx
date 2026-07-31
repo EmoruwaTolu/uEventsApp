@@ -233,7 +233,7 @@ export default function EditClubProfile() {
                 <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, padding: 32 }}>
                     <Ionicons name="cloud-offline-outline" size={36} color={C.textFaint} />
                     <Text style={{ ...meta(13, "bold"), color: C.textMuted, textAlign: "center" }}>
-                        COULDN'T LOAD PROFILE
+                        {t.couldntLoadProfile}
                     </Text>
                     <Pressable
                         onPress={() => {
@@ -322,7 +322,7 @@ export default function EditClubProfile() {
                     <View style={styles.section}>
                         <Text style={styles.sectionLabel}>2. ABOUT</Text>
 
-                        <Text style={styles.label}>DESCRIPTION (EN)</Text>
+                        <Text style={styles.label}>{t.descriptionEnLabel}</Text>
                         <TextInput
                             style={[styles.input, styles.multiline]}
                             value={description}
@@ -333,7 +333,7 @@ export default function EditClubProfile() {
                             textAlignVertical="top"
                         />
 
-                        <Text style={styles.label}>DESCRIPTION (FR)</Text>
+                        <Text style={styles.label}>{t.descriptionFrLabel}</Text>
                         <TextInput
                             style={[styles.input, styles.multiline]}
                             value={descriptionFr}

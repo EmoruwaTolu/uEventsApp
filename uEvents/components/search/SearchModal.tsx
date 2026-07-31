@@ -163,15 +163,20 @@ export default function SearchModal() {
         const q = query.trim();
         if (!q) { setResults({ clubs: [], events: [], posts: [] }); return; }
 
+        // The debounce only cancels a pending timer, not a request already in
+        // flight — so without this guard a slow response for an earlier query can
+        // land after a later one and overwrite the results the user is actually
+        // looking at. `cancelled` drops any response whose query is superseded.
+        let cancelled = false;
         const timer = setTimeout(() => {
             setLoading(true);
             authApi<SearchResults>(`/search?q=${encodeURIComponent(q)}`)
-                .then(setResults)
-                .catch(console.error)
-                .finally(() => setLoading(false));
+                .then((r) => { if (!cancelled) setResults(r); })
+                .catch((e) => { if (!cancelled) console.error(e); })
+                .finally(() => { if (!cancelled) setLoading(false); });
         }, 300);
 
-        return () => clearTimeout(timer);
+        return () => { cancelled = true; clearTimeout(timer); };
     }, [query]);
 
     const { clubs, events, posts } = results;
@@ -277,7 +282,7 @@ export default function SearchModal() {
                                         <View style={s.cardContent}>
                                             <Text style={s.cardLabel}>CLUB{club.category ? ` · ${translateCategory(club.category, lang).toUpperCase()}` : ""}</Text>
                                             <Text style={s.cardTitle} numberOfLines={1}>{club.clubName}</Text>
-                                            <Text style={s.cardMeta}>{club._count.followedBy} followers</Text>
+                                            <Text style={s.cardMeta}>{t.followersCount(club._count.followedBy)}</Text>
                                         </View>
                                         <Ionicons name="chevron-forward" size={16} color={C.textLight} style={{ alignSelf: "center" }} />
                                     </Pressable>
@@ -312,7 +317,7 @@ export default function SearchModal() {
                                         </View>
                                         <View style={s.cardContent}>
                                             <Text style={[s.cardLabel, { color: "#1D4ED8" }]}>
-                                                EVENT{evClubName ? ` · ${evClubName.toUpperCase()}` : ""}
+                                                {t.eventType.toUpperCase()}{evClubName ? ` · ${evClubName.toUpperCase()}` : ""}
                                             </Text>
                                             <Text style={s.cardTitle} numberOfLines={2}>{evTitle}</Text>
                                             {(event.startAt || event.locationName) ? (
@@ -368,7 +373,7 @@ export default function SearchModal() {
                                             {club.description ? (
                                                 <Text style={s.cardMeta} numberOfLines={1}>{lang === "fr" && club.descriptionFr ? club.descriptionFr : club.description}</Text>
                                             ) : null}
-                                            <Text style={s.cardMeta}>{club._count.followedBy} followers</Text>
+                                            <Text style={s.cardMeta}>{t.followersCount(club._count.followedBy)}</Text>
                                         </View>
                                         <Ionicons name="chevron-forward" size={16} color={C.textLight} style={{ alignSelf: "center" }} />
                                     </Pressable>
@@ -398,7 +403,7 @@ export default function SearchModal() {
                                         </View>
                                         <View style={s.cardContent}>
                                             <Text style={[s.cardLabel, { color: "#1D4ED8" }]}>
-                                                EVENT{event.clubName ? ` · ${event.clubName.toUpperCase()}` : ""}
+                                                {t.eventType.toUpperCase()}{event.clubName ? ` · ${event.clubName.toUpperCase()}` : ""}
                                             </Text>
                                             <Text style={s.cardTitle} numberOfLines={2}>{event.title}</Text>
                                             {(event.startAt || event.locationName) ? (
@@ -438,7 +443,7 @@ export default function SearchModal() {
                                             />
                                         </View>
                                         <View style={s.cardContent}>
-                                            <Text style={s.cardLabel}>{post.type} · {post.clubName.toUpperCase()}</Text>
+                                            <Text style={s.cardLabel}>{(({ POLL: t.pollType, ANNOUNCEMENT: t.announcementType, UPDATE: t.updateType, EVENT: t.eventType } as Record<string, string>)[post.type] ?? post.type).toUpperCase()} · {post.clubName.toUpperCase()}</Text>
                                             <Text style={s.cardTitle} numberOfLines={2}>{post.title}</Text>
                                         </View>
                                         <Ionicons name="chevron-forward" size={16} color={C.textLight} style={{ alignSelf: "center" }} />

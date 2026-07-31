@@ -797,7 +797,7 @@ export default function PostDetailScreen() {
                 <View style={s.center}>
                     <Ionicons name="cloud-offline-outline" size={36} color={C.textFaint} />
                     <Text style={{ ...lbl(11, "bold", 0.12), marginTop: 12,   color: C.textLight }}>
-                        COULDN'T LOAD POST
+                        {t.couldntLoadPost}
                     </Text>
                     <Pressable
                         onPress={() => loadPost()}
@@ -816,7 +816,7 @@ export default function PostDetailScreen() {
                 <View style={s.center}>
                     <Ionicons name="document-outline" size={40} color={C.textFaint} />
                     <Text style={{ ...lbl(13, "bold", 0.12), marginTop: 12,   color: C.textFaint }}>
-                        POST NOT FOUND
+                        {t.postNotFoundTitle}
                     </Text>
                     <Pressable
                         onPress={() => router.replace("/(tabs)" as any)}
@@ -1199,7 +1199,7 @@ export default function PostDetailScreen() {
                             </View>
                             <View style={s.checkInBannerBody}>
                                 <Text style={s.checkInBannerTitle}>{t.checkInMode}</Text>
-                                <Text style={s.checkInBannerSub}>Open QR code · track attendance live</Text>
+                                <Text style={s.checkInBannerSub}>{t.checkInBannerSub}</Text>
                             </View>
                             <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.5)" />
                         </Pressable>
@@ -1256,7 +1256,7 @@ export default function PostDetailScreen() {
                         {commentsLoading ? (
                             <ActivityIndicator color={C.primary} style={{ marginTop: 16 }} />
                         ) : comments.length === 0 ? (
-                            <Text style={s.noComments}>No comments yet. Be the first.</Text>
+                            <Text style={s.noComments}>{t.noCommentsYet}</Text>
                         ) : (
                             (() => {
                                 const pinned = comments.find((c) => c.isPinned);

@@ -745,35 +745,45 @@ export default function DiscoverScreen() {
         }
     }
 
-    // Fade out → fetch → fade in on day change (TODAY mode only)
+    // Fade out → fetch → fade in on day change (TODAY mode only).
+    // `cancelled` drops the response if the day changed while it was in flight,
+    // so tapping through days quickly can't leave an earlier day's events on screen.
     useEffect(() => {
         if (rangeMode !== "today") return;
+        let cancelled = false;
         Animated.timing(carouselOpacity, { toValue: 0, duration: 150, useNativeDriver: true }).start(() => {
+            if (cancelled) return;
             authApi<ApiEvent[]>(`/events?date=${selectedDay}`)
                 .then((data) => {
+                    if (cancelled) return;
                     setApiEvents(data);
                     setActiveIndex(0);
                     setCategoryFilter("ALL");
                     carouselRef.current?.scrollTo({ x: 0, animated: false });
                 })
-                .catch(console.error)
+                .catch((e) => { if (!cancelled) console.error(e); })
                 .finally(() => {
+                    if (cancelled) return;
                     Animated.timing(carouselOpacity, { toValue: 1, duration: 220, useNativeDriver: true }).start();
                 });
         });
+        return () => { cancelled = true; };
     }, [selectedDay, rangeMode]);
 
-    // Fetch range events when switching to week/month
+    // Fetch range events when switching to week/month. Guarded so flipping
+    // between the two quickly can't land the older range's events last.
     useEffect(() => {
         if (rangeMode === "today") return;
+        let cancelled = false;
         setRangeLoading(true);
         setCategoryFilter("ALL");
         setVisibleDayCount(7);
         const { from, to } = getRangeISO(rangeMode);
         authApi<ApiEvent[]>(`/events?from=${from}&to=${to}`)
-            .then(setRangeEvents)
-            .catch(console.error)
-            .finally(() => setRangeLoading(false));
+            .then((r) => { if (!cancelled) setRangeEvents(r); })
+            .catch((e) => { if (!cancelled) console.error(e); })
+            .finally(() => { if (!cancelled) setRangeLoading(false); });
+        return () => { cancelled = true; };
     }, [rangeMode]);
 
     const CARD_WIDTH = screenWidth - 24;
@@ -794,8 +804,8 @@ export default function DiscoverScreen() {
                         </Text>
                     </View>
                     <View style={styles.heroTitleRow}>
-                        <Text style={styles.heroTitle}>DISCOVER{"\n"}CAMPUS</Text>
-                        <Pressable onPress={() => router.push("/search-modal" as any)} style={styles.searchBtn} hitSlop={8} accessibilityLabel="Search" accessibilityRole="button">
+                        <Text style={styles.heroTitle}>{t.discoverCampusTitle}</Text>
+                        <Pressable onPress={() => router.push("/search-modal" as any)} style={styles.searchBtn} hitSlop={8} accessibilityLabel={t.searchLabel} accessibilityRole="button">
                             <Ionicons name="search" size={22} color={C.text} />
                         </Pressable>
                     </View>
@@ -900,11 +910,11 @@ export default function DiscoverScreen() {
                                     <View style={styles.carouselWrapper}>
                                         <View style={styles.carouselHeader}>
                                             <Text style={styles.carouselHeaderLabel}>
-                                                {filteredEvents.length} {filteredEvents.length === 1 ? "EVENT" : "EVENTS"}
+                                                {t.eventCountLabel(filteredEvents.length)}
                                             </Text>
                                             {extraCount > 0 && (
                                                 <Pressable style={styles.viewAllBtn} onPress={() => router.push({ pathname: "/all-events-modal", params: { date: selectedDay, events: JSON.stringify(filteredEvents) } } as any)}>
-                                                    <Text style={styles.viewAllText}>View all {filteredEvents.length}</Text>
+                                                    <Text style={styles.viewAllText}>{t.viewAllCount(filteredEvents.length)}</Text>
                                                     <Ionicons name="chevron-forward" size={13} color={C.primary} />
                                                 </Pressable>
                                             )}
@@ -930,7 +940,7 @@ export default function DiscoverScreen() {
                                             {extraCount > 0 && (
                                                 <Pressable style={[styles.moreCard, { width: moreCardWidth }]} onPress={() => router.push({ pathname: "/all-events-modal", params: { date: selectedDay, events: JSON.stringify(filteredEvents) } } as any)}>
                                                     <Text style={styles.moreCardCount}>+{extraCount}</Text>
-                                                    <Text style={styles.moreCardLabel}>more{"\n"}events</Text>
+                                                    <Text style={styles.moreCardLabel}>{t.moreEventsCard}</Text>
                                                     <View style={styles.moreCardBtn}><Text style={styles.moreCardBtnText}>{t.viewAll}</Text></View>
                                                 </Pressable>
                                             )}
@@ -979,14 +989,14 @@ export default function DiscoverScreen() {
                                 {groups.length === 0 ? (
                                     <View style={styles.rangeEmpty}>
                                         <Ionicons name="calendar-outline" size={32} color={C.border} />
-                                        <Text style={styles.rangeEmptyText}>No events {rangeMode === "week" ? "this week" : "this month"}</Text>
+                                        <Text style={styles.rangeEmptyText}>{rangeMode === "week" ? t.noEventsThisWeek : t.noEventsThisMonth}</Text>
                                     </View>
                                 ) : groups.slice(0, visibleDayCount).map((group) => (
                                     <View key={group.iso} style={styles.groupSection}>
                                         {/* Day header */}
                                         <View style={styles.groupDayHeader}>
                                             <Text style={styles.groupDayLabel}>{group.label}</Text>
-                                            <Text style={styles.groupDayCount}>{group.events.length} {group.events.length === 1 ? "EVENT" : "EVENTS"}</Text>
+                                            <Text style={styles.groupDayCount}>{t.eventCountLabel(group.events.length)}</Text>
                                         </View>
                                         {/* Event rows — max 5 per day */}
                                         {group.events.slice(0, 5).map((event) => (
@@ -1041,7 +1051,7 @@ export default function DiscoverScreen() {
                         </Pressable>
                     </View>
                     {latestUpdates.length === 0 && (
-                        <Text style={styles.updateEmpty}>No announcements from other clubs yet.</Text>
+                        <Text style={styles.updateEmpty}>{t.noOtherClubAnnouncements}</Text>
                     )}
                     {latestUpdates.map((item) => {
                         const locale = pickLocale(item.locales as any, lang);
@@ -1124,7 +1134,7 @@ export default function DiscoverScreen() {
                                             <View style={styles.clubInfo}>
                                                 <Text style={styles.clubName}>{club.clubName}</Text>
                                                 <Text style={styles.clubMeta}>
-                                                    {[club.category, `${club._count.followedBy} followers`].filter(Boolean).join(" · ")}
+                                                    {[club.category ? translateCategory(club.category, lang) : null, t.followersCount(club._count.followedBy)].filter(Boolean).join(" · ")}
                                                 </Text>
                                             </View>
                                             <Pressable
@@ -1141,7 +1151,7 @@ export default function DiscoverScreen() {
                                         style={styles.viewMoreBtn}
                                         onPress={() => router.push({ pathname: "/search-modal", params: { category: "clubs" } } as any)}
                                     >
-                                        <Text style={styles.viewMoreText}>VIEW {remaining} MORE CLUBS</Text>
+                                        <Text style={styles.viewMoreText}>{t.viewMoreClubs(remaining)}</Text>
                                         <Ionicons name="arrow-forward" size={13} color={C.primary} />
                                     </Pressable>
                                 )}
@@ -1284,12 +1294,12 @@ function EventCard({ event, width, onPress }: { event: ApiEvent; width: number; 
                             accessibilityLabel={going ? t.cancelRsvpLabel : t.rsvpToEventLabel}
                         >
                             <Ionicons name={going ? "checkmark-circle" : "ticket-outline"} size={12} color={going ? C.primary : "#fff"} />
-                            <Text style={[s.evRsvpText, going && s.evRsvpTextGoing]}>{going ? "GOING" : "RSVP"}</Text>
+                            <Text style={[s.evRsvpText, going && s.evRsvpTextGoing]}>{going ? t.goingBtn : t.rsvpBtn}</Text>
                         </Pressable>
                         {going_count > 0 && (
                             <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
                                 <Ionicons name="people" size={12} color={C.textMuted} />
-                                <Text style={s.evGoingText}>{going_count} going</Text>
+                                <Text style={s.evGoingText}>{t.goingCount(going_count)}</Text>
                             </View>
                         )}
                     </View>
@@ -1360,7 +1370,7 @@ function GroupEventRow({ event, onPress }: { event: ApiEvent; onPress: () => voi
                     <View style={styles.groupTagWrap}>
                         {tags.map((tag, i) => (
                             <View key={i} style={styles.groupTag}>
-                                <Text style={styles.groupTagText}>{tag.toUpperCase()}</Text>
+                                <Text style={styles.groupTagText}>{translateCategory(tag, lang).toUpperCase()}</Text>
                             </View>
                         ))}
                         {isFreeFood && (
@@ -1379,7 +1389,7 @@ function GroupEventRow({ event, onPress }: { event: ApiEvent; onPress: () => voi
                         accessibilityLabel={going ? t.cancelRsvpLabel : t.rsvpToEventLabel}
                     >
                         <Ionicons name={going ? "checkmark-circle" : "ticket-outline"} size={11} color={going ? C.primary : "#fff"} />
-                        <Text style={[styles.groupRsvpText, going && styles.groupRsvpTextGoing]}>{going ? "GOING" : "RSVP"}</Text>
+                        <Text style={[styles.groupRsvpText, going && styles.groupRsvpTextGoing]}>{going ? t.goingBtn : t.rsvpBtn}</Text>
                     </Pressable>
                 </View>
             </View>
