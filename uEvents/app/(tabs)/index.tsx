@@ -8,13 +8,15 @@ import FollowedAccounts, { type Account } from "../../components/FollowedAccount
 import { useAuth } from "../../auth/AuthContext";
 import { useApi } from "../../lib/useApi";
 import SocialFeed, { type FeedPost, type RecapPhoto } from "../../components/SocialFeed";
-import { useRouter } from "expo-router";
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useRouter, useNavigation } from "expo-router";
+import { useState, useCallback, useRef, useMemo, useEffect } from "react";
+import * as Haptics from "expo-haptics";
 import { useReduceMotion } from "../../lib/useReduceMotion";
 import { useFocusEffect } from "expo-router";
 import { useGuestGuard } from "../../lib/useGuestGuard";
 import { useGuestModal } from "../../lib/GuestModalContext";
 import { useLang, useT, pickLocale, pickText } from "../../lib/LangContext";
+import { getT } from "../../lib/i18n";
 import { useToast } from "../../lib/ToastContext";
 import { useLikes } from "../../lib/LikeContext";
 import { api } from "../../lib/api";
@@ -84,10 +86,11 @@ function mapPost(p: ApiFeedPost, lang: "en" | "fr"): FeedPost {
     const locale = pickLocale(p.locales, lang);
     const endsAt = p.poll?.expiresAt
         ? (() => {
+              const tt = getT(lang);
               const diff = new Date(p.poll.expiresAt).getTime() - Date.now();
-              if (diff <= 0) return "Ended";
+              if (diff <= 0) return tt.pollEnded;
               const days = Math.floor(diff / 86400000);
-              return days > 0 ? `${days}d left` : "< 1d left";
+              return days > 0 ? tt.pollDaysLeft(days) : tt.pollLessThanDayLeft;
           })()
         : undefined;
 
@@ -135,7 +138,7 @@ function mapPost(p: ApiFeedPost, lang: "en" | "fr"): FeedPost {
         poll: p.poll
             ? {
                   question: locale.title ?? "",
-                  options: p.poll.options.map((o) => ({ id: o.id, text: o.textEn, votes: o.votes })),
+                  options: p.poll.options.map((o) => ({ id: o.id, text: pickText(o.textEn, o.textFr, lang), votes: o.votes })),
                   totalVotes: p.poll.totalVotes,
                   userVote: p.poll.userVote ?? undefined,
                   endsAt,
@@ -183,7 +186,10 @@ export default function HomeScreen() {
     const [forYouMounted, setForYouMounted] = useState(false);
     const [verifyDismissed, setVerifyDismissed] = useState(false);
     const showVerifyBanner = session?.role === "user" && session?.emailVerified === false && !verifyDismissed;
+    // Per-pane filter state is intentionally separate: feedFilter/clubFilter
+    // only ever shape the Following feed, forYouFilter only the For You feed.
     const [feedFilter, setFeedFilter] = useState<"ALL" | "event" | "poll" | "announcement" | "freefood">("ALL");
+    const [clubFilter, setClubFilter] = useState<string | null>(null);
     const [forYouFilter, setForYouFilter] = useState<"ALL" | "events" | "recaps" | "polls">("ALL");
     const { lang } = useLang();
     const t = useT();
@@ -202,15 +208,15 @@ export default function HomeScreen() {
             return o ? { ...p, isLiked: o.liked, likes: o.count } : p;
         }), [likeOverrides]);
 
-    const filteredPosts = useMemo(
-        () => applyLikeOverrides(
-            feedFilter === "ALL" ? feedPosts :
-            feedFilter === "freefood" ? feedPosts.filter(p => p.freeFood) :
-            feedFilter === "announcement" ? feedPosts.filter(p => p.type === "announcement" || p.type === "update") :
-            feedPosts.filter(p => p.type === feedFilter)
-        ),
-        [feedPosts, feedFilter, applyLikeOverrides]
-    );
+    const filteredPosts = useMemo(() => {
+        const base = clubFilter ? feedPosts.filter((p) => p.clubId === clubFilter) : feedPosts;
+        return applyLikeOverrides(
+            feedFilter === "ALL" ? base :
+            feedFilter === "freefood" ? base.filter(p => p.freeFood) :
+            feedFilter === "announcement" ? base.filter(p => p.type === "announcement" || p.type === "update") :
+            base.filter(p => p.type === feedFilter)
+        );
+    }, [feedPosts, feedFilter, clubFilter, applyLikeOverrides]);
     const discoverFiltered = useMemo(
         () => applyLikeOverrides(
             forYouFilter === "ALL" ? discoverPosts :
@@ -230,6 +236,29 @@ export default function HomeScreen() {
     const activeTabRef = useRef<"following" | "for-you">("following");
     const screenWidthRef = useRef(screenWidth);
     screenWidthRef.current = screenWidth;
+    // True while the current touch began on a horizontal rail (club carousel /
+    // filter chips). Those rails own horizontal drags — the pager must not
+    // steal them (Instagram-stories behavior).
+    const railTouchRef = useRef(false);
+
+    // Filter changes play the rise + stagger entrance; SocialFeed also corrects
+    // the scroll position itself (snapping only to the sticky band's dock
+    // point, and only when scrolled past it) via its transitionKey prop.
+    const followingListRef = useRef<any>(null);
+    const forYouListRef = useRef<any>(null);
+
+    function changeFeedFilter(v: typeof feedFilter) {
+        if (v === feedFilter) return;
+        setFeedFilter(v);
+    }
+    function toggleClubFilter(id: string) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setClubFilter((prev) => (prev === id ? null : id));
+    }
+    function changeForYouFilter(v: typeof forYouFilter) {
+        if (v === forYouFilter) return;
+        setForYouFilter(v);
+    }
 
     function switchTab(tab: "following" | "for-you") {
         if (tab === activeTabRef.current) return;
@@ -255,8 +284,15 @@ export default function HomeScreen() {
 
     const panResponder = useRef(
         PanResponder.create({
+            // Capture phase runs before any child's onTouchStart: reset the rail
+            // flag here so each new touch starts pager-eligible, then a rail's
+            // onTouchStart (bubble phase) can veto it before any move lands.
+            onStartShouldSetPanResponderCapture: () => {
+                railTouchRef.current = false;
+                return false;
+            },
             onMoveShouldSetPanResponder: (_, g) =>
-                Math.abs(g.dx) > Math.abs(g.dy) && Math.abs(g.dx) > 8,
+                !railTouchRef.current && Math.abs(g.dx) > Math.abs(g.dy) && Math.abs(g.dx) > 8,
             onPanResponderGrant: () => {
                 // A swipe can only head toward For-You from Following — mount it now
                 // so the pane shows real content as it slides in.
@@ -283,6 +319,18 @@ export default function HomeScreen() {
             },
         })
     ).current;
+    // Re-tapping the Home tab while already on it scrolls the active feed back
+    // to the top (the tab bar always emits tabPress; isFocused filters out the
+    // presses that are actually navigation from another tab).
+    const navigation = useNavigation();
+    useEffect(() => {
+        return (navigation as any).addListener("tabPress", () => {
+            if (!(navigation as any).isFocused()) return;
+            const ref = activeTabRef.current === "for-you" ? forYouListRef : followingListRef;
+            ref.current?.scrollToOffset({ offset: 0, animated: true });
+        });
+    }, [navigation]);
+
     const [firstName, setFirstName] = useState<string>("");
     const [unreadCount, setUnreadCount] = useState(0);
     const [onboardingClubs, setOnboardingClubs] = useState<{ id: string; clubName: string; category?: string; logoUrl?: string; _count: { followedBy: number } }[]>([]);
@@ -472,6 +520,8 @@ export default function HomeScreen() {
             }
         } else {
             setFollowedAccounts((prev) => prev.filter((a) => a.id !== clubId));
+            // An unfollowed club can no longer scope the feed
+            setClubFilter((prev) => (prev === clubId ? null : prev));
         }
         try {
             await authApi(`/clubs/${clubId}/follow`, { method: isNowFollowing ? "POST" : "DELETE" });
@@ -549,7 +599,7 @@ export default function HomeScreen() {
                         loading ? (
                             <>{[0,1,2,3].map(i => <FeedCardSkeleton key={i} />)}</>
                         ) : feedError ? (
-                            <ErrorRetry message="Couldn't load feed" onRetry={() => fetchGuestFeed()} />
+                            <ErrorRetry message={t.feedErrorShort} onRetry={() => fetchGuestFeed()} />
                         ) : null
                     }
                     ListFooterComponent={<View style={{ height: 60 }} />}
@@ -596,11 +646,11 @@ export default function HomeScreen() {
                     onPress={() => router.push("/verify-email" as any)}
                     style={{ flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 16, marginBottom: 8, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10, backgroundColor: C.primaryBg }}
                     accessibilityRole="button"
-                    accessibilityLabel="Verify your email"
+                    accessibilityLabel={t.verifyEmailBanner}
                 >
                     <Ionicons name="mail-unread-outline" size={16} color={C.primary} />
                     <Text style={{ ...meta(12, "bold"), flex: 1,   color: C.primary }} numberOfLines={2} maxFontSizeMultiplier={1.4}>
-                        Verify your email to secure your account
+                        {t.verifyEmailBanner}
                     </Text>
                     <Pressable onPress={() => setVerifyDismissed(true)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Dismiss">
                         <Ionicons name="close" size={16} color={C.primary} />
@@ -614,6 +664,8 @@ export default function HomeScreen() {
                     {/* Following — left pane */}
                     <SocialFeed
                         style={{ width: screenWidth, flex: 1 }}
+                        scrollRef={followingListRef}
+                        transitionKey={`${feedFilter}:${clubFilter ?? ""}`}
                         posts={loading || feedError || (followedAccounts.length === 0 && followedTopicsCount === 0) ? [] : filteredPosts}
                         refreshControl={
                             <RefreshControl refreshing={refreshing} onRefresh={() => fetchFeed(true)} tintColor={C.primary} />
@@ -632,74 +684,99 @@ export default function HomeScreen() {
                         onPollVote={handlePollVote}
                         onFollowPress={handleFollow}
                         ListHeaderComponent={
-                            <>
-                                <View style={styles.mastheadScrollable}>
-                                    <Text style={styles.mastheadHeading}>{t.yourFeed}</Text>
-                                    <View style={styles.mastheadAccent} />
-                                </View>
-                                <FollowedAccounts
-                                    accounts={followedAccounts}
-                                    onAccountPress={(a) => router.push(`/club/${a.id}` as any)}
-                                    onViewAll={() => router.push("/(tabs)/profile" as any)}
-                                />
-                                {followedAccounts.length > 0 && (
-                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingVertical: 8 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 8, flexDirection: "row", alignItems: "center" }}>
-                                        {([
-                                            { value: "ALL", label: t.feedFilterAll },
-                                            { value: "event", label: t.events },
-                                            { value: "freefood", label: t.freeFoodFilter },
-                                            { value: "announcement", label: t.feedFilterAnnouncements },
-                                            { value: "poll", label: t.feedFilterPolls },
-                                        ] as const).map((f) => (
-                                            <Pressable
-                                                key={f.value}
-                                                onPress={() => setFeedFilter(f.value)}
-                                                accessibilityRole="button"
-                                                accessibilityLabel={`Filter by ${f.label}`}
-                                                accessibilityState={{ selected: feedFilter === f.value }}
-                                                style={{
-                                                    paddingHorizontal: 12,
-                                                    paddingVertical: 5,
-                                                    borderWidth: 1.5,
-                                                    borderColor: feedFilter === f.value ? C.primary : C.border,
-                                                    backgroundColor: feedFilter === f.value ? C.primary : C.surface,
-                                                }}
-                                            >
-                                                <Text numberOfLines={1} maxFontSizeMultiplier={1.4} style={{ ...lbl(10, "bold", 0.1), color: feedFilter === f.value ? "#fff" : C.textMuted }}>
-                                                    {f.label}
+                            <View style={styles.mastheadScrollable}>
+                                <Text style={styles.mastheadHeading}>{t.yourFeed}</Text>
+                                <View style={styles.mastheadAccent} />
+                            </View>
+                        }
+                        stickySection={
+                            (followedAccounts.length > 0 || followedTopicsCount > 0) ? (
+                                <View
+                                    style={{ backgroundColor: C.bg, borderBottomWidth: 1, borderBottomColor: C.borderWarm }}
+                                    onTouchStart={() => { railTouchRef.current = true; }}
+                                >
+                                    <FollowedAccounts
+                                        accounts={followedAccounts}
+                                        selectedId={clubFilter}
+                                        onAccountPress={(a) => toggleClubFilter(a.id)}
+                                        onViewAll={() => router.push("/(tabs)/profile" as any)}
+                                    />
+                                    {clubFilter && (() => {
+                                        const club = followedAccounts.find((a) => a.id === clubFilter);
+                                        return club ? (
+                                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 16, marginTop: 8, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: C.primaryBg }}>
+                                                <Ionicons name="funnel-outline" size={12} color={C.primary} />
+                                                <Text style={{ ...meta(12, "bold"), color: C.primary, flex: 1 }} numberOfLines={1} maxFontSizeMultiplier={1.3}>
+                                                    {t.clubFilterHint(club.name)}
                                                 </Text>
-                                            </Pressable>
-                                        ))}
-                                    </ScrollView>
-                                )}
-                                {feedFilter === "freefood" && (
-                                    <Pressable
-                                        onPress={() => Linking.openURL("https://freefoodalert.com/en_CA/event")}
-                                        style={{ flexDirection: "row", marginHorizontal: 16, marginVertical: 6, backgroundColor: C.surface, borderWidth: 1, borderColor: C.borderWarm }}
-                                        accessibilityRole="link"
-                                        accessibilityLabel={t.freeFoodAlertCta}
-                                    >
-                                        <View style={{ width: 3, backgroundColor: C.primary }} />
-                                        <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, paddingHorizontal: 14 }}>
-                                            <Text style={{ fontFamily: fonts.displayBold, fontSize: 20 }}>🍕</Text>
-                                            <View style={{ flex: 1, gap: 4 }}>
-                                                <Text style={{ ...lbl(9, "bold", 0.12), color: C.primary }} maxFontSizeMultiplier={1.3}>{t.freeFoodAlertTitle}</Text>
-                                                <Text style={{ ...meta(13, "bold"), color: C.text }} maxFontSizeMultiplier={1.3}>{t.freeFoodAlertPrompt}</Text>
+                                                <Pressable onPress={() => router.push(`/club/${club.id}` as any)} hitSlop={8} accessibilityRole="button" accessibilityLabel={t.viewProfileLink}>
+                                                    <Text style={{ ...lbl(10, "bold", 0.1), color: C.primary }} maxFontSizeMultiplier={1.2}>{t.viewProfileLink}</Text>
+                                                </Pressable>
+                                                <Pressable onPress={() => toggleClubFilter(club.id)} hitSlop={10} accessibilityRole="button" accessibilityLabel={t.clearClubFilterLabel}>
+                                                    <Ionicons name="close" size={16} color={C.primary} />
+                                                </Pressable>
                                             </View>
-                                            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                                                <Text style={{ ...lbl(10, "bold", 0.1), color: C.primary }} maxFontSizeMultiplier={1.2}>{t.openBtn}</Text>
-                                                <Ionicons name="open-outline" size={14} color={C.primary} />
+                                        ) : null;
+                                    })()}
+                                    {followedAccounts.length > 0 && (
+                                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingVertical: 8 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 8, flexDirection: "row", alignItems: "center" }}>
+                                            {([
+                                                { value: "ALL", label: t.feedFilterAll },
+                                                { value: "event", label: t.events },
+                                                { value: "freefood", label: t.freeFoodFilter },
+                                                { value: "announcement", label: t.feedFilterAnnouncements },
+                                                { value: "poll", label: t.feedFilterPolls },
+                                            ] as const).map((f) => (
+                                                <Pressable
+                                                    key={f.value}
+                                                    onPress={() => changeFeedFilter(f.value)}
+                                                    accessibilityRole="button"
+                                                    accessibilityLabel={t.filterByLabel(f.label)}
+                                                    accessibilityState={{ selected: feedFilter === f.value }}
+                                                    style={{
+                                                        paddingHorizontal: 12,
+                                                        paddingVertical: 5,
+                                                        borderWidth: 1.5,
+                                                        borderColor: feedFilter === f.value ? C.primary : C.border,
+                                                        backgroundColor: feedFilter === f.value ? C.primary : C.surface,
+                                                    }}
+                                                >
+                                                    <Text numberOfLines={1} maxFontSizeMultiplier={1.4} style={{ ...lbl(10, "bold", 0.1), color: feedFilter === f.value ? "#fff" : C.textMuted }}>
+                                                        {f.label}
+                                                    </Text>
+                                                </Pressable>
+                                            ))}
+                                        </ScrollView>
+                                    )}
+                                    {feedFilter === "freefood" && (
+                                        <Pressable
+                                            onPress={() => Linking.openURL("https://freefoodalert.com/en_CA/event")}
+                                            style={{ flexDirection: "row", marginHorizontal: 16, marginBottom: 8, backgroundColor: C.surface, borderWidth: 1, borderColor: C.borderWarm }}
+                                            accessibilityRole="link"
+                                            accessibilityLabel={t.freeFoodAlertCta}
+                                        >
+                                            <View style={{ width: 3, backgroundColor: C.primary }} />
+                                            <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, paddingHorizontal: 14 }}>
+                                                <Text style={{ fontFamily: fonts.displayBold, fontSize: 20 }}>🍕</Text>
+                                                <View style={{ flex: 1, gap: 4 }}>
+                                                    <Text style={{ ...lbl(9, "bold", 0.12), color: C.primary }} maxFontSizeMultiplier={1.3}>{t.freeFoodAlertTitle}</Text>
+                                                    <Text style={{ ...meta(13, "bold"), color: C.text }} maxFontSizeMultiplier={1.3}>{t.freeFoodAlertPrompt}</Text>
+                                                </View>
+                                                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                                                    <Text style={{ ...lbl(10, "bold", 0.1), color: C.primary }} maxFontSizeMultiplier={1.2}>{t.openBtn}</Text>
+                                                    <Ionicons name="open-outline" size={14} color={C.primary} />
+                                                </View>
                                             </View>
-                                        </View>
-                                    </Pressable>
-                                )}
-                            </>
+                                        </Pressable>
+                                    )}
+                                </View>
+                            ) : null
                         }
                         ListEmptyComponent={
                             loading ? (
                                 <>{[0,1,2,3].map(i => <FeedCardSkeleton key={i} />)}</>
                             ) : feedError ? (
-                                <ErrorRetry message="Couldn't load feed" onRetry={() => fetchFeed()} />
+                                <ErrorRetry message={t.feedErrorShort} onRetry={() => fetchFeed()} />
                             ) : (followedAccounts.length === 0 && followedTopicsCount === 0) ? (
                                 <View style={styles.emptyState}>
                                     <Ionicons name="people-outline" size={36} color={C.textFaint} />
@@ -713,7 +790,9 @@ export default function HomeScreen() {
                                 <View style={{ alignItems: "center", paddingVertical: 40, gap: 8 }}>
                                     <Ionicons name="filter-outline" size={28} color={C.textFaint} />
                                     <Text style={{ ...lbl(11, "bold", 0.12), color: C.textFaint }}>
-                                        {({ event: t.noEventsFilter, announcement: t.noAnnouncementsFilter, poll: t.noPollsFilter } as Record<string, string>)[feedFilter] ?? t.noPostsYet}
+                                        {clubFilter
+                                            ? t.noClubPostsFilter
+                                            : ({ event: t.noEventsFilter, announcement: t.noAnnouncementsFilter, poll: t.noPollsFilter } as Record<string, string>)[feedFilter] ?? t.noPostsYet}
                                     </Text>
                                 </View>
                             )
@@ -737,6 +816,8 @@ export default function HomeScreen() {
                     {forYouMounted ? (
                     <SocialFeed
                         style={{ width: screenWidth, flex: 1 }}
+                        scrollRef={forYouListRef}
+                        transitionKey={forYouFilter}
                         posts={loading || feedError ? [] : discoverFiltered}
                         refreshControl={
                             <RefreshControl refreshing={refreshing} onRefresh={() => fetchFeed(true)} tintColor={C.primary} />
@@ -755,23 +836,28 @@ export default function HomeScreen() {
                         onPollVote={handlePollVote}
                         onFollowPress={handleFollow}
                         ListHeaderComponent={
-                            <>
-                                <View style={styles.mastheadScrollable}>
-                                    <Text style={styles.mastheadHeading}>{t.yourFeed}</Text>
-                                    <View style={styles.mastheadAccent} />
-                                </View>
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingBottom: 8 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 8, flexDirection: "row", alignItems: "center" }}>
+                            <View style={styles.mastheadScrollable}>
+                                <Text style={styles.mastheadHeading}>{t.yourFeed}</Text>
+                                <View style={styles.mastheadAccent} />
+                            </View>
+                        }
+                        stickySection={
+                            <View
+                                style={{ backgroundColor: C.bg, borderBottomWidth: 1, borderBottomColor: C.borderWarm }}
+                                onTouchStart={() => { railTouchRef.current = true; }}
+                            >
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingVertical: 8 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 8, flexDirection: "row", alignItems: "center" }}>
                                     {([
-                                        { value: "ALL", label: "ALL" },
-                                        { value: "events", label: "EVENTS" },
-                                        { value: "recaps", label: "RECAPS" },
-                                        { value: "polls", label: "POLLS" },
+                                        { value: "ALL", label: t.feedFilterAll },
+                                        { value: "events", label: t.events },
+                                        { value: "recaps", label: t.feedFilterRecaps },
+                                        { value: "polls", label: t.feedFilterPolls },
                                     ] as const).map((f) => (
                                         <Pressable
                                             key={f.value}
-                                            onPress={() => setForYouFilter(f.value)}
+                                            onPress={() => changeForYouFilter(f.value)}
                                             accessibilityRole="button"
-                                            accessibilityLabel={`Filter by ${f.label}`}
+                                            accessibilityLabel={t.filterByLabel(f.label)}
                                             accessibilityState={{ selected: forYouFilter === f.value }}
                                             style={{ paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1.5, borderColor: forYouFilter === f.value ? C.primary : C.borderWarm, backgroundColor: forYouFilter === f.value ? C.primary : C.surface }}
                                         >
@@ -779,13 +865,13 @@ export default function HomeScreen() {
                                         </Pressable>
                                     ))}
                                 </ScrollView>
-                            </>
+                            </View>
                         }
                         ListEmptyComponent={
                             loading ? (
                                 <>{[0,1,2,3].map(i => <FeedCardSkeleton key={i} />)}</>
                             ) : feedError ? (
-                                <ErrorRetry message="Couldn't load feed" onRetry={() => fetchFeed()} />
+                                <ErrorRetry message={t.feedErrorShort} onRetry={() => fetchFeed()} />
                             ) : (
                                 <View style={styles.emptyState}>
                                     <Ionicons name="telescope-outline" size={36} color={C.textFaint} />

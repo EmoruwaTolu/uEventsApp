@@ -47,6 +47,12 @@ export const makeFollowedStyles = (C: AppColors) => StyleSheet.create({
     name: { ...meta(10, "medium"), marginTop: 5,
         color: C.textBody,
         textAlign: "center" },
+    // Tap-to-filter states: selected club gets a heavier ring; the rest recede.
+    circleSelected: {
+        borderWidth: 3,
+    },
+    nameSelected: { ...meta(10, "bold"), marginTop: 5, color: C.primary, textAlign: "center" },
+    accountDimmed: { opacity: 0.4 },
     initial: { fontFamily: fonts.displayBold, fontSize: 18, color: C.primary },
     itemPressable: {},
 

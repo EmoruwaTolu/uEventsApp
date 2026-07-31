@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { LinearGradient } from "expo-linear-gradient";
-import { View, Text, Pressable, StyleSheet, Animated, Share, Alert, FlatList, useWindowDimensions, type RefreshControlProps, type ViewStyle, type ImageStyle, type StyleProp } from "react-native";
+import { View, Text, Pressable, StyleSheet, Animated, Easing, Share, Alert, FlatList, useWindowDimensions, type RefreshControlProps, type ViewStyle, type ImageStyle, type StyleProp } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { makeFeedStyles } from "../styles/feed.styles";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,6 +16,67 @@ import { useReduceMotion } from "../lib/useReduceMotion";
 import { useLang } from "../lib/LangContext";
 import { localeFor } from "../lib/datetime";
 import { fonts, lbl, meta } from "../styles/theme";
+import { translateCategory } from "../lib/categories";
+import type { Translations } from "../lib/i18n";
+
+// The server tags For-You cards with English reason strings. Map the known
+// shapes onto i18n keys so the chip localizes even against older backends.
+function localizeReason(reason: string, t: Translations, lang: "en" | "fr"): string {
+    const interest = reason.match(/^Matches your interest: (.+)$/);
+    if (interest) return t.reasonMatchesInterest(translateCategory(interest[1], lang));
+    const follow = reason.match(/^Because you follow (.+)$/);
+    if (follow) return t.reasonBecauseFollow(follow[1]);
+    switch (reason) {
+        case "Popular this week": return t.reasonPopular;
+        case "Happening soon": return t.reasonHappeningSoon;
+        case "Catch the recap": return t.reasonCatchRecap;
+        case "Recommended for you": return t.reasonRecommended;
+        default: return reason;
+    }
+}
+
+// Rise + stagger: when the active filter changes, each card fades in while
+// rising 14pt, offset ~55ms per card. Cards already mounted re-run it when
+// `trigger` changes; cards that mount as part of the same filter switch (new
+// posts entering the list) join in via the shared transition timestamp.
+function StaggerCard({ trigger, transitionAtRef, order, reduceMotion, children }: {
+    trigger: string;
+    transitionAtRef: React.MutableRefObject<number>;
+    order: number;
+    reduceMotion: boolean;
+    children: React.ReactNode;
+}) {
+    const anim = useRef(new Animated.Value(1)).current;
+    const mounted = useRef(false);
+    useEffect(() => {
+        const isMount = !mounted.current;
+        mounted.current = true;
+        // On mount, animate only if a filter switch just happened — plain
+        // scrolling should never replay the entrance.
+        if (isMount && Date.now() - transitionAtRef.current > 500) return;
+        if (reduceMotion) { anim.setValue(1); return; }
+        anim.setValue(0);
+        Animated.timing(anim, {
+            toValue: 1,
+            duration: 200,
+            delay: order * 45,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+        }).start();
+    }, [trigger]);
+    return (
+        <Animated.View style={{ opacity: anim, transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }] }}>
+            {children}
+        </Animated.View>
+    );
+}
+
+// Sentinel row ids for the sticky-section support: the section is injected as
+// a real FlatList row (FlatList can only dock rows), and an empty-state row
+// stands in for ListEmptyComponent so the section stays visible when a filter
+// matches nothing.
+const STICKY_ROW_ID = "__sticky-section__";
+const EMPTY_ROW_ID = "__empty-state__";
 
 function SafeImage({ uri, style, resizeMode, label }: { uri: string; style: StyleProp<ImageStyle>; resizeMode?: "cover" | "contain"; label?: string }) {
     const { colors: C } = useTheme();
@@ -1940,6 +2001,10 @@ export function PollCard({
     );
 }
 
+// Deliberately module-level so a post viewed on one screen isn't re-reported
+// when it appears on another. Keys are `${userId}:${postId}`, not bare post ids:
+// views are recorded per user, so after an account switch the new user's views
+// would otherwise be silently dropped for every post the previous one had seen.
 const viewedPostIds = new Set<string>();
 
 // ─── Main SocialFeed ────────────────────────────────────────────────────────
@@ -1956,6 +2021,12 @@ type SocialFeedProps = {
     onDeletePress?: (postId: string) => void;
     onAddRecapPhoto?: (postId: string) => void;
     onViewRecapPhotos?: (postId: string) => void;
+    // Pinned section (filter chips, avatar rail): scrolls with the header, then
+    // docks at the top of the list once scrolled past — Instagram-stories style.
+    stickySection?: React.ReactElement | null;
+    // Changes whenever the caller's active filter changes; cards respond with
+    // the rise + stagger entrance (instant under reduce-motion).
+    transitionKey?: string;
     // FlatList passthrough props
     ListHeaderComponent?: React.ReactElement | null;
     ListFooterComponent?: React.ReactElement | null;
@@ -2002,6 +2073,8 @@ export default function SocialFeed({
     onDeletePress,
     onAddRecapPhoto,
     onViewRecapPhotos,
+    stickySection,
+    transitionKey,
     ListHeaderComponent,
     ListFooterComponent,
     ListEmptyComponent,
@@ -2016,12 +2089,56 @@ export default function SocialFeed({
 }: SocialFeedProps) {
     const { colors: C } = useTheme();
     const t = useT();
+    const { lang } = useLang();
+    const reduceMotion = useReduceMotion();
     const s = useMemo(() => makeFeedStyles(C), [C]);
     const [posts, setPosts] = useState<FeedPost[]>(() => interleavePosts(initialPosts));
+
+    // Sync from props during render (not in an effect) so a filter change and
+    // its new post set commit in the same frame — no flash of stale content.
+    const prevInitialPostsRef = useRef(initialPosts);
+    if (prevInitialPostsRef.current !== initialPosts) {
+        prevInitialPostsRef.current = initialPosts;
+        setPosts(interleavePosts(initialPosts));
+    }
+
+    // Timestamp of the latest filter switch — lets cards that mount a beat
+    // later (new posts entering the filtered list) join the same stagger.
+    const transitionAtRef = useRef(0);
+    const prevTransitionKeyRef = useRef(transitionKey);
+    if (transitionKey !== prevTransitionKeyRef.current) {
+        prevTransitionKeyRef.current = transitionKey;
+        transitionAtRef.current = Date.now();
+    }
+
+    // Internal list handle (merged with the caller's scrollRef) plus live
+    // scroll/header measurements for the filter-switch scroll correction.
+    const listRef = useRef<FlatList<FeedPost> | null>(null);
+    const setListRef = useCallback((node: FlatList<FeedPost> | null) => {
+        listRef.current = node;
+        if (typeof scrollRef === "function") scrollRef(node);
+        else if (scrollRef) (scrollRef as React.MutableRefObject<FlatList<FeedPost> | null>).current = node;
+    }, [scrollRef]);
+    const scrollOffsetRef = useRef(0);
+    const headerHeightRef = useRef(0);
+
+    // On a filter switch, snap only as far as the sticky band's dock position,
+    // and only when the user has scrolled past it — the new results start
+    // right under the docked band instead of jarringly jumping back up to the
+    // masthead. If the header is still visible, the scroll is left alone.
+    const firstTransitionRef = useRef(true);
+    useEffect(() => {
+        if (firstTransitionRef.current) { firstTransitionRef.current = false; return; }
+        if (scrollOffsetRef.current > headerHeightRef.current) {
+            listRef.current?.scrollToOffset({ offset: headerHeightRef.current, animated: false });
+        }
+    }, [transitionKey]);
     const authApi = useApi();
     const { session } = useAuth();
     const tokenRef = useRef(session?.token);
     tokenRef.current = session?.token;
+    const userIdRef = useRef(session?.userId);
+    userIdRef.current = session?.userId;
 
     const handleDeletePost = useCallback(async (postId: string) => {
         try {
@@ -2071,10 +2188,6 @@ export default function SocialFeed({
         } catch {}
     }, []);
 
-    useEffect(() => {
-        setPosts(interleavePosts(initialPosts));
-    }, [initialPosts]);
-
     // Record a view only when a post actually scrolls into the viewport (≥50% visible),
     // not merely because it was fetched — so the "seen" signal reflects real attention.
     // Refs keep these stable (RN forbids changing them between renders). api() is used
@@ -2082,11 +2195,14 @@ export default function SocialFeed({
     const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
     const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: Array<{ item?: FeedPost }> }) => {
         const token = tokenRef.current;
+        const viewerId = userIdRef.current;
         if (!token) return;
         for (const v of viewableItems) {
             const p = v.item;
-            if (!p || viewedPostIds.has(p.id)) continue;
-            viewedPostIds.add(p.id);
+            if (!p || p.id === STICKY_ROW_ID || p.id === EMPTY_ROW_ID) continue;
+            const key = `${viewerId ?? "anon"}:${p.id}`;
+            if (viewedPostIds.has(key)) continue;
+            viewedPostIds.add(key);
             api(`/posts/${p.id}/view`, { method: "POST" }, token).catch(() => {});
         }
     }).current;
@@ -2137,6 +2253,10 @@ export default function SocialFeed({
     );
 
     const renderPost = useCallback(({ item: post, index }: { item: FeedPost; index: number }) => {
+        if (post.id === STICKY_ROW_ID) return stickySection ?? null;
+        if (post.id === EMPTY_ROW_ID) return ListEmptyComponent ?? null;
+        // The injected sticky row shifts real posts down by one list index.
+        const postIndex = stickySection ? index - 1 : index;
         const showFollow = unfollowedClubIds.has(post.clubId);
         const isOwner = session?.userType === "CLUB" && session?.userId === post.clubId;
 
@@ -2144,7 +2264,7 @@ export default function SocialFeed({
         if (post.type === "poll" && post.poll) {
             card = <PollCard post={post} onPress={() => onPostPress?.(post)} onLikePress={onLikePress} onCommentPress={onCommentPress} onClubPress={onClubPress} onFollowToggle={handleFollowToggle} showFollow={showFollow} onPollVote={handlePollVote} onPollRefresh={refreshPoll} onEditPress={onEditPress} onDeletePress={onEditPress ? handleDeletePost : undefined} />;
         } else if (post.type === "event") {
-            card = index === heroIdx
+            card = postIndex === heroIdx
                 ? <HeroCard post={post} onPress={() => onPostPress?.(post)} onClubPress={onClubPress} onLikePress={onLikePress} isOwner={isOwner} />
                 : <EventFeedCard post={post} onPress={() => onPostPress?.(post)} onClubPress={onClubPress} onLikePress={onLikePress} onCommentPress={onCommentPress} onFollowToggle={handleFollowToggle} showFollow={showFollow} onEditPress={onEditPress} onDeletePress={onEditPress ? handleDeletePost : undefined} onAddRecapPhoto={onAddRecapPhoto} onViewRecapPhotos={onViewRecapPhotos} isOwner={isOwner} />;
         } else if (post.type === "announcement" || post.type === "update") {
@@ -2157,50 +2277,73 @@ export default function SocialFeed({
 
         // Reason chip + "Show less" — only on ranked (For You) cards, which are
         // the only ones the server tags with a `reason`.
-        if (post.reason && !onEditPress) {
-            return (
-                <View>
-                    <View style={s.reasonChipRow}>
-                        <View style={s.reasonChip}>
-                            <Ionicons name="sparkles-outline" size={12} color={C.textMuted} />
-                            <Text style={s.reasonChipText} numberOfLines={1}>{post.reason}</Text>
-                        </View>
-                        <Pressable
-                            onPress={() => handleShowLess(post)}
-                            hitSlop={8}
-                            accessibilityRole="button"
-                            accessibilityLabel={t.showLessLikeLabel}
-                        >
-                            <Text style={s.showLessText}>{t.showLess}</Text>
-                        </Pressable>
+        const body = post.reason && !onEditPress ? (
+            <View>
+                <View style={s.reasonChipRow}>
+                    <View style={s.reasonChip}>
+                        <Ionicons name="sparkles-outline" size={12} color={C.textMuted} />
+                        <Text style={s.reasonChipText} numberOfLines={1}>{localizeReason(post.reason, t, lang)}</Text>
                     </View>
-                    {card}
+                    <Pressable
+                        onPress={() => handleShowLess(post)}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel={t.showLessLikeLabel}
+                    >
+                        <Text style={s.showLessText}>{t.showLess}</Text>
+                    </Pressable>
                 </View>
-            );
-        }
+                {card}
+            </View>
+        ) : card;
 
-        return <>{card}</>;
-    }, [posts, heroIdx, unfollowedClubIds, onPostPress, onClubPress, onLikePress, onCommentPress, onEditPress, onAddRecapPhoto, onViewRecapPhotos, handleDeletePost, handleShowLess, handleFollowToggle, handlePollVote, s, C]);
+        if (transitionKey === undefined) return <>{body}</>;
+        return (
+            <StaggerCard
+                trigger={transitionKey}
+                transitionAtRef={transitionAtRef}
+                order={Math.min(Math.max(postIndex, 0), 5)}
+                reduceMotion={reduceMotion}
+            >
+                {body}
+            </StaggerCard>
+        );
+    }, [posts, heroIdx, unfollowedClubIds, onPostPress, onClubPress, onLikePress, onCommentPress, onEditPress, onAddRecapPhoto, onViewRecapPhotos, handleDeletePost, handleShowLess, handleFollowToggle, handlePollVote, stickySection, ListEmptyComponent, transitionKey, reduceMotion, t, lang, s, C]);
+
+    // With a sticky section, the section itself becomes the first row so
+    // FlatList can dock it, and an empty-state sentinel keeps it on screen
+    // (and the filters usable) when a filter matches no posts.
+    const listData = useMemo(() => {
+        if (!stickySection) return posts;
+        const rows: FeedPost[] = posts.length ? posts : [{ id: EMPTY_ROW_ID } as FeedPost];
+        return [{ id: STICKY_ROW_ID } as FeedPost, ...rows];
+    }, [posts, stickySection]);
 
     return (
         <FlatList
-            ref={scrollRef}
-            data={posts}
+            ref={setListRef}
+            data={listData}
             keyExtractor={(item) => item.id}
             renderItem={renderPost}
-            extraData={posts}
+            extraData={listData}
             style={style}
             contentContainerStyle={[s.feed, contentContainerStyle]}
             showsVerticalScrollIndicator={false}
-            ListHeaderComponent={ListHeaderComponent}
+            stickyHeaderIndices={stickySection ? [ListHeaderComponent ? 1 : 0] : undefined}
+            ListHeaderComponent={ListHeaderComponent
+                ? <View onLayout={(e) => { headerHeightRef.current = e.nativeEvent.layout.height; }}>{ListHeaderComponent}</View>
+                : ListHeaderComponent}
             ListFooterComponent={ListFooterComponent}
-            ListEmptyComponent={ListEmptyComponent}
+            ListEmptyComponent={stickySection ? undefined : ListEmptyComponent}
             onEndReached={onEndReached}
             onEndReachedThreshold={onEndReachedThreshold ?? 0.4}
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
             refreshControl={refreshControl}
-            onScroll={onScroll}
+            onScroll={(e) => {
+                scrollOffsetRef.current = e.nativeEvent?.contentOffset?.y ?? 0;
+                onScroll?.(e);
+            }}
             scrollEventThrottle={scrollEventThrottle ?? 16}
         />
     );
