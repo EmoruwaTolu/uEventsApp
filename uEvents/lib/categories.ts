@@ -43,3 +43,16 @@ export function translateCategory(name: string, lang: Lang): string {
     if (lang !== "fr" || !name) return name;
     return FR[name.trim().toLowerCase()] ?? name;
 }
+
+/**
+ * Translate a category *field*, which clubs often fill in as a comma-separated
+ * list ("Academic, Social, Tech"). Splitting first means each tag gets matched
+ * against the table — otherwise the whole string misses and the row renders in
+ * English next to rows that happened to hold a single tag.
+ */
+export function translateCategoryList(value: string, lang: Lang): string {
+    if (!value) return value;
+    const parts = value.split(",").map((p) => p.trim()).filter(Boolean);
+    if (parts.length <= 1) return translateCategory(value, lang);
+    return parts.map((p) => translateCategory(p, lang)).join(", ");
+}

@@ -6,7 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useApi } from "../lib/useApi";
-import { useT } from "../lib/LangContext";
+import { useT, useLang, pickLocale, pickText } from "../lib/LangContext";
 import { useTheme } from "../lib/ThemeContext";
 import { meta, lbl, fonts, AppColors } from "../styles/theme";
 
@@ -19,7 +19,7 @@ type RsvpPost = {
     startAt?: string;
     endAt?: string;
     locationName?: string;
-    club?: { id: string; clubName?: string; logoUrl?: string };
+    club?: { id: string; clubName?: string; clubNameFr?: string | null; logoUrl?: string };
     _count: { rsvps: number };
 };
 
@@ -32,6 +32,7 @@ export default function MyEventsScreen() {
     const router = useRouter();
     const authApi = useApi();
     const t = useT();
+    const { lang } = useLang();
     const { colors: C } = useTheme();
     const s = useMemo(() => makeStyles(C), [C]);
 
@@ -56,11 +57,11 @@ export default function MyEventsScreen() {
     const q = query.trim().toLowerCase();
     const matches = useCallback((r: RsvpPost) => {
         if (!q) return true;
-        const loc = r.locales?.en ?? r.locales?.fr ?? {};
-        return [loc.title, r.club?.clubName, r.locationName]
+        const loc = pickLocale(r.locales, lang);
+        return [loc.title, pickText(r.club?.clubName, r.club?.clubNameFr, lang), r.locationName]
             .filter(Boolean)
             .some((v: string) => v.toLowerCase().includes(q));
-    }, [q]);
+    }, [q, lang]);
 
     const upcoming = useMemo(() =>
         rsvps
@@ -74,10 +75,10 @@ export default function MyEventsScreen() {
         [rsvps, matches]);
 
     function renderRow(event: RsvpPost, isPast: boolean) {
-        const loc = event.locales?.en ?? event.locales?.fr ?? {};
+        const loc = pickLocale(event.locales, lang);
         const img = loc.posterUrl ?? loc.imageUrl;
         const d = new Date(event.startAt!);
-        const sub = [event.club?.clubName, event.startAt ? formatTime(event.startAt) : null, event.locationName]
+        const sub = [pickText(event.club?.clubName, event.club?.clubNameFr, lang), event.startAt ? formatTime(event.startAt) : null, event.locationName]
             .filter(Boolean).join(" · ");
         return (
             <Pressable key={event.id} style={[s.row, isPast && s.rowPast]} onPress={() => router.push(`/event/${event.id}` as any)}>

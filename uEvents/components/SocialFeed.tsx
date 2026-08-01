@@ -711,7 +711,7 @@ function HeroCard({
         new Date() >= new Date(post.eventStartAt) && new Date() <= new Date(post.eventEndAt);
     const typeBadge =
         post.type === "event" ? (isLiveNow ? t.liveEvent : t.eventBadge) :
-        post.type === "announcement" ? t.breakingNews : t.updateBadge;
+        post.type === "announcement" ? t.announcementBadge : t.updateBadge;
 
     return (
         <Pressable onPress={handleDoubleTap} style={s.heroCard}>

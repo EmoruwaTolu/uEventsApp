@@ -78,10 +78,11 @@ type ApiEvent = {
 type RecommendedEvent = {
     id: string;
     type?: string;
-    locales?: { en?: { title?: string; imageUrl?: string; posterUrl?: string } };
+    locales?: Record<string, { title?: string; imageUrl?: string; posterUrl?: string }>;
     startAt?: string;
     clubName?: string;
-    club?: { clubName?: string };
+    clubNameFr?: string | null;
+    club?: { clubName?: string; clubNameFr?: string | null };
     _count?: { rsvps: number };
 };
 
@@ -1215,12 +1216,12 @@ export default function EventPage() {
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recommendedScroll}>
                         {recommended.map((rec) => {
                             const recLocale = pickLocale(rec.locales, lang);
-                            const recTitle = recLocale.title ?? "Untitled Event";
+                            const recTitle = recLocale.title ?? t.untitledEvent;
                             const recDate = rec.startAt
                                 ? new Date(rec.startAt).toLocaleDateString(localeFor(lang), { month: "short", day: "numeric" })
                                 : "";
                             const recAttending = rec._count?.rsvps ?? 0;
-                            const recClub = (rec.clubName ?? rec.club?.clubName ?? "EVENT").toUpperCase();
+                            const recClub = (pickText(rec.clubName ?? rec.club?.clubName, rec.clubNameFr ?? rec.club?.clubNameFr, lang) || t.eventType).toUpperCase();
                             const recImageUrl = recLocale.posterUrl ?? recLocale.imageUrl;
                             return (
                                 <Pressable

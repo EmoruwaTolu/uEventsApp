@@ -148,7 +148,7 @@ function mapPost(p: ApiFeedPost, lang: "en" | "fr"): FeedPost {
     };
 }
 
-type ApiFollow = { id: string; clubName: string; logoUrl?: string };
+type ApiFollow = { id: string; clubName: string; clubNameFr?: string | null; logoUrl?: string };
 
 export default function HomeScreen() {
     const { colors: C } = useTheme();
@@ -333,7 +333,7 @@ export default function HomeScreen() {
 
     const [firstName, setFirstName] = useState<string>("");
     const [unreadCount, setUnreadCount] = useState(0);
-    const [onboardingClubs, setOnboardingClubs] = useState<{ id: string; clubName: string; category?: string; logoUrl?: string; _count: { followedBy: number } }[]>([]);
+    const [onboardingClubs, setOnboardingClubs] = useState<{ id: string; clubName: string; clubNameFr?: string | null; category?: string; logoUrl?: string; _count: { followedBy: number } }[]>([]);
     const [onboardingFollowed, setOnboardingFollowed] = useState<Set<string>>(new Set());
     const [onboardingMounted, setOnboardingMounted] = useState(false);
     const onboardingSlide = useRef(new Animated.Value(800)).current;
@@ -388,7 +388,7 @@ export default function HomeScreen() {
                 feedPostsLengthRef.current = mapped.length;
                 setFeedPosts(mapped);
                 setFeedHasMore(posts.length === FEED_PAGE);
-                setFollowedAccounts(clubs.map((c) => ({ id: c.id, name: c.clubName, avatarUri: c.logoUrl })));
+                setFollowedAccounts(clubs.map((c) => ({ id: c.id, name: pickText(c.clubName, c.clubNameFr, lang), avatarUri: c.logoUrl })));
                 const mappedForYou = forYou.map((p) => mapPost(p, lang));
                 discoverPostsLengthRef.current = mappedForYou.length;
                 setDiscoverPosts(mappedForYou);
@@ -921,10 +921,10 @@ export default function HomeScreen() {
                                                 <View style={ob.logo}>
                                                     {club.logoUrl
                                                         ? <Image source={{ uri: club.logoUrl }} style={ob.logoImg} />
-                                                        : <Text style={ob.logoText}>{(club.clubName ?? "C").charAt(0).toUpperCase()}</Text>}
+                                                        : <Text style={ob.logoText}>{(pickText(club.clubName, club.clubNameFr, lang) ?? "C").charAt(0).toUpperCase()}</Text>}
                                                 </View>
                                                 <View style={ob.info}>
-                                                    <Text style={ob.clubName}>{club.clubName}</Text>
+                                                    <Text style={ob.clubName}>{pickText(club.clubName, club.clubNameFr, lang)}</Text>
                                                     <Text style={ob.followers}>{t.followersCount(club._count.followedBy)}</Text>
                                                 </View>
                                                 <Pressable

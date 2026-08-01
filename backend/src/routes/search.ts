@@ -15,8 +15,10 @@ type PostRow = {
     clubNameFr: string | null;
 };
 
-// Pull the best display locale for a result (prefer en, then fr, then whatever
-// exists) — the search itself matches across every locale.
+// A fallback title for clients that don't localize (prefer en, then fr, then
+// whatever exists). The full `locales` blob ships alongside it so the app can
+// pick the reader's language — this endpoint has no auth and therefore no way
+// to know it. The search itself matches across every locale regardless.
 function pickLoc(locales: any): { title?: string; body?: string; posterUrl?: string } {
     return locales?.en ?? locales?.fr ?? Object.values(locales ?? {})[0] ?? {};
 }
@@ -96,6 +98,7 @@ router.get("/", async (req, res, next) => {
             return {
                 id: p.id,
                 title: loc.title ?? "Untitled",
+                locales: p.locales,
                 clubName: p.clubName ?? "",
                 clubNameFr: p.clubNameFr ?? null,
                 posterUrl: loc.posterUrl ?? null,
@@ -110,6 +113,7 @@ router.get("/", async (req, res, next) => {
                 id: p.id,
                 type: p.type,
                 title: loc.title ?? "Untitled",
+                locales: p.locales,
                 clubName: p.clubName ?? "",
                 clubNameFr: p.clubNameFr ?? null,
                 createdAt: p.createdAt,

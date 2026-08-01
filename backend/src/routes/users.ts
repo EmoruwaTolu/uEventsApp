@@ -315,8 +315,8 @@ router.get("/me/follows", requireAuth, async (req, res, next) => {
             include: {
                 club: {
                     select: {
-                        id: true, clubName: true, slug: true, category: true,
-                        description: true, logoUrl: true,
+                        id: true, clubName: true, clubNameFr: true, slug: true, category: true,
+                        description: true, descriptionFr: true, logoUrl: true,
                         _count: { select: { followedBy: true } },
                     },
                 },
@@ -339,7 +339,7 @@ router.get("/me/rsvps", requireAuth, async (req, res, next) => {
                     select: {
                         id: true, type: true, locales: true,
                         startAt: true, endAt: true, locationName: true,
-                        club: { select: { id: true, clubName: true, logoUrl: true } },
+                        club: { select: { id: true, clubName: true, clubNameFr: true, logoUrl: true } },
                         _count: { select: { rsvps: true } },
                         // A few real attendees for the "X, Y and N others are going" row.
                         rsvps: {
@@ -374,7 +374,7 @@ router.get("/me/attendance", requireAuth, async (req, res, next) => {
                     select: {
                         id: true, locales: true, startAt: true, categories: true,
                         freeFood: true, images: true,
-                        club: { select: { id: true, clubName: true, logoUrl: true } },
+                        club: { select: { id: true, clubName: true, clubNameFr: true, logoUrl: true } },
                         // The current user's own rating for this event (if they left one).
                         recapRatings: { where: { userId }, select: { rating: true } },
                     },
@@ -416,7 +416,12 @@ router.get("/me/attendance", requireAuth, async (req, res, next) => {
             return {
                 id: c.post.id,
                 title: loc.en?.title ?? loc.fr?.title ?? "Event",
+                // Both locales ship so the app can title the card in the
+                // reader's language; `title` is the fallback for clients
+                // that don't localize.
+                locales: c.post.locales,
                 clubName: c.post.club?.clubName ?? "",
+                clubNameFr: c.post.club?.clubNameFr ?? null,
                 clubLogo: c.post.club?.logoUrl ?? null,
                 imageUrl,
                 startAt: c.post.startAt,
@@ -503,7 +508,7 @@ router.get("/me/bookmarks", requireAuth, async (req, res, next) => {
                 post: {
                     select: {
                         id: true, type: true, locales: true, createdAt: true,
-                        club: { select: { id: true, clubName: true } },
+                        club: { select: { id: true, clubName: true, clubNameFr: true } },
                         _count: { select: { likes: true, comments: true } },
                         likes: { where: { userId: req.user!.userId }, select: { userId: true } },
                     },
@@ -526,7 +531,7 @@ router.get("/me/activity", requireAuth, async (req, res, next) => {
         const userId = req.user!.userId;
         const postSelect = {
             id: true, type: true, locales: true, createdAt: true,
-            club: { select: { id: true, clubName: true } },
+            club: { select: { id: true, clubName: true, clubNameFr: true } },
             _count: { select: { likes: true, comments: true } },
         };
 

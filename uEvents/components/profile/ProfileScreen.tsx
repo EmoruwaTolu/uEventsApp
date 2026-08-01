@@ -3,6 +3,7 @@ import { useApi } from "../../lib/useApi";
 import { useAuth } from "../../auth/AuthContext";
 import { useT, useLang } from "../../lib/LangContext";
 import { translateCategory } from "../../lib/categories";
+import { postTypeBadge } from "../../lib/postType";
 import { useLikes } from "../../lib/LikeContext";
 import { useBookmarks } from "../../lib/BookmarkContext";
 import { useReduceMotion } from "../../lib/useReduceMotion";
@@ -767,17 +768,14 @@ export default function ProfilePage({
     );
 }
 
-const POST_TYPE_LABEL: Record<string, string> = {
-    EVENT: "EVENT", ANNOUNCEMENT: "ANNOUNCEMENT", POLL: "POLL", UPDATE: "UPDATE",
-};
-
 function MyPostCard({ post, onPress }: { post: MyPost; onPress: () => void }) {
     const { colors: C } = useTheme();
+    const t = useT();
     const s = useMemo(() => makeStyles(C), [C]);
     return (
         <Pressable style={s.feedCard} onPress={onPress} accessibilityRole="button">
             <View style={s.feedCardHeader}>
-                <Text style={s.postTypeBadge}>{POST_TYPE_LABEL[post.type.toUpperCase()] ?? post.type}</Text>
+                <Text style={s.postTypeBadge}>{postTypeBadge(post.type, t)}</Text>
                 <Text style={[s.feedCardTime, { marginLeft: "auto" as any }]}>{post.timeAgo}</Text>
             </View>
             {!!post.title && <Text style={s.feedCardClub}>{post.title}</Text>}
@@ -957,6 +955,7 @@ function RSVPCard({ event, onPress }: { event: RSVPEvent; onPress: () => void })
 
 function SavedCard({ post, onPress }: { post: SavedPost; onPress: () => void }) {
     const { colors: C } = useTheme();
+    const t = useT();
     const s = useMemo(() => makeStyles(C), [C]);
     const router = useRouter();
     const reduceMotion = useReduceMotion();
@@ -1003,7 +1002,7 @@ function SavedCard({ post, onPress }: { post: SavedPost; onPress: () => void }) 
                 <ClubInitials name={post.clubName} size={36} />
                 <View style={{ flex: 1, gap: 2 }}>
                     <Text style={s.feedCardClub}>{post.clubName}</Text>
-                    <Text style={s.feedCardMeta}>{post.type.toUpperCase()} · {post.timestamp}</Text>
+                    <Text style={s.feedCardMeta}>{postTypeBadge(post.type, t)} · {post.timestamp}</Text>
                 </View>
                 <Pressable onPress={() => toggleBookmark(post.id, saved)} hitSlop={10} accessibilityRole="button" accessibilityLabel={saved ? "Remove from saved" : "Save"}>
                     <Ionicons name={saved ? "bookmark" : "bookmark-outline"} size={16} color={saved ? C.primary : C.textMuted} />

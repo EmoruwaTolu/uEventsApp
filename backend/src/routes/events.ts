@@ -35,7 +35,7 @@ router.get("/", async (req, res, next) => {
         const events = await prisma.post.findMany({
             where,
             include: {
-                club: { select: { id: true, clubName: true, slug: true, logoUrl: true, category: true } },
+                club: { select: { id: true, clubName: true, clubNameFr: true, slug: true, logoUrl: true, category: true } },
                 _count: { select: { rsvps: true, likes: true, comments: true } },
             },
             orderBy: popular ? { rsvps: { _count: "desc" } } : { startAt: "asc" },
@@ -56,7 +56,7 @@ router.get("/:id", requireAuth, async (req, res, next) => {
         const event = await prisma.post.findUnique({
             where: { id: req.params.id },
             include: {
-                club: { select: { id: true, clubName: true, slug: true, logoUrl: true, category: true } },
+                club: { select: { id: true, clubName: true, clubNameFr: true, slug: true, logoUrl: true, category: true } },
                 _count: { select: { rsvps: true } },
                 rsvps:     { where: { userId }, select: { userId: true } },
                 bookmarks: { where: { userId }, select: { userId: true } },

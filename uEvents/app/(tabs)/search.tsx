@@ -8,12 +8,13 @@ import { useRouter } from "expo-router";
 import { useApi } from "../../lib/useApi";
 import { useAuth } from "../../auth/AuthContext";
 import { useRsvp } from "../../lib/RsvpContext";
-import { useLang, pickLocale } from "../../lib/LangContext";
+import { useLang, pickLocale, pickText } from "../../lib/LangContext";
 import { useTheme } from "../../lib/ThemeContext";
 import { useT } from "../../lib/LangContext";
 import { lightColors, meta, lbl, fonts, AppColors } from "../../styles/theme";
 import { EVENT_TAGS } from "../../lib/eventTags";
-import { translateCategory } from "../../lib/categories";
+import { translateCategory, translateCategoryList } from "../../lib/categories";
+import { postTypeBadge } from "../../lib/postType";
 import { LinearGradient } from "expo-linear-gradient";
 import { makeFeedStyles } from "../../styles/feed.styles";
 
@@ -25,7 +26,7 @@ type ApiEvent = {
     startAt?: string;
     endAt?: string;
     locationName?: string;
-    club?: { clubName?: string; category?: string };
+    club?: { clubName?: string; clubNameFr?: string | null; category?: string };
     categories?: string[];
     price?: number;
     attendees?: number;
@@ -109,6 +110,7 @@ type FeedPost = {
     id: string;
     clubId: string;
     clubName: string;
+    clubNameFr?: string | null;
     type: string;
     createdAt: string;
     locales: Record<string, { title?: string; body?: string }>;
@@ -133,6 +135,7 @@ const TODAY = todayISO();
 type ApiClub = {
     id: string;
     clubName: string;
+    clubNameFr?: string | null;
     category?: string;
     logoUrl?: string;
     _count: { followedBy: number };
@@ -671,7 +674,7 @@ export default function DiscoverScreen() {
     const [visibleDayCount, setVisibleDayCount] = useState(7);
     const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
     const [activeIndex, setActiveIndex] = useState(0);
-    const [latestUpdates, setLatestUpdates] = useState<FeedPost[]>([]);
+    const [latestAnnouncements, setLatestAnnouncements] = useState<FeedPost[]>([]);
     const [clubs, setClubs] = useState<ApiClub[]>([]);
     const [followedIds, setFollowedIds] = useState<Set<string>>(new Set());
     const [followedTopics, setFollowedTopics] = useState<Set<string>>(new Set());
@@ -687,11 +690,11 @@ export default function DiscoverScreen() {
         }
     }, []);
 
-    // Fetch latest updates + clubs + follows once on mount
+    // Fetch latest announcements + clubs + follows once on mount
     useEffect(() => {
         if (session?.token) {
             authApi<FeedPost[]>("/posts/discover")
-                .then((data) => setLatestUpdates(data.slice(0, 4)))
+                .then((data) => setLatestAnnouncements(data.slice(0, 4)))
                 .catch(console.error);
             authApi<{ id: string }[]>("/users/me/follows")
                 .then((data) => setFollowedIds(new Set(data.map((f) => f.id))))
@@ -1037,10 +1040,10 @@ export default function DiscoverScreen() {
                     })()
                 )}
 
-                {/* ── Latest updates ── */}
+                {/* ── Latest announcements ── */}
                 <View style={styles.section}>
                     <View style={styles.sectionHeaderRow}>
-                        <Text style={styles.sectionTitle}>{t.latestUpdates}</Text>
+                        <Text style={styles.sectionTitle}>{t.latestAnnouncements}</Text>
                         <View style={styles.sectionLine} />
                         <Pressable
                             style={styles.viewAllBtn}
@@ -1050,15 +1053,16 @@ export default function DiscoverScreen() {
                             <Ionicons name="chevron-forward" size={13} color={C.primary} />
                         </Pressable>
                     </View>
-                    {latestUpdates.length === 0 && (
+                    {latestAnnouncements.length === 0 && (
                         <Text style={styles.updateEmpty}>{t.noOtherClubAnnouncements}</Text>
                     )}
-                    {latestUpdates.map((item) => {
+                    {latestAnnouncements.map((item) => {
                         const locale = pickLocale(item.locales as any, lang);
+                        const itemClub = pickText(item.clubName, item.clubNameFr, lang);
                         const color = TYPE_COLORS[item.type] ?? C.textBody;
                         const icon = (TYPE_ICONS[item.type] ?? "newspaper-outline") as any;
                         return (
-                        <Pressable key={item.id} style={styles.updateRow} accessibilityRole="button" accessibilityLabel={locale.title ?? item.clubName ?? "Update"} onPress={() => item.type === "event"
+                        <Pressable key={item.id} style={styles.updateRow} accessibilityRole="button" accessibilityLabel={locale.title ?? itemClub ?? postTypeBadge(item.type, t)} onPress={() => item.type === "event"
                             ? router.push({ pathname: "/event/[id]", params: { id: item.eventId ?? item.id } })
                             : router.push({ pathname: "/post/[id]", params: { id: item.id } })
                         }>
@@ -1066,7 +1070,7 @@ export default function DiscoverScreen() {
                                 <Ionicons name={icon} size={18} color="#fff" />
                             </View>
                             <View style={styles.updateText}>
-                                <Text style={styles.updateCategory}>{item.clubName?.toUpperCase()} · {item.type.toUpperCase()}</Text>
+                                <Text style={styles.updateCategory}>{itemClub?.toUpperCase()} · {postTypeBadge(item.type, t)}</Text>
                                 <Text style={styles.updateTitle}>{locale.title ?? ""}</Text>
                                 <Text style={styles.updateExcerpt} numberOfLines={2}>{locale.body ?? ""}</Text>
                             </View>
@@ -1119,7 +1123,8 @@ export default function DiscoverScreen() {
                         return (
                             <>
                                 {visible.map((club) => {
-                                    const initial = (club.clubName ?? "C").charAt(0).toUpperCase();
+                                    const displayName = pickText(club.clubName, club.clubNameFr, lang);
+                                    const initial = (displayName ?? "C").charAt(0).toUpperCase();
                                     return (
                                         <Pressable
                                             key={club.id}
@@ -1132,9 +1137,9 @@ export default function DiscoverScreen() {
                                                     : <Text style={styles.clubLogoText}>{initial}</Text>}
                                             </View>
                                             <View style={styles.clubInfo}>
-                                                <Text style={styles.clubName}>{club.clubName}</Text>
+                                                <Text style={styles.clubName}>{displayName}</Text>
                                                 <Text style={styles.clubMeta}>
-                                                    {[club.category ? translateCategory(club.category, lang) : null, t.followersCount(club._count.followedBy)].filter(Boolean).join(" · ")}
+                                                    {[club.category ? translateCategoryList(club.category, lang) : null, t.followersCount(club._count.followedBy)].filter(Boolean).join(" · ")}
                                                 </Text>
                                             </View>
                                             <Pressable
@@ -1180,7 +1185,7 @@ function EventCard({ event, width, onPress }: { event: ApiEvent; width: number; 
     const endTime = formatEventTime(event.endAt);
     const timeStr = time && endTime ? `${time} – ${endTime}` : time;
     const location = event.locationName ?? "";
-    const clubName = event.club?.clubName ?? "";
+    const clubName = pickText(event.club?.clubName, event.club?.clubNameFr, lang) ?? "";
     const clubInitials = clubName.slice(0, 2).toLowerCase();
     const bannerUri = locale.posterUrl ?? locale.imageUrl;
 
@@ -1321,7 +1326,7 @@ function GroupEventRow({ event, onPress }: { event: ApiEvent; onPress: () => voi
     const title = locale.title ?? t.untitledEvent;
     const time = formatEventTime(event.startAt);
     const endTime = formatEventTime(event.endAt);
-    const clubName = event.club?.clubName?.toUpperCase() ?? "";
+    const clubName = (pickText(event.club?.clubName, event.club?.clubNameFr, lang) ?? "").toUpperCase();
     const location = event.locationName ?? "";
     const imgUri = (locale as any).posterUrl ?? (locale as any).imageUrl;
 

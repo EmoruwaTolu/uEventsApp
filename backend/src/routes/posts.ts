@@ -1410,6 +1410,7 @@ router.get("/discover", requireAuth, async (req, res, next) => {
             id: p.id,
             clubId: p.club.id,
             clubName: p.club.clubName,
+            clubNameFr: p.club.clubNameFr,
             type: p.type,
             createdAt: p.createdAt,
             locales: p.locales,

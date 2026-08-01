@@ -17,7 +17,7 @@ import { useToast } from "../lib/ToastContext";
 import { ProfileSkeleton, ErrorRetry } from "./SkeletonLoader";
 import { useTheme } from "../lib/ThemeContext";
 import { useT } from "../lib/LangContext";
-import { translateCategory } from "../lib/categories";
+import { translateCategory, translateCategoryList } from "../lib/categories";
 import { timeAgo, fmtTime24 as fmtTime, fmtLongDate } from "../lib/datetime";
 import { lightColors, meta, lbl, fonts, AppColors } from "../styles/theme";
 import { LinearGradient } from "expo-linear-gradient";
@@ -553,10 +553,10 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                                 style={[s.followBtn, isFollowing && s.followBtnActive]}
                                 onPress={toggleFollow}
                                 accessibilityRole="button"
-                                accessibilityLabel={isFollowing ? "Unfollow club" : "Follow club"}
+                                accessibilityLabel={isFollowing ? t.unfollowWord : t.followClubLabel}
                             >
                                 <Text style={[s.followBtnText, isFollowing && s.followBtnTextActive]}>
-                                    {isFollowing ? "FOLLOWING" : "FOLLOW"}
+                                    {isFollowing ? t.followingBtn : t.follow}
                                 </Text>
                             </Pressable>
                         )}
@@ -565,7 +565,7 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                     {/* Club name & category */}
                     <Text style={s.clubNameNew} numberOfLines={2}>{pickText(club.clubName, club.clubNameFr, lang)}</Text>
                     {!!club.category && (
-                        <Text style={s.categoryLabelNew}>{translateCategory(club.category!, lang).toUpperCase()}</Text>
+                        <Text style={s.categoryLabelNew}>{translateCategoryList(club.category!, lang).toUpperCase()}</Text>
                     )}
 
                     {/* Stats row */}
@@ -604,14 +604,14 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                 <View style={s.aboutBlock}>
                     <Text style={s.aboutLabel}>{t.about}</Text>
                     {club.description ? (
-                        <Text style={s.aboutText}>{lang === "fr" && club.descriptionFr ? club.descriptionFr : club.description}</Text>
+                        <Text style={s.aboutText}>{pickText(club.description, club.descriptionFr, lang)}</Text>
                     ) : (
                         <Text style={s.aboutPlaceholder}>{t.addDescriptionHint}</Text>
                     )}
                     {!!club.category && (
                         <View style={s.tagsRow}>
                             <View style={s.tagChip}>
-                                <Text style={s.tagChipText}>{club.category}</Text>
+                                <Text style={s.tagChipText}>{translateCategoryList(club.category!, lang)}</Text>
                             </View>
                         </View>
                     )}
@@ -900,15 +900,15 @@ export default function ClubProfileView({ id, hideHeader = false, isProfileTab =
                         <View style={s.modalHandle} />
                         <View style={s.modalHeader}>
                             <Text style={s.modalTitle}>{t.notificationsSection}</Text>
-                            <Pressable onPress={() => closeSheet(notifSheetY, () => setNotifModalOpen(false))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close">
+                            <Pressable onPress={() => closeSheet(notifSheetY, () => setNotifModalOpen(false))} hitSlop={8} accessibilityRole="button" accessibilityLabel={t.close}>
                                 <Ionicons name="close" size={20} color={C.textBody} />
                             </Pressable>
                         </View>
-                        <Text style={s.modalSubtitle}>FOR {pickText(club.clubName, club.clubNameFr, lang).toUpperCase()}</Text>
+                        <Text style={s.modalSubtitle}>{t.notifyForClub(pickText(club.clubName, club.clubNameFr, lang).toUpperCase())}</Text>
                         {([
-                            { key: "ALL",    icon: "notifications",             label: "All",         desc: "Events, announcements & polls" },
-                            { key: "EVENTS", icon: "notifications-outline",     label: "Events only", desc: "Only new events from this club" },
-                            { key: "NONE",   icon: "notifications-off",         label: "Muted",       desc: "No notifications" },
+                            { key: "ALL",    icon: "notifications",         label: t.notifAll,        desc: t.notifAllDesc },
+                            { key: "EVENTS", icon: "notifications-outline", label: t.notifEventsOnly, desc: t.notifEventsOnlyDesc },
+                            { key: "NONE",   icon: "notifications-off",     label: t.notifMuted,      desc: t.notifMutedDesc },
                         ] as const).map(({ key, icon, label, desc }) => {
                             const selected = notifPref === key;
                             return (

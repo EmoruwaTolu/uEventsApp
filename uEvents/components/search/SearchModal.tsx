@@ -7,8 +7,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useApi } from "../../lib/useApi";
-import { useLang, pickLocale, useT } from "../../lib/LangContext";
-import { translateCategory } from "../../lib/categories";
+import { useLang, pickLocale, pickText, useT } from "../../lib/LangContext";
+import { translateCategoryList } from "../../lib/categories";
+import { postTypeBadge } from "../../lib/postType";
 import { localeFor } from "../../lib/datetime";
 import { useTheme } from "../../lib/ThemeContext";
 import { meta, lbl, fonts, AppColors } from "../../styles/theme";
@@ -16,17 +17,18 @@ import { meta, lbl, fonts, AppColors } from "../../styles/theme";
 type SearchCategory = "all" | "events" | "clubs" | "posts";
 
 type ApiClub = {
-    id: string; clubName: string; category?: string;
+    id: string; clubName: string; clubNameFr?: string | null; category?: string;
     description?: string; descriptionFr?: string; logoUrl?: string;
     _count: { followedBy: number };
 };
 type ApiEvent = {
-    id: string; title: string; clubName: string;
+    id: string; title: string; locales?: Record<string, any>;
+    clubName: string; clubNameFr?: string | null;
     posterUrl?: string | null; startAt?: string; locationName?: string;
 };
 type ApiPost = {
-    id: string; type: string; title: string;
-    clubName: string; createdAt: string;
+    id: string; type: string; title: string; locales?: Record<string, any>;
+    clubName: string; clubNameFr?: string | null; createdAt: string;
 };
 type SearchResults = { clubs: ApiClub[]; events: ApiEvent[]; posts: ApiPost[] };
 
@@ -42,8 +44,8 @@ function fmtDate(iso: string | undefined, lang: string) {
     return new Date(iso).toLocaleDateString(localeFor(lang), { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-type PopularClub = { id: string; clubName: string; category?: string; logoUrl?: string; _count: { followedBy: number } };
-type UpcomingEvent = { id: string; title?: string; clubName?: string; posterUrl?: string | null; startAt?: string; locationName?: string; locales?: { en?: { title?: string; posterUrl?: string; imageUrl?: string }; fr?: { title?: string } }; club?: { clubName?: string } };
+type PopularClub = { id: string; clubName: string; clubNameFr?: string | null; category?: string; logoUrl?: string; _count: { followedBy: number } };
+type UpcomingEvent = { id: string; title?: string; clubName?: string; clubNameFr?: string | null; posterUrl?: string | null; startAt?: string; locationName?: string; locales?: { en?: { title?: string; posterUrl?: string; imageUrl?: string }; fr?: { title?: string } }; club?: { clubName?: string; clubNameFr?: string | null } };
 
 const makeStyles = (C: AppColors) => StyleSheet.create({
     page: { flex: 1, backgroundColor: C.bg },
@@ -280,8 +282,8 @@ export default function SearchModal() {
                                             }
                                         </View>
                                         <View style={s.cardContent}>
-                                            <Text style={s.cardLabel}>CLUB{club.category ? ` · ${translateCategory(club.category, lang).toUpperCase()}` : ""}</Text>
-                                            <Text style={s.cardTitle} numberOfLines={1}>{club.clubName}</Text>
+                                            <Text style={s.cardLabel}>{t.clubBadge}{club.category ? ` · ${translateCategoryList(club.category, lang).toUpperCase()}` : ""}</Text>
+                                            <Text style={s.cardTitle} numberOfLines={1}>{pickText(club.clubName, club.clubNameFr, lang)}</Text>
                                             <Text style={s.cardMeta}>{t.followersCount(club._count.followedBy)}</Text>
                                         </View>
                                         <Ionicons name="chevron-forward" size={16} color={C.textLight} style={{ alignSelf: "center" }} />
@@ -301,7 +303,7 @@ export default function SearchModal() {
                                     const evLocale = pickLocale(event.locales, lang);
                                     const evTitle = evLocale.title ?? event.title ?? t.untitledEvent;
                                     const evPoster = evLocale.posterUrl ?? (evLocale as any).imageUrl ?? event.posterUrl;
-                                    const evClubName = event.clubName ?? event.club?.clubName;
+                                    const evClubName = pickText(event.clubName ?? event.club?.clubName, event.clubNameFr ?? event.club?.clubNameFr, lang);
                                     return (
                                     <Pressable
                                         key={event.id}
@@ -368,10 +370,10 @@ export default function SearchModal() {
                                             }
                                         </View>
                                         <View style={s.cardContent}>
-                                            <Text style={s.cardLabel}>CLUB{club.category ? ` · ${translateCategory(club.category, lang).toUpperCase()}` : ""}</Text>
-                                            <Text style={s.cardTitle} numberOfLines={1}>{club.clubName}</Text>
+                                            <Text style={s.cardLabel}>{t.clubBadge}{club.category ? ` · ${translateCategoryList(club.category, lang).toUpperCase()}` : ""}</Text>
+                                            <Text style={s.cardTitle} numberOfLines={1}>{pickText(club.clubName, club.clubNameFr, lang)}</Text>
                                             {club.description ? (
-                                                <Text style={s.cardMeta} numberOfLines={1}>{lang === "fr" && club.descriptionFr ? club.descriptionFr : club.description}</Text>
+                                                <Text style={s.cardMeta} numberOfLines={1}>{pickText(club.description, club.descriptionFr, lang)}</Text>
                                             ) : null}
                                             <Text style={s.cardMeta}>{t.followersCount(club._count.followedBy)}</Text>
                                         </View>
@@ -388,7 +390,10 @@ export default function SearchModal() {
                                     <Text style={s.sectionTitle}>{t.eventsUpper}</Text>
                                     <View style={s.sectionLine} />
                                 </View>
-                                {visibleEvents.map((event) => (
+                                {visibleEvents.map((event) => {
+                                    const evLocale = pickLocale(event.locales, lang);
+                                    const evPoster = evLocale.posterUrl ?? event.posterUrl;
+                                    return (
                                     <Pressable
                                         key={event.id}
                                         style={s.card}
@@ -396,16 +401,16 @@ export default function SearchModal() {
                                     >
                                         <View style={[s.cardAccent, { backgroundColor: "#1D4ED8" }]} />
                                         <View style={s.cardPoster}>
-                                            {event.posterUrl
-                                                ? <Image source={{ uri: event.posterUrl }} style={StyleSheet.absoluteFill as any} resizeMode="cover" />
+                                            {evPoster
+                                                ? <Image source={{ uri: evPoster }} style={StyleSheet.absoluteFill as any} resizeMode="cover" />
                                                 : <Ionicons name="calendar" size={20} color="#1D4ED8" />
                                             }
                                         </View>
                                         <View style={s.cardContent}>
                                             <Text style={[s.cardLabel, { color: "#1D4ED8" }]}>
-                                                {t.eventType.toUpperCase()}{event.clubName ? ` · ${event.clubName.toUpperCase()}` : ""}
+                                                {t.eventType.toUpperCase()}{event.clubName ? ` · ${pickText(event.clubName, event.clubNameFr, lang).toUpperCase()}` : ""}
                                             </Text>
-                                            <Text style={s.cardTitle} numberOfLines={2}>{event.title}</Text>
+                                            <Text style={s.cardTitle} numberOfLines={2}>{evLocale.title ?? event.title}</Text>
                                             {(event.startAt || event.locationName) ? (
                                                 <Text style={s.cardMeta} numberOfLines={1}>
                                                     {[fmtDate(event.startAt, lang), event.locationName].filter(Boolean).join(" · ")}
@@ -414,7 +419,8 @@ export default function SearchModal() {
                                         </View>
                                         <Ionicons name="chevron-forward" size={16} color={C.textLight} style={{ alignSelf: "center" }} />
                                     </Pressable>
-                                ))}
+                                    );
+                                })}
                             </>
                         )}
 
@@ -443,8 +449,8 @@ export default function SearchModal() {
                                             />
                                         </View>
                                         <View style={s.cardContent}>
-                                            <Text style={s.cardLabel}>{(({ POLL: t.pollType, ANNOUNCEMENT: t.announcementType, UPDATE: t.updateType, EVENT: t.eventType } as Record<string, string>)[post.type] ?? post.type).toUpperCase()} · {post.clubName.toUpperCase()}</Text>
-                                            <Text style={s.cardTitle} numberOfLines={2}>{post.title}</Text>
+                                            <Text style={s.cardLabel}>{postTypeBadge(post.type, t)} · {pickText(post.clubName, post.clubNameFr, lang).toUpperCase()}</Text>
+                                            <Text style={s.cardTitle} numberOfLines={2}>{pickLocale(post.locales, lang).title ?? post.title}</Text>
                                         </View>
                                         <Ionicons name="chevron-forward" size={16} color={C.textLight} style={{ alignSelf: "center" }} />
                                     </Pressable>

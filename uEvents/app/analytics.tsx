@@ -10,6 +10,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useApi } from "../lib/useApi";
 import { useAuth } from "../auth/AuthContext";
 import { useT, useLang } from "../lib/LangContext";
+import { postTypeBadge } from "../lib/postType";
 import { timeAgo, localeFor } from "../lib/datetime";
 import { useTheme } from "../lib/ThemeContext";
 import { meta, lbl, fonts, AppColors } from "../styles/theme";
@@ -744,7 +745,7 @@ export default function AnalyticsScreen() {
                                 <View style={styles.postContent}>
                                     <View style={styles.postMeta}>
                                         <View style={styles.postTypeBadge}>
-                                            <Text style={styles.postTypeText}>{post.type}</Text>
+                                            <Text style={styles.postTypeText}>{postTypeBadge(post.type, t)}</Text>
                                         </View>
                                         <Text style={styles.postTimeAgo}>{timeAgo(post.createdAt, lang)}</Text>
                                     </View>

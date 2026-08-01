@@ -6,17 +6,17 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useApi } from "../../lib/useApi";
-import { useT, useLang } from "../../lib/LangContext";
+import { useT, useLang, pickLocale, pickText } from "../../lib/LangContext";
 import { localeFor } from "../../lib/datetime";
 import { fonts, lbl, meta, lightColors } from "../../styles/theme";
 
 type RsvpEvent = {
     id: string;
-    locales?: { en?: { title?: string; imageUrl?: string; posterUrl?: string } };
+    locales?: Record<string, { title?: string; imageUrl?: string; posterUrl?: string }>;
     startAt?: string;
     endAt?: string;
     locationName?: string;
-    club?: { id?: string; clubName?: string; logoUrl?: string };
+    club?: { id?: string; clubName?: string; clubNameFr?: string | null; logoUrl?: string };
 };
 
 type DayGroup = {
@@ -148,12 +148,12 @@ export default function AllEventsModal() {
 
                             {/* Event rows */}
                             {group.events.map((event, i) => {
-                                const locale = event.locales?.en ?? {};
+                                const locale = pickLocale(event.locales, lang);
                                 const title = locale.title ?? t.untitledEvent;
                                 const imgUri = locale.posterUrl ?? locale.imageUrl;
                                 const startTime = fmtTime(event.startAt, lang);
                                 const endTime = fmtTime(event.endAt, lang);
-                                const clubName = event.club?.clubName?.toUpperCase() ?? "";
+                                const clubName = (pickText(event.club?.clubName, event.club?.clubNameFr, lang) ?? "").toUpperCase();
 
                                 return (
                                     <Pressable

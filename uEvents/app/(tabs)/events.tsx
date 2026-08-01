@@ -14,7 +14,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { useApi } from "../../lib/useApi";
 import { useAuth } from "../../auth/AuthContext";
 import { useRsvp } from "../../lib/RsvpContext";
-import { useT } from "../../lib/LangContext";
+import { useT, useLang, pickLocale, pickText } from "../../lib/LangContext";
 import { useToast } from "../../lib/ToastContext";
 import { EventCardSkeleton } from "../../components/SkeletonLoader";
 import { useTheme } from "../../lib/ThemeContext";
@@ -80,7 +80,7 @@ type ApiEvent = {
     locationName?: string;
     createdAt: string;
     freeFood?: boolean;
-    club: { id: string; clubName?: string; logoUrl?: string; category?: string };
+    club: { id: string; clubName?: string; clubNameFr?: string | null; logoUrl?: string; category?: string };
     _count: { rsvps: number };
 };
 
@@ -94,12 +94,12 @@ type RsvpPost = {
     startAt?: string;
     endAt?: string;
     locationName?: string;
-    club?: { id: string; clubName?: string; logoUrl?: string };
+    club?: { id: string; clubName?: string; clubNameFr?: string | null; logoUrl?: string };
     _count: { rsvps: number };
     rsvpPreview?: AttendeePreview[];
 };
 
-type AttendedEvent = { id: string; title: string; clubName: string; clubLogo?: string | null; imageUrl?: string | null; startAt?: string; checkedAt: string; categories: string[]; rating?: number | null };
+type AttendedEvent = { id: string; title: string; locales?: Record<string, { title?: string }>; clubName: string; clubNameFr?: string | null; clubLogo?: string | null; imageUrl?: string | null; startAt?: string; checkedAt: string; categories: string[]; rating?: number | null };
 type AttendanceResp = { total: number; thisSemester: number; semesterLabel: string; streakWeeks: number; freeMeals: number; events: AttendedEvent[] };
 
 function openMaps(query?: string) {
@@ -470,6 +470,7 @@ export default function EventsScreen() {
 
     const today = useMemo(() => new Date(now), [now]);
     const t = useT();
+    const { lang } = useLang();
     const days = t.days as unknown as string[];
     const months = t.months as unknown as string[];
 
@@ -605,7 +606,7 @@ export default function EventsScreen() {
             if (!writable) { showToast(t.calendarError, "error"); return; }
             const start = new Date(ev.startAt);
             const end = ev.endAt ? new Date(ev.endAt) : new Date(start.getTime() + 2 * 3600000);
-            const loc = ev.locales?.en ?? ev.locales?.fr ?? {};
+            const loc = pickLocale(ev.locales, lang);
             await Calendar.createEventAsync(writable.id, {
                 title: loc.title ?? "Event",
                 startDate: start,
@@ -665,7 +666,7 @@ export default function EventsScreen() {
         );
     }
 
-    const heroLoc = heroEvent ? (heroEvent.locales?.en ?? heroEvent.locales?.fr ?? {}) : {};
+    const heroLoc = heroEvent ? pickLocale(heroEvent.locales, lang) : {};
     const heroImg = heroLoc.posterUrl ?? heroLoc.imageUrl;
     const heroBadge = heroEvent
         ? heroBadgeInfo(heroEvent, now, today, days, months, t)
@@ -789,7 +790,7 @@ export default function EventsScreen() {
                                 {/* Title + club */}
                                 <Text style={s.heroTitle} numberOfLines={2}>{heroLoc.title ?? ""}</Text>
                                 {!!heroEvent.club?.clubName && (
-                                    <Text style={s.heroClub}>{heroEvent.club.clubName}</Text>
+                                    <Text style={s.heroClub}>{pickText(heroEvent.club.clubName, heroEvent.club.clubNameFr, lang)}</Text>
                                 )}
 
                                 {/* Meta */}
@@ -854,10 +855,10 @@ export default function EventsScreen() {
                 ) : (
                     <>
                         {upcomingRsvps.slice(0, SCHEDULE_LIMIT).map((event) => {
-                            const loc = event.locales?.en ?? event.locales?.fr ?? {};
+                            const loc = pickLocale(event.locales, lang);
                             const img = loc.posterUrl ?? loc.imageUrl;
                             const d = new Date(event.startAt!);
-                            const sub = [event.club?.clubName, event.startAt ? formatTime(event.startAt) : null, event.locationName]
+                            const sub = [pickText(event.club?.clubName, event.club?.clubNameFr, lang), event.startAt ? formatTime(event.startAt) : null, event.locationName]
                                 .filter(Boolean).join(" · ");
                             return (
                                 <Pressable key={event.id} style={s.schedRow} onPress={() => router.push(`/event/${event.id}` as any)}>
@@ -897,8 +898,8 @@ export default function EventsScreen() {
 
                 {/* ── Free food banner ── */}
                 {freeFoodEvent && (() => {
-                    const loc = freeFoodEvent.locales?.en ?? freeFoodEvent.locales?.fr ?? {};
-                    const sub = [loc.title, freeFoodEvent.club?.clubName, freeFoodEvent.startAt ? formatTime(freeFoodEvent.startAt) : null]
+                    const loc = pickLocale(freeFoodEvent.locales, lang);
+                    const sub = [loc.title, pickText(freeFoodEvent.club?.clubName, freeFoodEvent.club?.clubNameFr, lang), freeFoodEvent.startAt ? formatTime(freeFoodEvent.startAt) : null]
                         .filter(Boolean).join(" · ");
                     return (
                         <View style={s.foodBanner}>
@@ -924,10 +925,10 @@ export default function EventsScreen() {
                     <View style={s.emptyToday}><Text style={s.emptyTodayText}>{t.noEvents}</Text></View>
                 ) : (
                     campusNotGoing.map((event) => {
-                        const loc = event.locales?.en ?? event.locales?.fr ?? {};
+                        const loc = pickLocale(event.locales, lang);
                         const img = loc.posterUrl ?? loc.imageUrl;
                         const going = isRsvped(event.id);
-                        const sub = [event.club?.clubName, event.locationName, event.startAt ? formatTime(event.startAt) : null]
+                        const sub = [pickText(event.club?.clubName, event.club?.clubNameFr, lang), event.locationName, event.startAt ? formatTime(event.startAt) : null]
                             .filter(Boolean).join(" · ");
                         return (
                             <Pressable key={event.id} style={s.campusRow} onPress={() => router.push(`/event/${event.id}` as any)}>
@@ -1029,10 +1030,10 @@ export default function EventsScreen() {
 
                                 {(() => {
                                     const items = archiveMode === "attended"
-                                        ? attended.map((e) => ({ id: e.id, title: e.title, club: e.clubName, date: new Date(e.startAt ?? e.checkedAt), img: undefined as string | undefined, loc: undefined as string | undefined }))
+                                        ? attended.map((e) => ({ id: e.id, title: pickLocale(e.locales, lang).title ?? e.title, club: pickText(e.clubName, e.clubNameFr, lang), date: new Date(e.startAt ?? e.checkedAt), img: undefined as string | undefined, loc: undefined as string | undefined }))
                                         : pastRsvps.map((e) => {
-                                            const l = e.locales?.en ?? e.locales?.fr ?? {};
-                                            return { id: e.id, title: l.title ?? "", club: e.club?.clubName, date: new Date(e.startAt!), img: (l.posterUrl ?? l.imageUrl) as string | undefined, loc: e.locationName as string | undefined };
+                                            const l = pickLocale(e.locales, lang);
+                                            return { id: e.id, title: l.title ?? "", club: pickText(e.club?.clubName, e.club?.clubNameFr, lang), date: new Date(e.startAt!), img: (l.posterUrl ?? l.imageUrl) as string | undefined, loc: e.locationName as string | undefined };
                                         });
                                     if (items.length === 0) {
                                         return <Text style={s.archiveEmpty}>{archiveMode === "attended" ? t.archiveAttendedEmpty : t.archiveRsvpdEmpty}</Text>;
@@ -1081,11 +1082,11 @@ export default function EventsScreen() {
                 <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
                     {rsvps
                         .filter((e) => {
-                            const loc = e.locales?.en ?? e.locales?.fr ?? {};
+                            const loc = pickLocale(e.locales, lang);
                             return (loc.title ?? "").toLowerCase().includes(searchQuery.toLowerCase());
                         })
                         .map((event) => {
-                            const loc = event.locales?.en ?? event.locales?.fr ?? {};
+                            const loc = pickLocale(event.locales, lang);
                             return (
                                 <Pressable
                                     key={event.id}
@@ -1104,7 +1105,7 @@ export default function EventsScreen() {
                         })
                     }
                     {rsvps.filter((e) => {
-                        const loc = e.locales?.en ?? e.locales?.fr ?? {};
+                        const loc = pickLocale(e.locales, lang);
                         return (loc.title ?? "").toLowerCase().includes(searchQuery.toLowerCase());
                     }).length === 0 && (
                         <View style={s.searchEmpty}>
