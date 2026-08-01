@@ -11,5 +11,8 @@
     "resolveJsonModule": true
   },
   "include": ["src"],
-  "exclude": ["node_modules", "dist"]
+  // Tests are run by ts-jest (which type-checks them itself) and have no place
+  // in the deployed bundle. Excluding them also lets a test import shared copy
+  // from the app workspace, which "rootDir": "src" would otherwise reject.
+  "exclude": ["node_modules", "dist", "src/__tests__"]
 }
