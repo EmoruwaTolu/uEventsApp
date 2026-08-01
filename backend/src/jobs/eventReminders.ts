@@ -1,5 +1,6 @@
 import { prisma } from "../lib/prisma";
 import { sendExpoPush } from "../lib/push";
+import { toLang, eventReminderPush } from "../lib/notifCopy";
 
 /**
  * Runs every minute. Finds events starting in 55–65 minutes and sends
@@ -21,7 +22,7 @@ export async function runEventReminders() {
         include: {
             rsvps: {
                 include: {
-                    user: { select: { id: true, pushToken: true, pushNotifs: true } },
+                    user: { select: { id: true, pushToken: true, pushNotifs: true, language: true } },
                 },
             },
             club: { select: { clubName: true } },
@@ -30,8 +31,9 @@ export async function runEventReminders() {
 
     for (const event of upcomingEvents) {
         const title = (event.locales as any)?.en?.title ?? (event.locales as any)?.fr?.title ?? "Upcoming event";
-        const notifTitle = `Starting soon: ${title}`;
-        const notifBody  = `Your event from ${event.club?.clubName ?? "a club"} starts in about 1 hour.`;
+        const clubName = event.club?.clubName ?? "a club";
+        // Stored rows are English; the app localizes them at display time.
+        const stored = eventReminderPush("en", title, clubName);
 
         const usersToNotify = event.rsvps.map((r) => r.user);
         if (!usersToNotify.length) continue;
@@ -54,25 +56,28 @@ export async function runEventReminders() {
             data: toNotify.map((u) => ({
                 userId: u.id,
                 type: "REMINDER" as const,
-                title: notifTitle,
-                body: notifBody,
+                title: stored.title,
+                body: stored.body,
                 metadata: { postId: event.id, postType: "EVENT" },
             })),
             skipDuplicates: true,
         });
 
         // Send Expo push notifications (respecting the user's push setting;
-        // the in-app notification above is always created)
-        const pushTokens = toNotify
-            .filter((u) => u.pushNotifs)
-            .map((u) => u.pushToken)
-            .filter(Boolean) as string[];
-        sendExpoPush(pushTokens.map((token) => ({
-            to: token,
-            title: notifTitle,
-            body: notifBody,
-            data: { postId: event.id, postType: "EVENT" },
-            sound: "default" as const,
-        })));
+        // the in-app notification above is always created). Composed per
+        // recipient — the OS renders these, so they can't be localized later.
+        const pushes = toNotify
+            .filter((u) => u.pushNotifs && u.pushToken)
+            .map((u) => {
+                const copy = eventReminderPush(toLang(u.language), title, clubName);
+                return {
+                    to: u.pushToken!,
+                    title: copy.title,
+                    body: copy.body,
+                    data: { postId: event.id, postType: "EVENT" },
+                    sound: "default" as const,
+                };
+            });
+        if (pushes.length) sendExpoPush(pushes);
     }
 }

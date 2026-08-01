@@ -1,8 +1,8 @@
 import { prisma } from "../lib/prisma";
 import { sendExpoPush } from "../lib/push";
+import { toLang, weeklyDigestPush } from "../lib/notifCopy";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-const DIGEST_TITLE = "Your weekly uEvents digest";
 
 /**
  * Weekly digest (intended for Sunday evening). For each student we summarise the
@@ -27,7 +27,7 @@ export async function runWeeklyDigest(now = new Date(), opts: { userIds?: string
 
     const students = await prisma.user.findMany({
         where: { type: "STUDENT", ...(opts.userIds ? { id: { in: opts.userIds } } : {}) },
-        select: { id: true, pushToken: true, pushNotifs: true },
+        select: { id: true, pushToken: true, pushNotifs: true, language: true },
     });
     if (students.length === 0) return { sent: 0 };
     const studentIds = students.map((s) => s.id);
@@ -72,14 +72,13 @@ export async function runWeeklyDigest(now = new Date(), opts: { userIds?: string
 
         if (rsvpCount === 0 && matchCount === 0) continue;
 
-        const parts: string[] = [];
-        if (rsvpCount > 0)  parts.push(`${rsvpCount} RSVP${rsvpCount === 1 ? "" : "s"}`);
-        if (matchCount > 0) parts.push(`${matchCount} event${matchCount === 1 ? "" : "s"} matching your interests`);
-        const body = `Your week: ${parts.join(", ")}.`;
+        // Stored rows are English; the app localizes them at display time.
+        const stored = weeklyDigestPush("en", rsvpCount, matchCount);
 
-        notifications.push({ userId: s.id, type: "DIGEST", title: DIGEST_TITLE, body, metadata: { rsvpCount, matchCount } });
+        notifications.push({ userId: s.id, type: "DIGEST", title: stored.title, body: stored.body, metadata: { rsvpCount, matchCount } });
         if (s.pushNotifs && s.pushToken) {
-            pushes.push({ to: s.pushToken, title: DIGEST_TITLE, body, sound: "default", data: { type: "DIGEST" } });
+            const copy = weeklyDigestPush(toLang(s.language), rsvpCount, matchCount);
+            pushes.push({ to: s.pushToken, title: copy.title, body: copy.body, sound: "default", data: { type: "DIGEST" } });
         }
     }
 

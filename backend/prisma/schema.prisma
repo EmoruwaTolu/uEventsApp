@@ -32,6 +32,9 @@ model User {
   pushToken     String?
   pushNotifs    Boolean        @default(true)
   emailDigest   Boolean        @default(false)
+  // UI language, mirrored from the app so server-composed push notifications
+  // can be sent in the language the user actually reads. "en" | "fr".
+  language      String         @default("en")
   tokenVersion  Int            @default(0)
   emailVerified DateTime?
   // Club self-signup approval (null for students; clubs are PENDING until an admin approves)

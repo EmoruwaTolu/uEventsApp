@@ -8,6 +8,10 @@ import { validate } from "../middleware/validate";
 import { generateOccurrences } from "../lib/recurrence";
 import { screenRecapPhoto } from "../lib/moderation";
 import { sendExpoPush } from "../lib/push";
+import {
+    toLang, type Lang,
+    newPostPush, eventUpdatePush, commentPush, eventTimeChangedPush, waitlistPromotedPush,
+} from "../lib/notifCopy";
 
 // 1-based position of a waitlist entry: how many entries were created at or
 // before it (entries are promoted oldest-first).
@@ -142,27 +146,34 @@ async function notifyFollowers(
     // Recipients = club followers (respecting notifPref) ∪ users who follow a
     // matching topic. Deduped by userId; the posting club never notifies itself.
     // pushNotifs gates the push only — in-app notifications are always created.
-    const recipients = new Map<string, string | null>(); // userId -> pushToken (null = no push)
+    // userId -> push token (null = no push) + the language to compose it in
+    const recipients = new Map<string, { token: string | null; lang: Lang }>();
 
     const follows = await prisma.follow.findMany({
         where: {
             clubId,
             notifPref: postType === "EVENT" ? { in: ["ALL", "EVENTS"] } : "ALL",
         },
-        select: { userId: true, user: { select: { pushToken: true, pushNotifs: true } } },
+        select: { userId: true, user: { select: { pushToken: true, pushNotifs: true, language: true } } },
     });
     for (const f of follows) {
-        recipients.set(f.userId, f.user.pushNotifs ? f.user.pushToken ?? null : null);
+        recipients.set(f.userId, {
+            token: f.user.pushNotifs ? f.user.pushToken ?? null : null,
+            lang: toLang(f.user.language),
+        });
     }
 
     if (categories.length > 0) {
         const topicFollows = await prisma.interestFollow.findMany({
             where: { category: { in: categories } },
-            select: { userId: true, user: { select: { pushToken: true, pushNotifs: true } } },
+            select: { userId: true, user: { select: { pushToken: true, pushNotifs: true, language: true } } },
         });
         for (const tf of topicFollows) {
             if (!recipients.has(tf.userId)) {
-                recipients.set(tf.userId, tf.user.pushNotifs ? tf.user.pushToken ?? null : null);
+                recipients.set(tf.userId, {
+                    token: tf.user.pushNotifs ? tf.user.pushToken ?? null : null,
+                    lang: toLang(tf.user.language),
+                });
             }
         }
     }
@@ -170,13 +181,8 @@ async function notifyFollowers(
     recipients.delete(clubId); // never notify the poster
     if (recipients.size === 0) return;
 
-    const titleMap: Record<string, string> = {
-        EVENT:        `New event from ${clubName}`,
-        ANNOUNCEMENT: `${clubName} posted an announcement`,
-        POLL:         `${clubName} posted a new poll`,
-        UPDATE:       `Update from ${clubName}`,
-    };
-    const notifTitle = titleMap[postType] ?? `New post from ${clubName}`;
+    // Stored rows are English; the app localizes them at display time.
+    const { title: notifTitle } = newPostPush("en", postType, clubName, postTitle);
     const notifType = postType === "EVENT" ? "EVENT" : "POST";
 
     // Create in-app notifications
@@ -191,17 +197,21 @@ async function notifyFollowers(
         skipDuplicates: true,
     });
 
-    // Send Expo push notifications to recipients who have a token
-    const pushTokens = [...recipients.values()].filter(Boolean) as string[];
-    if (!pushTokens.length) return;
-
-    sendExpoPush(pushTokens.map((token) => ({
-        to: token,
-        title: notifTitle,
-        body: postTitle,
-        data: { postId, postType },
-        sound: "default" as const,
-    })));
+    // Push is rendered by the OS, so it has to be composed per recipient in
+    // the language they read.
+    const pushes = [...recipients.values()]
+        .filter((r) => r.token)
+        .map((r) => {
+            const copy = newPostPush(r.lang, postType, clubName, postTitle);
+            return {
+                to: r.token!,
+                title: copy.title,
+                body: copy.body,
+                data: { postId, postType },
+                sound: "default" as const,
+            };
+        });
+    if (pushes.length) sendExpoPush(pushes);
 }
 
 // ── RSVP update notification helper ─────────────────────────────────────────
@@ -213,35 +223,37 @@ async function notifyRsvpd(
 ) {
     const rsvps = await prisma.rsvp.findMany({
         where: { postId },
-        select: { userId: true, user: { select: { pushToken: true, pushNotifs: true } } },
+        select: { userId: true, user: { select: { pushToken: true, pushNotifs: true, language: true } } },
     });
     if (!rsvps.length) return;
 
-    const notifTitle = `Event update: ${eventTitle}`;
-    const notifBody = `The ${changeDesc} has been updated. Check the latest details.`;
+    // Stored rows are English; the app localizes them at display time.
+    const stored = eventUpdatePush("en", eventTitle, changeDesc);
 
     await prisma.notification.createMany({
         data: rsvps.map((r) => ({
             userId: r.userId,
             type: "EVENT",
-            title: notifTitle,
-            body: notifBody,
+            title: stored.title,
+            body: stored.body,
             metadata: { postId, postType: "EVENT", clubId },
         })),
         skipDuplicates: true,
     });
 
-    const pushTokens = rsvps
-        .filter((r) => r.user.pushNotifs)
-        .map((r) => r.user.pushToken)
-        .filter(Boolean) as string[];
-    sendExpoPush(pushTokens.map((token) => ({
-        to: token,
-        title: notifTitle,
-        body: notifBody,
-        data: { postId, postType: "EVENT" },
-        sound: "default" as const,
-    })));
+    const pushes = rsvps
+        .filter((r) => r.user.pushNotifs && r.user.pushToken)
+        .map((r) => {
+            const copy = eventUpdatePush(toLang(r.user.language), eventTitle, changeDesc);
+            return {
+                to: r.user.pushToken!,
+                title: copy.title,
+                body: copy.body,
+                data: { postId, postType: "EVENT" },
+                sound: "default" as const,
+            };
+        });
+    if (pushes.length) sendExpoPush(pushes);
 }
 
 // ── Comment / reply notification helper ─────────────────────────────────────
@@ -277,27 +289,24 @@ async function notifyOnComment(
 
     // userId -> payload. A reply beats a comment when the same user would get
     // both (replying to the post owner's own comment is one REPLY, not two rows).
-    const targets = new Map<string, { type: "REPLY" | "COMMENT"; title: string }>();
-    if (parentAuthorId && parentAuthorId !== actorId) {
-        targets.set(parentAuthorId, { type: "REPLY", title: `${actorName} replied to your comment` });
-    }
-    if (post.clubId !== actorId && !targets.has(post.clubId)) {
-        targets.set(post.clubId, { type: "COMMENT", title: `${actorName} commented on ${postTitle}` });
-    }
+    const targets = new Map<string, "REPLY" | "COMMENT">();
+    if (parentAuthorId && parentAuthorId !== actorId) targets.set(parentAuthorId, "REPLY");
+    if (post.clubId !== actorId && !targets.has(post.clubId)) targets.set(post.clubId, "COMMENT");
     if (targets.size === 0) return;
 
     const ids = [...targets.keys()];
     const users = await prisma.user.findMany({
         where: { id: { in: ids } },
-        select: { id: true, pushToken: true, pushNotifs: true },
+        select: { id: true, pushToken: true, pushNotifs: true, language: true },
     });
     const meta = { postId, postType: post.type, commentId };
 
+    // Stored rows are English; the app localizes them at display time.
     await prisma.notification.createMany({
         data: ids.map((uid) => ({
             userId: uid,
-            type: targets.get(uid)!.type,
-            title: targets.get(uid)!.title,
+            type: targets.get(uid)!,
+            title: commentPush("en", targets.get(uid)!, actorName, postTitle, snippet).title,
             body: snippet,
             metadata: meta,
         })),
@@ -306,13 +315,16 @@ async function notifyOnComment(
 
     const pushes = users
         .filter((u) => u.pushNotifs && u.pushToken)
-        .map((u) => ({
-            to: u.pushToken!,
-            title: targets.get(u.id)!.title,
-            body: snippet,
-            data: meta,
-            sound: "default" as const,
-        }));
+        .map((u) => {
+            const copy = commentPush(toLang(u.language), targets.get(u.id)!, actorName, postTitle, snippet);
+            return {
+                to: u.pushToken!,
+                title: copy.title,
+                body: copy.body,
+                data: meta,
+                sound: "default" as const,
+            };
+        });
     if (pushes.length) sendExpoPush(pushes);
 }
 
@@ -613,13 +625,14 @@ router.patch("/series/:id", requireAuth, requireClub, validate(editSeriesSchema)
             const club = await prisma.user.findUnique({ where: { id: series.clubId }, select: { clubName: true } });
             const futureChanged = await prisma.post.findMany({
                 where: { id: { in: changedTimePostIds }, startAt: { gte: now } },
-                select: { id: true, locales: true, rsvps: { select: { userId: true, user: { select: { pushToken: true, pushNotifs: true } } } } },
+                select: { id: true, locales: true, rsvps: { select: { userId: true, user: { select: { pushToken: true, pushNotifs: true, language: true } } } } },
             });
             const notifications: any[] = [];
             const pushes: any[] = [];
             for (const p of futureChanged) {
                 const title = (p.locales as any)?.en?.title ?? (p.locales as any)?.fr?.title ?? "An event";
                 for (const r of p.rsvps) {
+                    // Stored rows are English; the app localizes them at display time.
                     notifications.push({
                         userId: r.userId,
                         type: "EVENT",
@@ -628,7 +641,8 @@ router.patch("/series/:id", requireAuth, requireClub, validate(editSeriesSchema)
                         metadata: { postId: p.id, postType: "EVENT" },
                     });
                     if (r.user.pushNotifs && r.user.pushToken) {
-                        pushes.push({ to: r.user.pushToken, title: "Event time changed", body: `${title} has a new time. Your RSVP is still saved.`, data: { postId: p.id, postType: "EVENT" }, sound: "default" });
+                        const copy = eventTimeChangedPush(toLang(r.user.language), title);
+                        pushes.push({ to: r.user.pushToken, title: copy.title, body: copy.body, data: { postId: p.id, postType: "EVENT" }, sound: "default" });
                     }
                 }
             }
@@ -2104,17 +2118,18 @@ router.delete("/:id/rsvp", requireAuth, async (req, res, next) => {
                 const [promoted, post] = await Promise.all([
                     prisma.user.findUnique({
                         where: { id: promotedUserId },
-                        select: { pushToken: true, pushNotifs: true },
+                        select: { pushToken: true, pushNotifs: true, language: true },
                     }),
                     prisma.post.findUnique({ where: { id: postId }, select: { locales: true } }),
                 ]);
                 if (promoted?.pushNotifs && promoted.pushToken) {
                     const loc = (post?.locales as any) ?? {};
                     const eventTitle = loc.en?.title ?? loc.fr?.title ?? "an event";
+                    const copy = waitlistPromotedPush(toLang(promoted.language), eventTitle);
                     sendExpoPush([{
                         to: promoted.pushToken,
-                        title: "You're in!",
-                        body: `A spot opened up for ${eventTitle} — you're off the waitlist.`,
+                        title: copy.title,
+                        body: copy.body,
                         data: { postId, postType: "EVENT" },
                         sound: "default" as const,
                     }]);

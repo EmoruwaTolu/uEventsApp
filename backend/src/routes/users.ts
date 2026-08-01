@@ -99,6 +99,9 @@ const patchMeSchema = z.object({
     contactEmail: z.string().email().max(254).optional().or(z.literal("")),
     pushNotifs:   z.boolean().optional(),
     emailDigest:  z.boolean().optional(),
+    // Mirrored from the app so server-composed push notifications can be sent
+    // in the language the user actually reads.
+    language:     z.enum(["en", "fr"]).optional(),
 });
 
 const changePasswordSchema = z.object({
@@ -213,7 +216,7 @@ router.get("/me", requireAuth, async (req, res, next) => {
                 clubName: true, clubNameFr: true, slug: true, category: true,
                 description: true, descriptionFr: true, logoUrl: true,
                 instagram: true, twitter: true, contactEmail: true,
-                pushNotifs: true, emailDigest: true, emailVerified: true,
+                pushNotifs: true, emailDigest: true, emailVerified: true, language: true,
                 clubStatus: true, clubRejectionReason: true,
                 _count: { select: { follows: true, rsvps: true } },
             },
@@ -232,7 +235,7 @@ router.patch("/me", requireAuth, validate(patchMeSchema), async (req, res, next)
             firstName, lastName, program, year, avatarUrl,
             clubName, clubNameFr, category, description, descriptionFr,
             logoUrl, instagram, twitter, contactEmail,
-            pushNotifs, emailDigest,
+            pushNotifs, emailDigest, language,
         } = req.body;
 
         // Empty-string French fields clear the value (back to English fallback).
@@ -248,6 +251,7 @@ router.patch("/me", requireAuth, validate(patchMeSchema), async (req, res, next)
                 descriptionFr: descriptionFr !== undefined ? nullable(descriptionFr) : undefined,
                 ...(pushNotifs !== undefined && { pushNotifs }),
                 ...(emailDigest !== undefined && { emailDigest }),
+                ...(language !== undefined && { language }),
             },
             select: {
                 id: true, email: true, type: true,
